@@ -45,6 +45,11 @@ export function gradeEchelon(statut) {
   const e = parts.find(x => /^échelon\s/i.test(x));
   return { grade: parts[0] && !/^échelon/i.test(parts[0]) ? parts[0] : '', echelon: e ? e.replace(/^échelon\s*/i, '') : '' };
 }
+// « L'intéressé », « L'intéressée » selon la civilité du ou de la professeur·e (APP § 11) ; sinon forme inclusive.
+/** @param {any} civilite */
+export const interesse = civilite => /^m(?:me|lle)\b/i.test(String(civilite || '').trim()) ? "L'intéressée"
+  : /^m\.?$|^monsieur$/i.test(String(civilite || '').trim()) ? "L'intéressé" : "L'intéressé·e";
+
 // o.editable : aperçu modifiable (onglet « Aperçu » de l'écran) : mêmes page et police, chaque rubrique et le thème
 // modifiables sur place (contenteditable, texte brut, data-texte = code de la rubrique), rubriques vides comprises.
 /** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @param {{ editable?: boolean }} [o] @returns {string} */
@@ -87,13 +92,16 @@ export function htmlImpression(r, c, o = {}) {
   .entete.suite .centre { flex: 1; text-align: center; font-size: 8pt; font-weight: 700; text-transform: uppercase; }
   .entete.suite .lignes { font-size: 8pt; line-height: 1.25; }
   .entete.une { position: relative; z-index: 1; margin-top: -18mm; padding-bottom: 4mm; align-items: flex-start; }
-  .entete.une img { width: 46mm; flex: none; }
+  /* Logo de 54 mm, son blanc gauche (4 mm) caché dans la marge : le dessin commence au bord de la marge ; le texte de
+     droite descend jusqu'à la ligne « ACADÉMIE » du logo (82 px sur 255 de haut dans l'image, soit 10,7 mm à cette taille). */
+  .entete.une img { width: 54mm; flex: none; margin-left: -4mm; }
+  .entete.une .droite { margin-top: 9.4mm; }
   .entete.une .lignes { font-size: 11pt; font-weight: 700; line-height: 1.25; }
-  .entete.une .annee { font-size: 10pt; margin-top: 2mm; padding-top: 1mm; border-top: 1px solid #000; }
+  .entete.une .annee { font-size: 10pt; margin-top: 2mm; }
   table.id { width: 100%; border-collapse: collapse; margin-bottom: 3mm; font-size: 9.5pt; }
   table.id td { border: 1px solid #000; padding: 1mm 2mm; vertical-align: top; }
   table.id td.titre { text-align: center; font-weight: 700; font-size: 14pt; text-transform: uppercase; border: 0; border-bottom: 1px solid #000; padding: 0 0 2mm; }
-  .theme { text-align: right; font-weight: 700; margin: 2mm 0 4mm; } .theme span.l { text-decoration: underline; }
+  .theme { text-align: right; font-weight: 700; margin: 2mm 0 4mm; }
   h2 { font-size: 10pt; margin: 4mm 0 1mm; }
   .rub { margin-top: 3mm; }
   .ed { white-space: pre-wrap; text-align: justify; outline: 1px dashed #c9c9d1; outline-offset: 2px; border-radius: 2px; min-height: 1.4em; font-weight: normal; }
@@ -125,7 +133,7 @@ ${ed ? `<div class="theme"><span class="l">Thème :</span> <span class="ed" cont
   : String(r.Theme || '').trim() ? `<div class="theme"><span class="l">Thème :</span> ${esc(r.Theme)}</div>` : ''}
 ${rubriques.map(x => `<div class="rub">${titreImprime(x) ? `<h2>${esc(x.titre)}</h2>` : ''}${bloc(x)}</div>`).join('\n')}
 <div class="signatures">
-  <div class="s"><div class="t">Pris connaissance le,</div><div class="t">L'intéressé·e :</div></div>
+  <div class="s"><div class="t">Pris connaissance le,</div><div class="t">${esc(interesse(r.Prof_civilite))} :</div></div>
   ${c.sansCmi ? '' : sig(c.titreCmi, r.Signature_cmi)}
   ${sig(c.titreIpr, r.Signature_ipr)}
 </div>
