@@ -102,7 +102,10 @@ const cadres = {};   // clé → iframe (créée à la première ouverture, puis
 let entrees = [], courant = '';
 
 // Page d'accueil du site (racine Vercel) : ouverte à la place de Grist (fenêtre principale).
-const ACCUEIL = location.origin + '/';
+// Racine du site : dossier parent de app/ (Vercel : https://grist-rapports-app.vercel.app ; Pages de la forge :
+// https://widget.forge.apps.education.fr/grist-rapports-app). Remplace location.origin, faux sous un sous-chemin.
+const RACINE = new URL('..', location.href).href.replace(/\/+$/, '');
+const ACCUEIL = RACINE + '/';
 let accueil = ACCUEIL;   // avec le document d'où l'on vient, une fois calculé (calculerAdressePage)
 // Icône Lucide « house » (https://lucide.dev, licence ISC)
 const IC_ACCUEIL = '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
@@ -133,7 +136,7 @@ async function calculerAdressePage() {
   } catch (e) { etapes.push('jeton : erreur (' + ((e && e.message) || e) + ')'); }
   try {
     sections = columnsToRows(await avecDelai(grist.docApi.fetchTable('_grist_Views_section'), 8000));
-    const avecApp = sections.filter(s => sectionDuConteneur(s, location.origin + '/app'));
+    const avecApp = sections.filter(s => sectionDuConteneur(s, RACINE + '/app'));
     const avecSite = sections.filter(s => JSON.stringify(s).includes(location.host));
     etapes.push(`sections : ${sections.length}, avec le site : ${avecSite.length}, avec …/app : ${avecApp.length}`
       + (avecApp[0] ? ` (vue ${avecApp[0].parentId})` : '')
@@ -141,11 +144,11 @@ async function calculerAdressePage() {
   } catch (e) { etapes.push('sections : erreur (' + ((e && e.message) || e) + ')'); }
   let nomDoc = '';
   try { nomDoc = await avecDelai(grist.docApi.getDocName(), 8000); } catch (e) { nomDoc = ''; }
-  const calcule = adressePageGrist(baseUrl, sections, location.origin + '/app', '/o/docs', nomDoc);
+  const calcule = adressePageGrist(baseUrl, sections, RACINE + '/app', '/o/docs', nomDoc);
   adressePage = calcule || ADRESSE_SECOURS;
   // Bouton Accueil : la page d'accueil reçoit ce document et ses pages (n° 3).
   const dossiers = ['app', ...new Set(Object.values(ECRANS).map(e => e.dossier))];
-  const pages = pagesDuSite(sections, location.origin, dossiers);
+  const pages = pagesDuSite(sections, RACINE, dossiers);
   accueil = lienAccueil(ACCUEIL, adresseDocument(baseUrl, '/o/docs', nomDoc), pages);
   etapes.push('accueil : ' + (accueil === ACCUEIL ? 'démonstration (document introuvable)'
     : 'ce document, pages ' + (Object.entries(pages).map(([k, v]) => `${k} p/${v}`).join(', ') || 'aucune')));
@@ -245,7 +248,7 @@ function ouvrir(cle) {
     const f = document.createElement('iframe');
     f.title = entrees.find(e => e.cle === cle).libelle;
     f.allow = 'clipboard-write; fullscreen';   // boutons « Copier » et plein écran des écrans (SPEC § 6.2)
-    f.src = adresseEcran(location.origin, cle);
+    f.src = adresseEcran(RACINE, cle);
     f.addEventListener('load', () => { try { suivreActivite(f.contentDocument); } catch (e) { /* autre site */ } });
     $('ecrans').appendChild(f);
     cadres[cle] = f;

@@ -10,6 +10,8 @@
 !KIT_VERSION
 # Vercel : sert site/ (vercel.json : Output Directory et barre finale des adresses, sans réglage dans l'interface).
 !vercel.json
+# Pages de la forge (forge.apps.education.fr) : publie site/ (hébergement final).
+!.gitlab-ci.yml
 # Site (Vercel, Output Directory = site) : tous les écrans, modules communs, captures de la page Découvrir.
 # Un dossier n'est suivi que si son contenu l'est aussi : « !site/** » autorise tout ce qu'il contient.
 !site/
