@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Rapports pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  #app { flex: 1; display: flex; min-height: 0; }
+
+  /* Liste */
+  #menu { width: 300px; flex: none; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .outils { padding: 8px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
+  .outils .ligne { display: flex; gap: 6px; }
+  .outils input, .outils select { flex: 1; min-width: 0; }
+  #liste { flex: 1; overflow-y: auto; }
+  .groupe > button { width: 100%; text-align: left; border: none; border-radius: 0; background: var(--bg2);
+    border-bottom: 1px solid var(--border); border-left: 4px solid var(--border); font-weight: 600; padding: 6px 8px; }
+  .groupe > button .nb { color: var(--muted); font-weight: normal; }
+  .groupe ul { list-style: none; margin: 0; padding: 0; }
+  .groupe li { padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--border); cursor: pointer; border-left: 3px solid transparent; }
+  .groupe li:hover { background: var(--bg2); }
+  .groupe li.sel { background: var(--sel); border-left-color: var(--accent); }
+  .groupe li .nom { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .groupe li .det { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-Brouillon > button { border-left-color: #9ca3af; } .g-Soumis > button { border-left-color: var(--info); }
+  .g-Areprendre > button { border-left-color: var(--warn); } .g-Valide > button { border-left-color: #16a34a; }
+  .g-Transmis > button { border-left-color: var(--accent); }
+
+  /* Fiche */
+  #zone { flex: 1; display: flex; min-width: 0; min-height: 0; }
+  #fiche { flex: 1; overflow-y: auto; padding: 12px 16px 40px; min-width: 0; }
+  #phrases { width: 300px; flex: none; border-left: 1px solid var(--border); overflow-y: auto; padding: 10px; background: var(--bg2); }
+  #aide { position: absolute; top: 6px; right: 8px; z-index: 5; border-radius: 50%; width: 28px; height: 28px; padding: 0;
+    display: flex; align-items: center; justify-content: center; text-decoration: none; color: var(--fg); background: var(--bg2);
+    border: 1px solid var(--border); }
+  #aide:hover { border-color: var(--accent); color: var(--accent); }
+  .entete { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin: 0 36px 10px 0; }
+  .entete h1 { font-size: 19px; margin: 0; flex: 1; min-width: 220px; }
+  .entete .sous { display: block; font-size: 13px; font-weight: normal; color: var(--muted); margin-top: 2px; }
+  .statut { font-size: 12px; padding: 2px 9px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--border); white-space: nowrap; }
+  .bloc { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+  .bloc h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 10px; }
+  .grille .large { grid-column: 1 / -1; }
+  .onglets { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 6px 0 10px; }
+  .onglets button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 10px; }
+  .onglets button.actif { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .rubrique { margin-bottom: 14px; }
+  .rubrique h3 { font-size: 14px; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+  .rubrique h3 .forme { font-size: 11px; font-weight: normal; color: var(--muted); }
+  .rubrique details.consigne { margin: 0 0 4px; font-size: 12px; }
+  .rubrique details.consigne p { margin: 4px 0 0; padding: 6px 8px; border-left: 3px solid var(--danger); background: var(--danger-bg); white-space: pre-wrap; }
+  .rubrique textarea { width: 100%; min-height: 90px; }
+  .rubrique .lu { white-space: pre-wrap; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 4px; min-height: 28px; }
+  .commentaire { margin-top: 4px; padding: 6px 8px; border-left: 3px solid var(--warn); background: var(--warn-bg); font-size: 13px; white-space: pre-wrap; }
+  .commentaire textarea { width: 100%; min-height: 50px; margin-top: 4px; }
+  .barre { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 8px 0; display: flex;
+    gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .barre .etat { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .resultats { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin: 4px 0 10px; }
+  .resultats div[data-uai], .resultats div[data-prof] { padding: 5px 8px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .resultats div:hover { background: var(--sel); }
+  .resultats .titre { padding: 4px 8px; font-size: 11px; color: var(--muted); text-transform: uppercase; background: var(--bg2); }
+  .puce { display: inline-flex; gap: 6px; align-items: center; padding: 2px 4px 2px 10px; border-radius: 12px; background: var(--sel); margin-bottom: 6px; }
+  .puce button { border: none; background: none; padding: 0 6px; }
+  .phrase { padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 6px;
+    cursor: pointer; font-size: 13px; line-height: 1.35; }
+  .phrase:hover { border-color: var(--accent); }
+  .phrase .meta { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+  #phrases h2 { font-size: 13px; margin: 0 0 6px; }
+  #phrases .filtres { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  #phrases .filtres button { padding: 1px 7px; font-size: 12px; }
+  #phrases .filtres button.actif { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  table.md td.c input { margin: 0; }
+  .signature img { max-width: 260px; max-height: 100px; background: #fff; border: 1px solid var(--border); border-radius: 4px; }
+
+  dialog { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-width: 520px; width: calc(100% - 32px);
+    background: var(--bg); color: var(--fg); }
+  dialog::backdrop { background: rgba(0, 0, 0, .35); }
+  dialog h2 { font-size: 16px; margin: 0 0 8px; }
+  #collage { border: 2px dashed var(--border); border-radius: 6px; padding: 14px; text-align: center; color: var(--muted); margin: 8px 0; outline: none; }
+  #collage:focus { border-color: var(--accent); }
+  #collage img { max-width: 100%; max-height: 140px; background: #fff; }
+
+  @media (max-width: 900px) { #phrases { display: none; } }
+  @media (max-width: 640px) {
+    body.plein-ecran { overflow: auto; height: auto; }
+    #app, #zone { flex-direction: column; }
+    #menu { width: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    #liste { max-height: 40vh; }
+    #fiche { overflow: visible; }
+  }
+</style>
+</head>
+<body class="plein-ecran">
+<div id="msg">Chargement…</div>
+<div id="app" hidden>
+  <aside id="menu">
+    <div class="outils">
+      <button id="nouveau" class="primary">+ Nouveau rapport</button>
+      <div class="ligne">
+        <input id="recherche" type="search" placeholder="Rechercher (professeur·e, établissement, thème)…">
+        <button id="recharger" title="Relire les tables">↻</button>
+      </div>
+      <select id="filtre" title="Rapports affichés">
+        <option value="">Tous les rapports</option><option value="miens">Mes rapports</option><option value="a-valider">À valider (IA-IPR)</option>
+      </select>
+    </div>
+    <div id="liste"></div>
+  </aside>
+  <div id="zone" style="position:relative">
+    <a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide : mode d'emploi de l'écran Rapports">?</a>
+    <main id="fiche"></main>
+    <aside id="phrases" hidden></aside>
+  </div>
+</div>
+
+<dialog id="dlg-signature" aria-labelledby="sig-titre">
+  <h2 id="sig-titre">Signer</h2>
+  <div id="sig-corps"></div>
+  <div class="actions"><button id="sig-ok" class="primary">Signer</button><button id="sig-annuler">Annuler</button></div>
+</dialog>
+
+<script type="module">
+import { liste, nomFiche } from '../commun/donnees.js';
+import { identifierMoi, droitsTable } from '../commun/droits.js';
+import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
+import { CHIFFREMENT } from '../commun/config.js';
+import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
+import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
+  rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
+  rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
+  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature } from './logique.js';
+import { htmlImpression, htmlPositionnement } from './impression.js';
+
+const pref = preferences('Rapports');
+
+// --- État ---
+const D = { rapports: [], types: [], rubriques: [], phrases: [], personnes: [], profs: [], etabs: [], params: {}, competences: [], signatures: [] };
+let moi = null, droits = droitsTable(null, TABLE);
+let sel = Number(pref.lire('Sel', '0')) || 0;
+let creation = null;     // { q, uai, prof, typeCode, date, heure, classe, effectif, theme, valideur, auteur }
+let onglet = 'redaction';
+let rubriqueActive = '', competenceFiltre = '', champActif = null;
+let brouillon = null;    // saisie en cours du rapport affiché : { id, champs }, envoyée ≈ 1 s après la dernière frappe
+let minuterie = null, envoiEnCours = false;
+// Chiffrement (SPEC § 5.8) : sans la clé, contenu vide et aucune écriture dans Rapports.
+let cle = null, cleLue = false;
+const cacheChiffre = new Map();
+const masque = () => tableChiffree(CHIFFREMENT, TABLE) && !cle;
+const TIP_MASQUE = 'Contenu chiffré masqué : « Révéler » (menu de l\'application) pour lire et écrire';
+
+let ouverts = new Set();
+try { ouverts = new Set(JSON.parse(pref.lire('Ouverts', '["Brouillon","Soumis","À reprendre"]'))); } catch (e) { /* préférence illisible */ }
+
+const personne = id => D.personnes.find(x => x.id === id);
+const nomPers = id => { const p = personne(id); return p ? nomFiche(p) : ''; };
+const typeDe = r => D.types.find(t => t.id === r.Type) || {};
+const moiPers = () => (moi && moi.Personne) || 0;
+const initialesMoi = () => { const p = personne(moiPers()); return (p && p.Initiales) || ''; };
+const rapportSel = () => D.rapports.find(r => r.id === sel);
+function choisir(id) { sel = id; pref.ecrire('Sel', String(id)); }
+
+// --- Écriture (chiffrée) ---
+async function ecrireRapport(actions, ok) {
+  if (masque()) { toast(TIP_MASQUE + '.', true); return null; }
+  const res = await ecrire(await chiffrerActions(cle, actions, CHIFFREMENT), ok);
+  if (res) await charger();
+  return res;
+}
+// Saisie : champs regroupés, envoyés après une pause ; Ctrl/Cmd + S tout de suite.
+function noter(id, champs) {
+  if (!brouillon || brouillon.id !== id) brouillon = { id, champs: {} };
+  Object.assign(brouillon.champs, champs);
+  etatSaisie('Modifications non enregistrées…');
+  clearTimeout(minuterie);
+  minuterie = setTimeout(envoyer, 1000);
+}
+async function envoyer() {
+  clearTimeout(minuterie);
+  if (!brouillon || envoiEnCours) return;
+  if (masque()) { etatSaisie('En attente de « Révéler » pour enregistrer'); return; }
+  const { id, champs } = brouillon;
+  brouillon = null; envoiEnCours = true;
+  try {
+    const res = await ecrire(await chiffrerActions(cle, [['UpdateRecord', TABLE, id, champs]], CHIFFREMENT));
+    if (res) { const r = D.rapports.find(x => x.id === id); if (r) Object.assign(r, champs); etatSaisie('Enregistré'); }
+    else etatSaisie('Échec de l\'enregistrement');
+  } finally { envoiEnCours = false; }
+  if (brouillon) minuterie = setTimeout(envoyer, 300);
+}
+const etatSaisie = t => { const e = $('etat-saisie'); if (e) e.textContent = t; };
+
+// --- Liste ---
+function afficherListe() {
+  const groupes = grouperRapports(D.rapports, { recherche: $('recherche').value, filtre: $('filtre').value, moi: moiPers() });
+  const cherche = !!$('recherche').value.trim();
+  const r = rapportSel();
+  if (r) ouverts.add(r.Statut);
+  $('liste').innerHTML = groupes.length ? groupes.map(g => {
+    const ferme = !cherche && !ouverts.has(g.cle);
+    return `<div class="groupe g-${esc(g.cle.normalize('NFD').replace(/[^A-Za-z]/g, ''))}">
+      <button type="button" data-groupe="${esc(g.cle)}">${ferme ? '▸' : '▾'} ${esc(g.titre)} <span class="nb">(${g.rapports.length})</span></button>
+      <ul ${ferme ? 'hidden' : ''}>${g.rapports.map(x => `<li data-id="${x.id}" class="${x.id === sel ? 'sel' : ''}">
+        <span class="nom">${esc([x.Prof_nom, x.Prof_prenom].filter(Boolean).join(' ') || 'Sans nom')}</span>
+        <span class="det">${esc(dateFr(x.Date_visite))} · ${esc(typeDe(x).Code || '')} · ${esc(x.Etab_nom || '')} · ${esc((personne(x.Auteur) || {}).Initiales || '')}</span></li>`).join('')}</ul></div>`;
+  }).join('') : '<p class="vide">Aucun rapport.</p>';
+  const ok = peutCreer(droits, moi) || (estAdmin(moi) && droits.C === 'Oui');
+  $('nouveau').hidden = droits.C === 'Non';
+  $('nouveau').classList.toggle('inactif', !ok || masque());
+  $('nouveau').title = !ok ? 'Création réservée aux CMi et IA-IPR (fiche liée à ton compte)' : masque() ? TIP_MASQUE : 'Créer un rapport';
+}
+
+// --- Création ---
+function afficherCreation() {
+  const c = creation;
+  const res = rechercher(D.profs, D.etabs, c.q, c.uai);
+  const etab = c.uai && D.etabs.find(e => e.UAI === c.uai);
+  const p = c.prof && D.profs.find(x => x.id === c.prof);
+  const ipr = D.personnes.filter(x => x.Fonction === 'IA-IPR');
+  const cmi = D.personnes.filter(x => x.Fonction === 'CMi');
+  $('phrases').hidden = true;
+  $('fiche').innerHTML = `<div class="entete"><h1>Nouveau rapport<span class="sous">Choisir le ou la professeur·e (ou d'abord l'établissement), puis compléter l'en-tête.</span></h1></div>
+    ${!p ? `${etab ? `<div class="puce">Établissement : <strong>${esc(etab.Nom)}</strong> (${esc(etab.Commune)}) <button id="c-sans-etab" title="Retirer l'établissement">✕</button></div>` : ''}
+      <label class="champ"><span>${etab ? 'Professeur·e de cet établissement' : 'Professeur·e, établissement, commune ou UAI'}</span>
+        <input type="search" id="c-q" value="${esc(c.q)}" placeholder="Ex. : germain, camus vierzon, 0450939B…" autocomplete="off"></label>
+      <div class="resultats" ${res.etabs.length || res.profs.length ? '' : 'hidden'}>
+        ${res.etabs.length ? `<div class="titre">Établissements</div>${res.etabs.map(e => `<div data-uai="${esc(e.UAI)}">${esc(e.Nom)} — ${esc(e.Commune)} <span class="muted">${esc(e.UAI)}</span></div>`).join('')}` : ''}
+        ${res.profs.length ? `<div class="titre">Professeur·es</div>${res.profs.map(x => `<div data-prof="${x.id}"><strong>${esc(x.Nom)}</strong> ${esc(x.Prenom)}
+          <span class="muted">— ${esc((D.etabs.find(e => e.UAI === x.UAI) || {}).Nom || x.UAI)} · ${esc(statutAffiche(x))}${x.Type_nomination === 'STG' ? ' · stagiaire' : ''}</span></div>`).join('')}` : ''}
+      </div>
+      ${c.q && !res.etabs.length && !res.profs.length ? '<p class="muted">Aucun résultat.</p>' : ''}
+      <div class="actions"><button id="c-annuler">Annuler</button></div>`
+    : `<div class="bloc"><h2>Professeur·e</h2><p><strong>${esc([p.Civilite, p.Nom, p.Prenom].filter(Boolean).join(' '))}</strong> — ${esc(statutAffiche(p))}<br>
+        ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Nom || '')} ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Commune || '')} — UAI ${esc(p.UAI)}
+        <button class="lien" id="c-autre">Changer</button></p></div>
+      <div class="grille">
+        <label class="champ"><span>Type de rapport</span><select id="c-type">${D.types.map(t => `<option value="${esc(t.Code)}" ${t.Code === c.typeCode ? 'selected' : ''}>${esc(t.Libelle || t.Code)}</option>`).join('')}</select></label>
+        <label class="champ"><span>Date de la visite</span><input type="date" id="c-date" value="${esc(c.date)}"></label>
+        <label class="champ"><span>Heure</span><input type="text" id="c-heure" value="${esc(c.heure)}" placeholder="08:30"></label>
+        <label class="champ"><span>Classe</span><input type="text" id="c-classe" value="${esc(c.classe)}" placeholder="4e B"></label>
+        <label class="champ"><span>Effectif</span><input type="text" id="c-effectif" value="${esc(c.effectif)}" inputmode="numeric"></label>
+        ${!moiPers() || estAdmin(moi) ? `<label class="champ"><span>CMi (auteur·e)</span><select id="c-auteur"><option value="">—</option>
+          ${cmi.map(x => `<option value="${x.id}" ${x.id === c.auteur ? 'selected' : ''}>${esc(nomFiche(x))}</option>`).join('')}</select></label>` : ''}
+        <label class="champ"><span>IA-IPR</span><select id="c-valideur"><option value="">—</option>
+          ${ipr.map(x => `<option value="${x.id}" ${x.id === c.valideur ? 'selected' : ''}>${esc(nomFiche(x))}</option>`).join('')}</select></label>
+        <label class="champ large"><span>Thème de la séance</span><input type="text" id="c-theme" value="${esc(c.theme)}"></label>
+      </div>
+      ${pstgHorsListe(c.typeCode, p) ? '<div class="alerte">⚠ Pas dans la liste des stagiaires de Siiprien (type de nomination : '
+        + esc(p.Type_nomination || 'vide') + '). Le rapport PSTG sera marqué « hors liste ».</div>' : ''}
+      <ul class="erreurs" id="c-erreurs"></ul>
+      <div class="actions"><button id="c-creer" class="primary">Créer le rapport</button><button id="c-annuler">Annuler</button></div>`}`;
+  $('c-annuler').addEventListener('click', () => { creation = null; afficherFiche(); });
+  if (!p) {
+    const q = $('c-q');
+    q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+    q.addEventListener('input', () => { c.q = q.value; afficherCreation(); });
+    if ($('c-sans-etab')) $('c-sans-etab').addEventListener('click', () => { c.uai = ''; afficherCreation(); });
+    $('fiche').querySelectorAll('[data-uai]').forEach(d => d.addEventListener('click', () => { c.uai = d.dataset.uai; c.q = ''; afficherCreation(); }));
+    $('fiche').querySelectorAll('[data-prof]').forEach(d => d.addEventListener('click', () => {
+      const x = D.profs.find(y => y.id === Number(d.dataset.prof));
+      c.prof = x.id; c.typeCode = typePropose(x);
+      afficherCreation();
+    }));
+    return;
+  }
+  const lire = () => {
+    c.typeCode = $('c-type').value; c.date = $('c-date').value; c.heure = $('c-heure').value; c.classe = $('c-classe').value;
+    c.effectif = $('c-effectif').value; c.theme = $('c-theme').value; c.valideur = Number($('c-valideur').value) || 0;
+    if ($('c-auteur')) c.auteur = Number($('c-auteur').value) || 0;
+  };
+  $('c-type').addEventListener('change', () => { lire(); afficherCreation(); });
+  $('c-auteur') && $('c-auteur').addEventListener('change', () => {
+    lire(); const a = personne(c.auteur); if (a && a.Referent) c.valideur = a.Referent; afficherCreation();
+  });
+  $('c-autre').addEventListener('click', () => { c.prof = 0; afficherCreation(); });
+  $('c-creer').addEventListener('click', async () => { lire(); await creer(); });
+}
+
+async function creer() {
+  const c = creation, p = D.profs.find(x => x.id === c.prof), t = D.types.find(x => x.Code === c.typeCode);
+  const auteur = estAdmin(moi) && c.auteur ? c.auteur : moiPers() || c.auteur;
+  const erreurs = [];
+  if (!t) erreurs.push('Type de rapport à choisir.');
+  if (!isoVersGrist(c.date)) erreurs.push('Date de la visite à indiquer.');
+  if (!auteur) erreurs.push('CMi (auteur·e) à choisir.');
+  if (c.effectif && !/^\d+$/.test(c.effectif.trim())) erreurs.push('Effectif : un nombre entier.');
+  $('c-erreurs').innerHTML = erreurs.map(e => `<li>${esc(e)}</li>`).join('');
+  if (erreurs.length) return;
+  const etab = D.etabs.find(e => e.UAI === p.UAI) || {};
+  const rub = rubriquesDuType(D.rubriques, t.id);
+  const champs = {
+    Type: t.id, Professeur: p.id, Prof_civilite: p.Civilite || '', Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '',
+    Prof_statut: statutAffiche(p), Stagiaire_hors_liste: pstgHorsListe(t.Code, p), UAI: p.UAI || '', Etab_nom: etab.Nom || '',
+    Etab_commune: etab.Commune || '', Date_visite: isoVersGrist(c.date), Heure: c.heure.trim(), Classe: c.classe.trim(),
+    Effectif: c.effectif.trim() ? Number(c.effectif) : null, Theme: c.theme.trim(),
+    Contenu: JSON.stringify(contenuInitial(rub, { civilite: p.Civilite, nom: p.Nom, prenom: p.Prenom })),
+    Structure: JSON.stringify(structureDe(rub)), Positionnement: '', Commentaires: '', Statut: 'Brouillon',
+    Auteur: auteur, Valideur: c.valideur || 0,
+    Historique: ajouterHistorique('[]', initialesMoi() || (moi && moi.Email) || '', 'créé' + (pstgHorsListe(t.Code, p) ? ' ; PSTG hors liste' : '')),
+  };
+  const res = await ecrireRapport([['AddRecord', TABLE, null, champs]], 'Rapport créé');
+  if (!res) return;
+  const id = res.retValues && res.retValues[0];
+  creation = null; onglet = 'redaction';
+  if (id) choisir(id);
+  afficherListe(); afficherFiche();
+}
+
+// --- Fiche ---
+function afficherFiche() {
+  if (creation) return afficherCreation();
+  const r = rapportSel();
+  if (!r) { $('phrases').hidden = true; $('fiche').innerHTML = '<p class="vide">Choisis un rapport dans la liste, ou crée-en un.</p>'; return; }
+  const t = typeDe(r);
+  const redige = peutRediger(droits, moi, r) && !masque();
+  const relit = peutRelire(droits, moi, r) && !masque();
+  const structure = lireStructure(r.Structure);
+  const contenu = lireObjet(r.Contenu), comm = lireObjet(r.Commentaires);
+  const consigne = code => (D.rubriques.find(x => x.Code === code) || {}).Consigne || '';
+  if (onglet === 'md' && !t.Positionnement) onglet = 'redaction';
+  const ch = (id, lib, val, attrs = '') => `<label class="champ"><span>${lib}</span>${redige
+    ? `<input type="text" data-champ="${id}" value="${esc(val ?? '')}" ${attrs}>` : `<div>${esc(val ?? '') || '<span class="muted">—</span>'}</div>`}</label>`;
+  $('fiche').innerHTML = `
+    <div class="entete">
+      <h1>${esc([r.Prof_civilite, r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '))}
+        <span class="sous">${esc(t.Libelle || t.Code || '')} · ${esc(r.Etab_nom)} (${esc(r.Etab_commune)}) · visite du ${esc(dateFr(r.Date_visite))}</span></h1>
+      <span class="statut">${esc(r.Statut || '')}</span>
+    </div>
+    ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)}.</div>` : ''}
+    ${r.Stagiaire_hors_liste ? '<div class="alerte">⚠ PSTG hors liste : pas dans la liste des stagiaires de Siiprien.</div>' : ''}
+    ${r.Statut === 'À reprendre' && Object.keys(comm).length ? '<div class="alerte">Rapport renvoyé : voir les commentaires de l\'IA-IPR sous les rubriques.</div>' : ''}
+    <div class="bloc"><h2>En-tête</h2><div class="grille">
+      <label class="champ"><span>Statut</span><div>${esc(r.Prof_statut) || '—'}</div></label>
+      <label class="champ"><span>UAI</span><div>${esc(r.UAI)}</div></label>
+      <label class="champ"><span>CMi</span><div>${esc(nomPers(r.Auteur)) || '—'}</div></label>
+      <label class="champ"><span>IA-IPR</span><div>${esc(nomPers(r.Valideur)) || '—'}</div></label>
+      <label class="champ"><span>Date de la visite</span>${redige ? `<input type="date" data-champ="Date_visite" value="${esc(dateIso(r.Date_visite))}">` : `<div>${esc(dateFr(r.Date_visite))}</div>`}</label>
+      ${ch('Heure', 'Heure', r.Heure)}${ch('Classe', 'Classe', r.Classe)}${ch('Effectif', 'Effectif', r.Effectif, 'inputmode="numeric"')}
+      <div class="large">${ch('Theme', 'Thème de la séance', r.Theme)}</div>
+    </div></div>
+    <div class="onglets">
+      <button data-onglet="redaction" class="${onglet === 'redaction' ? 'actif' : ''}">Rédaction</button>
+      ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences : jamais imprimé dans le rapport">Positionnement MD</button>` : ''}
+      <button data-onglet="historique" class="${onglet === 'historique' ? 'actif' : ''}">Historique</button>
+    </div>
+    <div id="corps">${onglet === 'md' ? corpsMd(r, redige) : onglet === 'historique' ? corpsHistorique(r) : structure.map(x => `
+      <div class="rubrique" data-rubrique="${esc(x.code)}">
+        <h3>${esc(x.titre)} ${x.forme === 'Puces' ? '<span class="forme">(une ligne = une puce)</span>' : ''}${x.imprimee === false ? '<span class="forme">(non imprimée)</span>' : ''}</h3>
+        ${consigne(x.code) && redige ? `<details class="consigne"><summary>Consigne</summary><p>${esc(consigne(x.code))}</p></details>` : ''}
+        ${redige ? `<textarea data-texte="${esc(x.code)}" rows="5">${esc(contenu[x.code] || '')}</textarea>`
+          : `<div class="lu">${esc(contenu[x.code] || '') || '<span class="muted">—</span>'}</div>`}
+        ${relit ? `<div class="commentaire">Commentaire de relecture<textarea data-comm="${esc(x.code)}" placeholder="Visible du ou de la CMi si le rapport est renvoyé">${esc(comm[x.code] || '')}</textarea></div>`
+          : comm[x.code] ? `<div class="commentaire"><strong>IA-IPR :</strong> ${esc(comm[x.code])}</div>` : ''}
+      </div>`).join('')}</div>
+    <div class="bloc signature"><h2>Signatures</h2><div class="grille">
+      <div><span class="muted">${esc((personne(r.Auteur) || {}).Titre_signature || 'CMi')}</span><br>${r.Signature_cmi ? `<img src="${esc(r.Signature_cmi)}" alt="Signature CMi">` : '<span class="muted">non signé</span>'}</div>
+      <div><span class="muted">${esc((personne(r.Valideur) || {}).Titre_signature || 'IA-IPR')}</span><br>${r.Signature_ipr ? `<img src="${esc(r.Signature_ipr)}" alt="Signature IA-IPR">` : '<span class="muted">non signé</span>'}</div>
+    </div></div>
+    <div class="barre">${boutons(r)}<span class="etat" id="etat-saisie">${redige ? 'Enregistrement automatique' : 'Lecture seule'}</span></div>`;
+  brancherFiche(r);
+  afficherPhrases();
+}
+
+function corpsMd(r, redige) {
+  const niveaux = String(D.params.echelle_md || 'Insuffisant ; À consolider ; Satisfaisant ; Très satisfaisant').split(';').map(x => x.trim()).filter(Boolean);
+  const p = lireObjet(r.Positionnement);
+  const comps = [...D.competences].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
+  return `<p class="muted">Positionnement du ou de la maître·sse délégué·e : enregistré avec le rapport, <strong>jamais imprimé dans le rapport</strong>.</p>
+    <table class="md"><tr><th>Compétence</th>${niveaux.map(n => `<th class="c">${esc(n)}</th>`).join('')}</tr>
+    ${comps.map(k => `<tr><td>${esc(k.Code)} – ${esc(k.Libelle)}</td>${niveaux.map(n => `<td class="c"><input type="radio" name="md-${esc(k.Code)}"
+      data-md="${esc(k.Code)}" value="${esc(n)}" ${p[k.Code] === n ? 'checked' : ''} ${redige ? '' : 'disabled'}></td>`).join('')}</tr>`).join('')}</table>
+    <div class="actions"><button id="imprimer-md">Imprimer le positionnement</button></div>`;
+}
+function corpsHistorique(r) {
+  const h = lireListe(r.Historique);
+  return h.length ? `<table><tr><th>Date</th><th>Qui</th><th>Action</th></tr>${h.map(x => `<tr><td>${esc(x.date)}</td><td>${esc(x.qui)}</td><td>${esc(x.action)}</td></tr>`).join('')}</table>`
+    : '<p class="muted">Aucun historique.</p>';
+}
+
+function boutons(r) {
+  const b = [];
+  const inactif = masque() ? ` class="inactif" title="${esc(TIP_MASQUE)}"` : '';
+  if (peutSoumettre(droits, moi, r)) b.push(`<button id="b-soumettre" class="primary${masque() ? ' inactif' : ''}" title="Poser ma signature et envoyer le rapport à l'IA-IPR pour relecture">Signer et soumettre</button>`);
+  if (peutRelire(droits, moi, r)) {
+    b.push(`<button id="b-valider" class="primary${masque() ? ' inactif' : ''}" title="Poser ma signature et valider le rapport">Signer et valider</button>`);
+    b.push(`<button id="b-renvoyer"${inactif} title="Renvoyer au ou à la CMi avec les commentaires (double clic)">Renvoyer à reprendre</button>`);
+  }
+  b.push(`<button id="b-imprimer"${inactif || ' title="Ouvrir le rapport mis en page dans un nouvel onglet, puis Ctrl/Cmd + P → PDF"'}>Imprimer / PDF</button>`);
+  if (peutTransmettre(droits, moi, r)) {
+    b.push(`<button id="b-mail" title="Ouvrir la messagerie : secrétariat, copies ; joindre le PDF enregistré">✉ Préparer le mail</button>`);
+    b.push(`<button id="b-transmis"${inactif} title="Marquer le rapport comme transmis au secrétariat (double clic)">Marquer transmis</button>`);
+  }
+  if (peutSupprimer(droits, moi, r)) b.push('<button id="b-supprimer" class="danger" title="Supprimer ce rapport (double clic)">Supprimer</button>');
+  return b.join('');
+}
+
+function brancherFiche(r) {
+  const fiche = $('fiche');
+  fiche.querySelectorAll('[data-onglet]').forEach(b => b.addEventListener('click', async () => { await envoyer(); onglet = b.dataset.onglet; afficherFiche(); }));
+  fiche.querySelectorAll('[data-champ]').forEach(i => i.addEventListener('input', () => {
+    const c = i.dataset.champ;
+    let v = i.value;
+    if (c === 'Date_visite') { v = isoVersGrist(v); if (!v) return; }
+    if (c === 'Effectif') { if (v.trim() && !/^\d+$/.test(v.trim())) return; v = v.trim() ? Number(v) : null; }
+    noter(r.id, { [c]: v });
+  }));
+  const textes = () => { const o = lireObjet(r.Contenu); fiche.querySelectorAll('[data-texte]').forEach(t => { o[t.dataset.texte] = t.value; }); return o; };
+  fiche.querySelectorAll('[data-texte]').forEach(t => {
+    t.addEventListener('input', () => noter(r.id, { Contenu: JSON.stringify(textes()) }));
+    t.addEventListener('focus', () => { champActif = t; if (rubriqueActive !== t.dataset.texte) { rubriqueActive = t.dataset.texte; competenceFiltre = ''; afficherPhrases(); } });
+  });
+  const comms = () => { const o = lireObjet(r.Commentaires); fiche.querySelectorAll('[data-comm]').forEach(t => { if (t.value.trim()) o[t.dataset.comm] = t.value; else delete o[t.dataset.comm]; }); return o; };
+  fiche.querySelectorAll('[data-comm]').forEach(t => t.addEventListener('input', () => noter(r.id, { Commentaires: JSON.stringify(comms()), Valideur: moiPers() || r.Valideur })));
+  fiche.querySelectorAll('[data-md]').forEach(i => i.addEventListener('change', () => {
+    const p = lireObjet(r.Positionnement); p[i.dataset.md] = i.value; noter(r.id, { Positionnement: JSON.stringify(p) });
+  }));
+  if ($('imprimer-md')) $('imprimer-md').addEventListener('click', () => ouvrirOnglet(htmlPositionnement(r, D.competences,
+    String(D.params.echelle_md || '').split(';').map(x => x.trim()).filter(Boolean), `Positionnement MD – ${r.Prof_nom} ${r.Prof_prenom}`), 'positionnement'));
+  const qui = initialesMoi() || (moi && moi.Email) || '';
+  if ($('b-soumettre')) $('b-soumettre').addEventListener('click', async () => {
+    if (masque()) return toast(TIP_MASQUE + '.', true);
+    await envoyer();
+    const x = rapportSel(), vides = rubriquesVides(lireStructure(x.Structure), lireObjet(x.Contenu));
+    if (vides.length) toast(`Rubrique(s) vide(s) : ${vides.join(', ')}.`, true);
+    demanderSignature('Signer et soumettre', `Ta signature sera posée sur le rapport, qui partira en relecture chez ${nomPers(x.Valideur) || 'l\'IA-IPR'}. Tu ne pourras plus le modifier, sauf s'il t'est renvoyé.`,
+      img => ecrireRapport([['UpdateRecord', TABLE, x.id, { Signature_cmi: img, Signe_cmi_le: aujourdhuiGrist(), Statut: 'Soumis',
+        Historique: ajouterHistorique(x.Historique, qui, 'signé et soumis') }]], 'Rapport signé et soumis'));
+  });
+  if ($('b-valider')) $('b-valider').addEventListener('click', async () => {
+    if (masque()) return toast(TIP_MASQUE + '.', true);
+    await envoyer();
+    const x = rapportSel();
+    demanderSignature('Signer et valider', 'Ta signature sera posée et le rapport validé. Il pourra ensuite être imprimé et transmis au secrétariat.',
+      img => ecrireRapport([['UpdateRecord', TABLE, x.id, { Signature_ipr: img, Valideur: moiPers() || x.Valideur, Valide_le: aujourdhuiGrist(),
+        Statut: 'Validé', Historique: ajouterHistorique(x.Historique, qui, 'signé et validé') }]], 'Rapport validé'));
+  });
+  if ($('b-renvoyer') && !masque()) boutonConfirmation($('b-renvoyer'), 'Confirmer le renvoi', async () => {
+    await envoyer();
+    const x = rapportSel();
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Statut: 'À reprendre', Valideur: moiPers() || x.Valideur,
+      Historique: ajouterHistorique(x.Historique, qui, 'renvoyé à reprendre') }]], 'Rapport renvoyé au ou à la CMi');
+  });
+  if ($('b-imprimer')) $('b-imprimer').addEventListener('click', async () => { if (masque()) return toast(TIP_MASQUE + '.', true); await envoyer(); imprimer(rapportSel()); });
+  if ($('b-mail')) $('b-mail').addEventListener('click', () => preparerMail(rapportSel()));
+  if ($('b-transmis') && !masque()) boutonConfirmation($('b-transmis'), 'Confirmer : transmis', async () => {
+    const x = rapportSel();
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Statut: 'Transmis', Transmis_le: aujourdhuiGrist(),
+      Historique: ajouterHistorique(x.Historique, qui, 'transmis au secrétariat') }]], 'Rapport marqué transmis');
+  });
+  if ($('b-supprimer')) boutonConfirmation($('b-supprimer'), 'Confirmer la suppression', async () => {
+    if (await ecrire([['RemoveRecord', TABLE, r.id]], 'Rapport supprimé')) { choisir(0); await charger(); afficherFiche(); }
+  });
+}
+
+// --- Phrases types (panneau de droite) ---
+function afficherPhrases() {
+  const r = rapportSel();
+  const panneau = $('phrases');
+  if (!r || creation || onglet !== 'redaction' || !peutRediger(droits, moi, r) || masque()) { panneau.hidden = true; return; }
+  panneau.hidden = false;
+  const code = rubriqueActive || (lireStructure(r.Structure)[0] || {}).code || '';
+  const rub = D.rubriques.find(x => x.Code === code);
+  if (!rub) { panneau.innerHTML = '<p class="muted">Clique dans une rubrique pour voir ses phrases types.</p>'; return; }
+  const liste_ = phrasesPour(D.phrases, rub.id, { competence: competenceFiltre, recherche: $('ph-q') ? $('ph-q').value : '', moi: moiPers() });
+  const comps = [...new Set(D.phrases.filter(p => p.Rubrique === rub.id && p.Competence).map(p => p.Competence))].sort();
+  const v = { civilite: r.Prof_civilite, nom: r.Prof_nom, prenom: r.Prof_prenom };
+  const q = $('ph-q') ? $('ph-q').value : '';
+  panneau.innerHTML = `<h2>Phrases types — ${esc(rub.Titre)}</h2>
+    <input type="search" id="ph-q" placeholder="Filtrer…" value="${esc(q)}" style="width:100%;margin-bottom:6px">
+    ${comps.length ? `<div class="filtres"><button data-comp="" class="${competenceFiltre ? '' : 'actif'}">Toutes</button>${comps.map(c => `<button data-comp="${esc(c)}" class="${c === competenceFiltre ? 'actif' : ''}">${esc(c)}</button>`).join('')}</div>` : ''}
+    ${liste_.length ? liste_.map(p => `<div class="phrase" data-phrase="${p.id}" title="Insérer à la position du curseur">${esc(remplirChamps(p.Texte, v))}
+      <span class="meta">${esc([p.Nature, p.Competence, p.Validee ? '' : 'proposée, non validée'].filter(Boolean).join(' · '))}</span></div>`).join('')
+      : '<p class="muted">Aucune phrase pour cette rubrique.</p>'}`;
+  const champ = $('ph-q');
+  champ.addEventListener('input', () => { const pos = champ.selectionStart; afficherPhrases(); const c2 = $('ph-q'); c2.focus(); c2.setSelectionRange(pos, pos); });
+  panneau.querySelectorAll('[data-comp]').forEach(b => b.addEventListener('click', () => { competenceFiltre = b.dataset.comp; afficherPhrases(); }));
+  panneau.querySelectorAll('[data-phrase]').forEach(d => d.addEventListener('click', () => {
+    const p = D.phrases.find(x => x.id === Number(d.dataset.phrase));
+    const t = champActif && document.body.contains(champActif) ? champActif : $('fiche').querySelector(`[data-texte="${CSS.escape(code)}"]`);
+    if (!p || !t) return;
+    const { texte, curseur } = inserer(t.value, t.selectionStart ?? t.value.length, t.selectionEnd ?? t.value.length, remplirChamps(p.Texte, v));
+    t.value = texte; t.focus(); t.setSelectionRange(curseur, curseur);
+    t.dispatchEvent(new Event('input'));
+  }));
+}
+
+// --- Signature ---
+// Signature enregistrée (table Signatures, la sienne seulement) ou collée ; au premier collage, proposer de
+// l'enregistrer. `faire(img)` écrit la signature sur le rapport.
+const maSignature = () => D.signatures.find(s => moi && String(s.Email || '').toLowerCase() === String(moi.Email || '').toLowerCase());
+let signatureEnCours = null;
+function demanderSignature(titre, explication, faire) {
+  const s = maSignature();
+  signatureEnCours = { faire, image: (s && s.Image) || '' };
+  $('sig-titre').textContent = titre;
+  const corps = () => {
+    const img = signatureEnCours.image;
+    $('sig-corps').innerHTML = `<p class="petit">${esc(explication)}</p>
+      <div id="collage" tabindex="0">${img ? `<img src="${esc(img)}" alt="Ma signature">` : 'Clique ici puis colle l\'image de ta signature (Ctrl / Cmd + V)'}</div>
+      <div class="actions"><label class="petit"><input type="file" id="sig-fichier" accept="image/*" style="max-width:220px"></label>
+        ${img ? '<button id="sig-effacer" class="lien">Changer d\'image</button>' : ''}</div>
+      ${img && (!s || s.Image !== img) ? '<label class="petit" style="display:block;margin-top:6px"><input type="checkbox" id="sig-garder" checked> Voulez-vous enregistrer votre signature dans cette interface ? (visible de vous seul·e)</label>' : ''}`;
+    $('sig-ok').disabled = !img;
+    $('collage').addEventListener('paste', e => {
+      const f = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
+      if (f) { e.preventDefault(); lireImage(f.getAsFile()).then(d => { signatureEnCours.image = d; corps(); }); }
+      else toast('Le presse-papiers ne contient pas d\'image.', true);
+    });
+    $('sig-fichier').addEventListener('change', e => { const f = e.target.files[0]; if (f) lireImage(f).then(d => { signatureEnCours.image = d; corps(); }); });
+    if ($('sig-effacer')) $('sig-effacer').addEventListener('click', () => { signatureEnCours.image = ''; corps(); });
+  };
+  corps();
+  $('dlg-signature').showModal();
+}
+// Image → PNG redimensionné (480 × 180 au plus), en data URL.
+function lireImage(fichier) {
+  return new Promise((ok, ko) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const { l, h } = tailleSignature(im.naturalWidth, im.naturalHeight);
+        const c = document.createElement('canvas'); c.width = l; c.height = h;
+        c.getContext('2d').drawImage(im, 0, 0, l, h);
+        ok(c.toDataURL('image/png'));
+      };
+      im.onerror = () => { toast('Image illisible.', true); ko(new Error('image')); };
+      im.src = String(lecteur.result);
+    };
+    lecteur.readAsDataURL(fichier);
+  });
+}
+async function validerSignature() {
+  const s = signatureEnCours;
+  if (!s || !s.image) return;
+  $('dlg-signature').close();
+  if ($('sig-garder') && $('sig-garder').checked && moi && moi.Email) {
+    const m = maSignature();
+    await ecrire(m ? [['UpdateRecord', 'Signatures', m.id, { Image: s.image, Modifie_le: aujourdhuiGrist() }]]
+      : [['AddRecord', 'Signatures', null, { Email: moi.Email, Image: s.image, Modifie_le: aujourdhuiGrist() }]], 'Signature enregistrée');
+  }
+  signatureEnCours = null;
+  await s.faire(s.image);
+  afficherFiche();
+}
+
+// --- Impression et mail ---
+function contexte(r) {
+  const t = typeDe(r), a = personne(r.Auteur) || {}, v = personne(r.Valideur) || {};
+  return { titreDocument: t.Titre || 'RAPPORT DE VISITE', entete: String(D.params.entete || 'Inspection pédagogique régionale').split('\n'),
+    discipline: D.params.discipline || '', cmi: nomPers(r.Auteur), titreCmi: a.Titre_signature || 'Le ou la chargé·e de mission',
+    ipr: nomPers(r.Valideur), titreIpr: v.Titre_signature || 'L\'IA-IPR', nomFichier: nomFichierPdf(r, a.Initiales || '') };
+}
+function ouvrirOnglet(html, nom) {
+  let w = null;
+  try { w = window.open('', '_blank'); } catch (e) { w = null; }
+  if (w) { w.document.open(); w.document.write(html); w.document.close(); toast('Ouvert dans un nouvel onglet : Ctrl / Cmd + P → Enregistrer au format PDF.'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  a.download = `${nom}.html`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('Nouvel onglet bloqué : page téléchargée (.html), à ouvrir puis imprimer.');
+}
+function imprimer(r) { const c = contexte(r); ouvrirOnglet(htmlImpression(r, c), c.nomFichier); }
+function preparerMail(r) {
+  const t = typeDe(r), d = destinataires(r, t.Code, D.personnes, D.params.secretariat || '');
+  if (!d.a) { toast('Adresse du secrétariat absente : Parametres → secretariat.', true); return; }
+  const v = { etablissement: [r.Etab_nom, r.Etab_commune].filter(Boolean).join(', '), professeur: [r.Prof_civilite, r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '),
+    auteur: nomPers(r.Auteur), date: dateFr(r.Date_visite) };
+  const a = document.createElement('a');
+  a.href = lienMailto(d.a, d.cc, remplirMail(D.params.mail_objet || 'Rapport de visite – {etablissement}', v), remplirMail(D.params.mail_texte || '', v));
+  a.target = '_top';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(`Messagerie ouverte : joins le PDF ${contexte(r).nomFichier}.pdf, puis « Marquer transmis ».`);
+}
+
+// --- Chargement ---
+const change = detecteurChangement();
+const occupe = () => !!brouillon || envoiEnCours || !!creation || $('dlg-signature').open
+  || (document.activeElement && $('fiche').contains(document.activeElement) && /TEXTAREA|INPUT/.test(document.activeElement.tagName));
+const charger = sansChevauchement(async () => {
+  const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs'];
+  const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
+  const T = Object.fromEntries(noms.map((n, i) => [n, lus[i]]));
+  if (CHIFFREMENT && !cleLue) { cleLue = true; cle = await cleAuDemarrage(ligneChiffrementValide(lus[noms.length].lignes)); }
+  if (T.Rapports.erreur) {
+    message(`Impossible de lire la table Rapports : ${T.Rapports.erreur} — elle n'existe pas, ou tes droits ne permettent pas de la lire.`, true);
+    $('app').hidden = true; return;
+  }
+  D.rapports = await lignesLisibles(cle, TABLE, T.Rapports.lignes, CHIFFREMENT, cacheChiffre);
+  D.types = [...(T.Types_rapport.lignes || [])].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
+  D.rubriques = T.Rubriques.lignes || []; D.phrases = T.Phrases.lignes || []; D.personnes = T.Personnes.lignes || [];
+  D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.competences = T.Competences_MD.lignes || [];
+  D.signatures = T.Signatures.lignes || [];
+  D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
+  moi = identifierMoi(T.Utilisateurs.lignes).moi;
+  droits = droitsTable(moi, TABLE);
+  if (sel && !D.rapports.some(x => x.id === sel)) choisir(0);
+  if (!change([T.Rapports.lignes, T.Phrases.lignes, T.Rubriques.lignes, T.Personnes.lignes, T.Signatures.lignes, sel, !!cle, moi && moi.Droits]) && !$('app').hidden) return;
+  message('');
+  $('app').hidden = false;
+  afficherListe();
+  if (!occupe()) afficherFiche();
+});
+const planifier = regrouper(charger);
+
+// --- Démarrage ---
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  grist.onRecords(planifier);
+  installerBulles();
+  $('recherche').addEventListener('input', afficherListe);
+  $('filtre').value = pref.lire('Filtre', '');
+  $('filtre').addEventListener('change', () => { pref.ecrire('Filtre', $('filtre').value); afficherListe(); });
+  $('recharger').addEventListener('click', () => relireSansCache(charger));
+  if (CHIFFREMENT) suivreCle(k => { cle = k; cacheChiffre.clear(); charger().then(() => { if (!brouillon) afficherFiche(); }); });
+  $('nouveau').addEventListener('click', async () => {
+    if ($('nouveau').classList.contains('inactif')) { toast($('nouveau').title + '.', true); return; }
+    await envoyer();
+    const a = personne(moiPers());
+    creation = { q: '', uai: '', prof: 0, typeCode: 'CLASSIQUE', date: new Date().toISOString().slice(0, 10), heure: '', classe: '', effectif: '',
+      theme: '', valideur: (a && a.Fonction === 'IA-IPR' ? a.id : a && a.Referent) || 0, auteur: a && a.Fonction === 'CMi' ? a.id : 0 };
+    afficherFiche();
+  });
+  $('liste').addEventListener('click', async e => {
+    const g = e.target.closest('[data-groupe]');
+    if (g) { const k = g.dataset.groupe; ouverts.has(k) ? ouverts.delete(k) : ouverts.add(k); pref.ecrire('Ouverts', JSON.stringify([...ouverts])); afficherListe(); return; }
+    const li = e.target.closest('li[data-id]');
+    if (!li) return;
+    await envoyer();
+    creation = null; rubriqueActive = ''; champActif = null;
+    if (Number(li.dataset.id) !== sel) onglet = 'redaction';
+    choisir(Number(li.dataset.id));
+    afficherListe(); afficherFiche();
+  });
+  $('sig-ok').addEventListener('click', validerSignature);
+  $('sig-annuler').addEventListener('click', () => { signatureEnCours = null; $('dlg-signature').close(); });
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); envoyer(); }
+    if (e.key === 'Escape' && creation && !$('dlg-signature').open) { creation = null; afficherFiche(); }
+  });
+  window.addEventListener('beforeunload', () => { if (brouillon) envoyer(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) envoyer(); else planifier(); });
+  relectureReguliere(charger, occupe);
+  await charger();
+}
+</script>
+</body>
+</html>

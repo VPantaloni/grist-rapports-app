@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Aide de l'écran Rapports</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 6px; color: var(--accent); }
+  ol, ul { padding-left: 22px; } li { margin-bottom: 4px; }
+  .etapes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .etapes span { padding: 2px 10px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
+  kbd { font: 12px monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg2); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Écran Rapports — mode d'emploi</h1>
+  <p class="muted">Rédiger, relire, signer, imprimer et transmettre les rapports de visite.</p>
+
+  <h2>Le circuit d'un rapport</h2>
+  <div class="etapes"><span>Brouillon</span>→<span>Soumis</span>→<span>À reprendre</span> (si renvoyé) →<span>Validé</span>→<span>Transmis</span></div>
+  <ul>
+    <li><strong>Chargé·e de mission (CMi)</strong> : crée le rapport, le rédige, puis <em>Signer et soumettre</em>. Il part en relecture chez l'IA-IPR et n'est plus modifiable, sauf s'il est renvoyé.</li>
+    <li><strong>IA-IPR</strong> : relit, laisse un commentaire sous chaque rubrique si besoin, puis <em>Renvoyer à reprendre</em> ou <em>Signer et valider</em>.</li>
+    <li>Une fois validé : <em>Imprimer / PDF</em>, <em>Préparer le mail</em> au secrétariat, puis <em>Marquer transmis</em>.</li>
+    <li>Tout le monde peut lire tous les rapports.</li>
+  </ul>
+
+  <h2>Créer un rapport</h2>
+  <ol>
+    <li><strong>+ Nouveau rapport</strong> (colonne de gauche).</li>
+    <li>Taper un nom de professeur·e, <strong>ou</strong> un établissement, une commune, un UAI. Choisir un établissement n'affiche plus que ses professeur·es.</li>
+    <li>Le <strong>type</strong> est proposé d'office : maître·sse délégué·e (grade MD1) → <em>MD</em> ; stagiaire (STG) → <em>PSTG</em> ; sinon <em>Classique</em>. On peut le changer. Choisir PSTG pour un·e professeur·e non stagiaire affiche l'alerte « Pas dans la liste des stagiaires de Siiprien ».</li>
+    <li>Compléter date, heure, classe, effectif, thème ; l'IA-IPR est votre référent·e par défaut. <strong>Créer le rapport</strong>.</li>
+  </ol>
+
+  <h2>Rédiger</h2>
+  <ul>
+    <li>Une zone par rubrique. <strong>Consigne</strong> (repliée) : l'aide à la rédaction du modèle, jamais imprimée.</li>
+    <li><strong>Phrases types</strong> (à droite) : cliquer dans une rubrique, puis sur une phrase pour l'insérer à la position du curseur. Filtres par compétence (P1 à P5) et par mot. Le nom du ou de la professeur·e est mis à la place de <code>{nom}</code>.</li>
+    <li>« Conseils pour la poursuite » : <strong>une ligne = une puce</strong> à l'impression.</li>
+    <li>Enregistrement <strong>automatique</strong> environ une seconde après la dernière frappe (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>S</kbd> pour tout de suite).</li>
+    <li>Rapport <strong>MD</strong> : onglet <em>Positionnement MD</em>, un niveau par compétence. Il est enregistré avec le rapport mais <strong>n'apparaît jamais dans le rapport imprimé</strong> (bouton à part pour l'imprimer).</li>
+  </ul>
+
+  <h2>Signer</h2>
+  <ul>
+    <li>Seule la personne connectée pose <strong>sa</strong> signature : la ou le CMi en soumettant, l'IA-IPR en validant.</li>
+    <li>Première fois : cliquer dans le cadre et <strong>coller</strong> l'image de sa signature (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>V</kbd>), ou choisir un fichier image. Case « Voulez-vous enregistrer votre signature dans cette interface ? » : elle sera proposée d'office les fois suivantes. Personne d'autre ne la voit.</li>
+    <li>La case « L'intéressé·e / Pris connaissance le » reste vierge : elle est signée sur papier.</li>
+  </ul>
+
+  <h2>Imprimer et transmettre</h2>
+  <ol>
+    <li><strong>Imprimer / PDF</strong> : le rapport mis en page s'ouvre dans un nouvel onglet ; <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>P</kbd> → « Enregistrer au format PDF ». Le nom proposé suit la règle <code>AAAA_MM_JJ_NOM_Prenom_XX</code> (XX = initiales du ou de la CMi).</li>
+    <li><strong>Préparer le mail</strong> : la messagerie s'ouvre vers le secrétariat, avec en copie l'IA-IPR et le ou la référent·e (pour un PSTG, aussi les IA-IPR qui suivent les stagiaires). <strong>Joindre le PDF</strong> enregistré, puis envoyer.</li>
+    <li><strong>Marquer transmis</strong> (double clic).</li>
+  </ol>
+
+  <h2>Contenu chiffré</h2>
+  <p>Le texte des rapports, les commentaires, le positionnement MD et les signatures sont chiffrés. Sans la phrase secrète, la liste reste visible mais le contenu est vide et rien ne peut être écrit : cliquer sur <strong>Révéler</strong> dans le menu de l'application. Les données se masquent seules après 5 minutes sans activité ; une saisie en cours est enregistrée après « Révéler ».</p>
+
+  <h2>Rien ne marche ?</h2>
+  <ul>
+    <li>« Lecture seule » : le rapport n'est pas le vôtre, ou il est déjà soumis ou validé.</li>
+    <li>« Nouveau rapport » grisé : votre compte n'est pas relié à une fiche de l'annuaire (Administration → Accès).</li>
+    <li>Nouvel onglet bloqué : la page est téléchargée (.html) ; l'ouvrir puis imprimer.</li>
+  </ul>
+</main>
+</body>
+</html>
