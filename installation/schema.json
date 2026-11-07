@@ -1,9 +1,9 @@
 {
-  "$description": "Structure du document Grist de l'application (SPEC § 4.2) : source unique des tables, colonnes, types, références et formules. Lue par tests/donnees.js (CSV chargés comme dans Grist) et par scripts/schema.js (vérification des CSV, blocs de documentation). Types Grist : Text, Numeric, Int, Bool, Date, Choice, ChoiceList, Ref:<Table>, RefList:<Table>, Any. Une colonne a soit des données (CSV), soit une formule (formule, ou fichier .py), soit une formule d'initialisation (initialisation). À ADAPTER (APP § 4) : fil rouge Personnes, Projets (la carte ajoute Communes : gabarits/LISEZMOI.md).",
+  "$description": "Structure du document Grist de l'application (SPEC § 4.2) : source unique des tables, colonnes, types, références et formules. Lue par tests/donnees.js (CSV chargés comme dans Grist) et par scripts/schema.js (vérification des CSV, blocs de documentation). Types Grist : Text, Numeric, Int, Bool, Date, Choice, ChoiceList, Ref:<Table>, RefList:<Table>, Any. Une colonne a soit des données (CSV), soit une formule (formule, ou fichier .py), soit une formule d'initialisation (initialisation). Rapports d'inspection : APP § 4.",
   "tables": [
     {
       "id": "Personnes",
-      "role": "fiches des personnes (annuaire) ; Utilisateurs.Personne y renvoie",
+      "role": "annuaire des CMi et IA-IPR ; Utilisateurs.Personne y renvoie",
       "affichee": "Nom_complet",
       "colonnes": [
         {
@@ -19,10 +19,44 @@
           "obligatoire": true
         },
         {
+          "id": "Fonction",
+          "libelle": "Fonction",
+          "type": "Choice",
+          "choix": [
+            "CMi",
+            "IA-IPR"
+          ],
+          "obligatoire": true
+        },
+        {
+          "id": "Initiales",
+          "libelle": "Initiales",
+          "type": "Text",
+          "role": "unique ; fin du nom du PDF (AAAA_MM_JJ_NOM_Prenom_XX)"
+        },
+        {
+          "id": "Referent",
+          "libelle": "IA-IPR référent·e",
+          "type": "Ref:Personnes",
+          "role": "CMi : son ou sa référent·e (copie du mail de transmission)"
+        },
+        {
+          "id": "Titre_signature",
+          "libelle": "Titre de signature",
+          "type": "Text",
+          "role": "au-dessus de la signature : « La chargée de mission », « L'IA-IPR »… (saisi, jamais calculé)"
+        },
+        {
+          "id": "Stagiaires",
+          "libelle": "Suit les stagiaires",
+          "type": "Bool",
+          "role": "IA-IPR en copie du mail pour tout rapport PSTG"
+        },
+        {
           "id": "Email",
           "libelle": "E-mail",
           "type": "Text",
-          "role": "unique ; comparé à user.Email par les règles « ma fiche »"
+          "role": "unique ; adresse professionnelle"
         },
         {
           "id": "Nom_complet",
@@ -34,41 +68,584 @@
       ]
     },
     {
-      "id": "Projets",
-      "role": "projets suivis (gabarit liste / fiche)",
+      "id": "Etablissements",
+      "role": "établissements de l'académie (annuaire de l'éducation, open data) ; importés depuis l'Administration",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique (= Rne)"
+        },
+        {
+          "id": "Nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "libellé complet : « Collège Alain Fournier »"
+        },
+        {
+          "id": "Sigle",
+          "libelle": "Sigle",
+          "type": "Text",
+          "role": "CLG, LYC, LP…"
+        },
+        {
+          "id": "Secteur",
+          "libelle": "Secteur",
+          "type": "Choice",
+          "choix": [
+            "Public",
+            "Privé"
+          ]
+        },
+        {
+          "id": "Adresse",
+          "libelle": "Adresse",
+          "type": "Text"
+        },
+        {
+          "id": "Code_postal",
+          "libelle": "Code postal",
+          "type": "Text"
+        },
+        {
+          "id": "Commune",
+          "libelle": "Commune",
+          "type": "Text"
+        },
+        {
+          "id": "Mel",
+          "libelle": "E-mail",
+          "type": "Text",
+          "role": "ce.<uai>@ac-orleans-tours.fr"
+        },
+        {
+          "id": "Departement",
+          "libelle": "Département",
+          "type": "Text"
+        },
+        {
+          "id": "Bassin",
+          "libelle": "Bassin",
+          "type": "Text"
+        },
+        {
+          "id": "Lat",
+          "libelle": "Latitude",
+          "type": "Numeric"
+        },
+        {
+          "id": "Lon",
+          "libelle": "Longitude",
+          "type": "Numeric"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Nom} ({$Commune}) – {$UAI}\"",
+          "role": "colonne affichée des références (unique par l'UAI)"
+        }
+      ]
+    },
+    {
+      "id": "Professeurs",
+      "role": "professeur·es de mathématiques de l'année (colonnes utiles du fichier académique, importé depuis l'Administration) ; les colonnes sensibles ne sont jamais importées",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Civilite",
+          "libelle": "Civilité",
+          "type": "Choice",
+          "choix": [
+            "M.",
+            "Mme"
+          ]
+        },
+        {
+          "id": "Nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Prenom",
+          "libelle": "Prénom",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Statut",
+          "libelle": "Statut",
+          "type": "Text",
+          "role": "Titulaire, CDD, CDI"
+        },
+        {
+          "id": "Grade",
+          "libelle": "Grade",
+          "type": "Text",
+          "role": "AGREGE CLN, CERT. CL N, AC2C1, MD1…"
+        },
+        {
+          "id": "Echelon",
+          "libelle": "Échelon",
+          "type": "Int"
+        },
+        {
+          "id": "Type_nomination",
+          "libelle": "Type de nomination",
+          "type": "Text",
+          "role": "STG = stagiaire, SER = en service"
+        },
+        {
+          "id": "Discipline",
+          "libelle": "Discipline",
+          "type": "Text",
+          "role": "Nom_disc_affect"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text",
+          "role": "Rne de l'affectation"
+        },
+        {
+          "id": "Email",
+          "libelle": "E-mail",
+          "type": "Text",
+          "role": "mail_ouvert"
+        },
+        {
+          "id": "Etablissement",
+          "libelle": "Établissement",
+          "type": "Ref:Etablissements",
+          "formule": "Etablissements.lookupOne(UAI=$UAI)",
+          "role": "établissement d'après l'UAI"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Nom} {$Prenom} – {$UAI}\"",
+          "role": "colonne affichée (une ligne par affectation)"
+        }
+      ]
+    },
+    {
+      "id": "Types_rapport",
+      "role": "types de rapport : Classique, PSTG, MD",
+      "affichee": "Code",
+      "colonnes": [
+        {
+          "id": "Code",
+          "libelle": "Code",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique : CLASSIQUE, PSTG, MD"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "role": "« Visite d'accompagnement (titulaire) »…"
+        },
+        {
+          "id": "Titre",
+          "libelle": "Titre du document",
+          "type": "Text",
+          "role": "« RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS »"
+        },
+        {
+          "id": "Positionnement",
+          "libelle": "Positionnement MD",
+          "type": "Bool",
+          "role": "onglet de positionnement sur les compétences (jamais imprimé dans le rapport)"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric"
+        }
+      ]
+    },
+    {
+      "id": "Rubriques",
+      "role": "rubriques des rapports, dans l'ordre ; une rubrique sert à un ou plusieurs types",
       "affichee": "Titre",
       "colonnes": [
+        {
+          "id": "Code",
+          "libelle": "Code",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique, stable : clé du texte dans Rapports.Contenu (seance, entretien, competences, bilan, conseils…)"
+        },
         {
           "id": "Titre",
           "libelle": "Titre",
           "type": "Text",
           "obligatoire": true,
-          "role": "unique"
+          "role": "titre imprimé ; unique (colonne affichée des références)"
+        },
+        {
+          "id": "Types",
+          "libelle": "Types de rapport",
+          "type": "RefList:Types_rapport"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric"
+        },
+        {
+          "id": "Forme",
+          "libelle": "Forme",
+          "type": "Choice",
+          "choix": [
+            "Texte",
+            "Puces"
+          ],
+          "role": "Puces : une ligne = une puce à l'impression"
+        },
+        {
+          "id": "Consigne",
+          "libelle": "Consigne",
+          "type": "Text",
+          "role": "aide à la rédaction (texte rouge du modèle) : affichée, jamais imprimée"
+        },
+        {
+          "id": "Texte_depart",
+          "libelle": "Texte de départ",
+          "type": "Text",
+          "role": "texte proposé à la création du rapport"
+        },
+        {
+          "id": "Imprimee",
+          "libelle": "Imprimée",
+          "type": "Bool"
+        }
+      ]
+    },
+    {
+      "id": "Phrases",
+      "role": "bibliothèque de phrases types (aide à la rédaction)",
+      "colonnes": [
+        {
+          "id": "Rubrique",
+          "libelle": "Rubrique",
+          "type": "Ref:Rubriques"
+        },
+        {
+          "id": "Competence",
+          "libelle": "Compétence",
+          "type": "Choice",
+          "choix": [
+            "P1",
+            "P2",
+            "P3",
+            "P4",
+            "P5"
+          ]
+        },
+        {
+          "id": "Nature",
+          "libelle": "Nature",
+          "type": "Choice",
+          "choix": [
+            "Point fort",
+            "Conseil",
+            "Vigilance",
+            "Autre"
+          ]
+        },
+        {
+          "id": "Texte",
+          "libelle": "Texte",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "{nom}, {civilite}, {prenom} remplacés à l'insertion"
+        },
+        {
+          "id": "Auteur",
+          "libelle": "Auteur·e",
+          "type": "Ref:Personnes"
+        },
+        {
+          "id": "Validee",
+          "libelle": "Validée",
+          "type": "Bool",
+          "role": "phrase proposée par un·e CMi : visible de tous après validation"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric"
+        }
+      ]
+    },
+    {
+      "id": "Competences_MD",
+      "role": "grille de positionnement des maître·sses délégué·es (MD)",
+      "affichee": "Code",
+      "colonnes": [
+        {
+          "id": "Code",
+          "libelle": "Code",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique : C1, C2…"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Compétence",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Domaine",
+          "libelle": "Domaine",
+          "type": "Text"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric"
+        }
+      ]
+    },
+    {
+      "id": "Parametres",
+      "role": "réglages de l'application (une ligne par clé)",
+      "affichee": "Cle",
+      "colonnes": [
+        {
+          "id": "Cle",
+          "libelle": "Clé",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique : discipline, secretariat, mail_objet, mail_texte, echelle_md…"
+        },
+        {
+          "id": "Valeur",
+          "libelle": "Valeur",
+          "type": "Text"
+        },
+        {
+          "id": "Description",
+          "libelle": "Description",
+          "type": "Text"
+        }
+      ]
+    },
+    {
+      "id": "Rapports",
+      "role": "un rapport de visite ; identité recopiée à la création (le fichier des professeur·es change chaque année)",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Type",
+          "libelle": "Type",
+          "type": "Ref:Types_rapport",
+          "obligatoire": true
+        },
+        {
+          "id": "Professeur",
+          "libelle": "Professeur·e",
+          "type": "Ref:Professeurs",
+          "role": "lien vers l'année en cours (peut se perdre au changement d'année)"
+        },
+        {
+          "id": "Prof_civilite",
+          "libelle": "Civilité",
+          "type": "Text"
+        },
+        {
+          "id": "Prof_nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Prof_prenom",
+          "libelle": "Prénom",
+          "type": "Text"
+        },
+        {
+          "id": "Prof_statut",
+          "libelle": "Statut affiché",
+          "type": "Text",
+          "role": "Grade · Statut · échelon, composé à la création"
+        },
+        {
+          "id": "Stagiaire_hors_liste",
+          "libelle": "PSTG hors liste",
+          "type": "Bool",
+          "role": "PSTG choisi pour un·e professeur·e non STG (alerte Siiprien)"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_nom",
+          "libelle": "Établissement",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_commune",
+          "libelle": "Commune",
+          "type": "Text"
+        },
+        {
+          "id": "Date_visite",
+          "libelle": "Date de la visite",
+          "type": "Date",
+          "obligatoire": true
+        },
+        {
+          "id": "Heure",
+          "libelle": "Heure",
+          "type": "Text",
+          "role": "HH:MM"
+        },
+        {
+          "id": "Classe",
+          "libelle": "Classe",
+          "type": "Text"
+        },
+        {
+          "id": "Effectif",
+          "libelle": "Effectif",
+          "type": "Int"
+        },
+        {
+          "id": "Theme",
+          "libelle": "Thème",
+          "type": "Text"
+        },
+        {
+          "id": "Contenu",
+          "libelle": "Contenu",
+          "type": "Text",
+          "role": "JSON { code de rubrique : texte } — chiffré"
+        },
+        {
+          "id": "Structure",
+          "libelle": "Structure",
+          "type": "Text",
+          "role": "JSON des rubriques (titres, ordre, forme) figé à la création : un modèle modifié ne change pas les anciens rapports"
+        },
+        {
+          "id": "Positionnement",
+          "libelle": "Positionnement MD",
+          "type": "Text",
+          "role": "JSON { code compétence : niveau } — chiffré"
+        },
+        {
+          "id": "Commentaires",
+          "libelle": "Commentaires de relecture",
+          "type": "Text",
+          "role": "JSON { code de rubrique : commentaire } — chiffré"
         },
         {
           "id": "Statut",
           "libelle": "Statut",
           "type": "Choice",
           "choix": [
-            "En cours",
-            "Terminé"
-          ]
+            "Brouillon",
+            "Soumis",
+            "À reprendre",
+            "Validé",
+            "Transmis"
+          ],
+          "obligatoire": true
         },
         {
-          "id": "Responsables",
-          "libelle": "Responsables",
-          "type": "RefList:Personnes",
-          "role": "portée « Limité » des Contributeur·trices"
+          "id": "Auteur",
+          "libelle": "CMi",
+          "type": "Ref:Personnes",
+          "obligatoire": true,
+          "role": "portée « Limité » des CMi"
         },
         {
-          "id": "Echeance",
-          "libelle": "Échéance",
+          "id": "Valideur",
+          "libelle": "IA-IPR",
+          "type": "Ref:Personnes",
+          "role": "référent·e de l'auteur·e par défaut"
+        },
+        {
+          "id": "Signature_cmi",
+          "libelle": "Signature CMi",
+          "type": "Text",
+          "role": "image (data URL) posée par le ou la CMi — chiffrée"
+        },
+        {
+          "id": "Signature_ipr",
+          "libelle": "Signature IA-IPR",
+          "type": "Text",
+          "role": "image (data URL) posée par l'IA-IPR — chiffrée"
+        },
+        {
+          "id": "Signe_cmi_le",
+          "libelle": "Signé CMi le",
           "type": "Date"
         },
         {
-          "id": "Description",
-          "libelle": "Description",
-          "type": "Text"
+          "id": "Valide_le",
+          "libelle": "Validé le",
+          "type": "Date"
+        },
+        {
+          "id": "Transmis_le",
+          "libelle": "Transmis le",
+          "type": "Date"
+        },
+        {
+          "id": "Historique",
+          "libelle": "Historique",
+          "type": "Text",
+          "role": "JSON [{ date, qui, action }]"
+        },
+        {
+          "id": "Annee",
+          "libelle": "Année scolaire",
+          "type": "Text",
+          "formule": "(lambda d: \"\" if not d else (f\"{d.year}-{d.year+1}\" if d.month >= 8 else f\"{d.year-1}-{d.year}\"))($Date_visite)"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Date_visite} {$Prof_nom} {$Prof_prenom} – {$Auteur.Initiales} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
+      "id": "Signatures",
+      "role": "signature enregistrée de chaque compte ; chacun·e ne lit et n'écrit que la sienne",
+      "colonnes": [
+        {
+          "id": "Email",
+          "libelle": "E-mail",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "exactement user.Email"
+        },
+        {
+          "id": "Image",
+          "libelle": "Image",
+          "type": "Text",
+          "role": "image PNG (data URL)"
+        },
+        {
+          "id": "Modifie_le",
+          "libelle": "Modifiée le",
+          "type": "Date"
         }
       ]
     },
@@ -91,9 +668,8 @@
           "type": "ChoiceList",
           "choix": [
             "Administrateur·trice",
-            "Gestionnaire",
-            "Contributeur·trice",
-            "Lecteur·trice"
+            "IA-IPR",
+            "CMi"
           ]
         },
         {
@@ -134,9 +710,8 @@
           "type": "Choice",
           "choix": [
             "Administrateur·trice",
-            "Gestionnaire",
-            "Contributeur·trice",
-            "Lecteur·trice"
+            "IA-IPR",
+            "CMi"
           ]
         },
         {
@@ -145,7 +720,15 @@
           "type": "Choice",
           "choix": [
             "Personnes",
-            "Projets"
+            "Etablissements",
+            "Professeurs",
+            "Types_rapport",
+            "Rubriques",
+            "Phrases",
+            "Competences_MD",
+            "Parametres",
+            "Rapports",
+            "Signatures"
           ]
         },
         {
@@ -205,8 +788,9 @@
           "libelle": "Écran",
           "type": "Choice",
           "choix": [
-            "personnes",
-            "projets",
+            "rapports",
+            "modeles",
+            "annuaire",
             "admin"
           ]
         },
@@ -221,9 +805,8 @@
           "type": "ChoiceList",
           "choix": [
             "Administrateur·trice",
-            "Gestionnaire",
-            "Contributeur·trice",
-            "Lecteur·trice",
+            "IA-IPR",
+            "CMi",
             "Toute personne connectée"
           ],
           "role": "vide = tout le monde"
@@ -239,17 +822,112 @@
   "$regles": "Règles d'accès propres à l'application (portées « Limité », « ma fiche », campagnes), écrites après les règles générées (matrice T1-T4 de chaque table) par l'écran installer/ ; colonne : règle de colonne. Droits : lettres de Grist (+R, +U, +C, +D, -R…).",
   "regles": [
     {
-      "table": "Projets",
-      "colonne": "Responsables",
-      "condition": "user.Profil and \"Projets:M:Limité\" in user.Profil.Droits and user.Profil.Personne in rec.Responsables",
-      "droits": "+U",
-      "libelle": "Projets.Responsables : s'ajouter ou se retirer seulement d'un projet dont on est responsable"
+      "table": "Rapports",
+      "colonne": "Signature_cmi",
+      "condition": "user.Access != OWNER and (not user.Profil or (rec.Auteur != user.Profil.Personne and \"Administrateur·trice\" not in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Rapports.Signature_cmi : seul·e l'auteur·e (CMi) pose sa signature"
     },
     {
-      "table": "Projets",
-      "condition": "user.Profil and \"Projets:M:Limité\" in user.Profil.Droits and user.Profil.Personne in rec.Responsables and user.Profil.Personne in newRec.Responsables",
+      "table": "Rapports",
+      "colonne": "Signe_cmi_le",
+      "condition": "user.Access != OWNER and (not user.Profil or (rec.Auteur != user.Profil.Personne and \"Administrateur·trice\" not in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Rapports.Signe_cmi_le : seul·e l'auteur·e (CMi) pose sa signature"
+    },
+    {
+      "table": "Rapports",
+      "colonne": "Signature_ipr",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or (\"IA-IPR\" in user.Profil.Roles and newRec.Valideur == user.Profil.Personne)))",
+      "droits": "-U",
+      "libelle": "Rapports.Signature_ipr : seul·e l'IA-IPR valideur·e commente, signe, valide et transmet"
+    },
+    {
+      "table": "Rapports",
+      "colonne": "Valide_le",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or (\"IA-IPR\" in user.Profil.Roles and newRec.Valideur == user.Profil.Personne)))",
+      "droits": "-U",
+      "libelle": "Rapports.Valide_le : seul·e l'IA-IPR valideur·e commente, signe, valide et transmet"
+    },
+    {
+      "table": "Rapports",
+      "colonne": "Transmis_le",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or (\"IA-IPR\" in user.Profil.Roles and newRec.Valideur == user.Profil.Personne)))",
+      "droits": "-U",
+      "libelle": "Rapports.Transmis_le : seul·e l'IA-IPR valideur·e commente, signe, valide et transmet"
+    },
+    {
+      "table": "Rapports",
+      "colonne": "Commentaires",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or (\"IA-IPR\" in user.Profil.Roles and newRec.Valideur == user.Profil.Personne)))",
+      "droits": "-U",
+      "libelle": "Rapports.Commentaires : seul·e l'IA-IPR valideur·e commente, signe, valide et transmet"
+    },
+    {
+      "table": "Personnes",
+      "condition": "user.Profil and \"Personnes:M:Limité\" in user.Profil.Droits and rec.id == user.Profil.Personne and newRec.id == user.Profil.Personne",
       "droits": "+U",
-      "libelle": "Projets : modifier un projet dont on reste responsable (Limité)"
+      "libelle": "Personnes : modifier sa propre fiche (Limité)"
+    },
+    {
+      "table": "Phrases",
+      "condition": "user.Profil and \"Phrases:C:Limité\" in user.Profil.Droits and newRec.Auteur == user.Profil.Personne and not newRec.Validee",
+      "droits": "+C",
+      "libelle": "Phrases : proposer une phrase à son nom, non validée (Limité)"
+    },
+    {
+      "table": "Phrases",
+      "condition": "user.Profil and \"Phrases:M:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and not rec.Validee and newRec.Auteur == user.Profil.Personne and not newRec.Validee",
+      "droits": "+U",
+      "libelle": "Phrases : modifier ses phrases non validées (Limité)"
+    },
+    {
+      "table": "Phrases",
+      "condition": "user.Profil and \"Phrases:S:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and not rec.Validee",
+      "droits": "+D",
+      "libelle": "Phrases : supprimer ses phrases non validées (Limité)"
+    },
+    {
+      "table": "Rapports",
+      "condition": "user.Profil and \"Rapports:C:Limité\" in user.Profil.Droits and newRec.Auteur == user.Profil.Personne and newRec.Statut == \"Brouillon\"",
+      "droits": "+C",
+      "libelle": "Rapports : créer un rapport à son nom, en brouillon (Limité)"
+    },
+    {
+      "table": "Rapports",
+      "condition": "user.Profil and \"Rapports:M:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and rec.Statut in (\"Brouillon\", \"À reprendre\") and newRec.Auteur == user.Profil.Personne and newRec.Statut in (\"Brouillon\", \"À reprendre\", \"Soumis\")",
+      "droits": "+U",
+      "libelle": "Rapports : rédiger ses rapports jusqu'à la soumission (Limité)"
+    },
+    {
+      "table": "Rapports",
+      "condition": "user.Profil and \"Rapports:S:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and rec.Statut == \"Brouillon\"",
+      "droits": "+D",
+      "libelle": "Rapports : supprimer ses brouillons (Limité)"
+    },
+    {
+      "table": "Signatures",
+      "condition": "user.Profil and \"Signatures:L:Limité\" in user.Profil.Droits and rec.Email == user.Email",
+      "droits": "+R",
+      "libelle": "Signatures : lire la sienne (Limité)"
+    },
+    {
+      "table": "Signatures",
+      "condition": "user.Profil and \"Signatures:C:Limité\" in user.Profil.Droits and newRec.Email == user.Email",
+      "droits": "+C",
+      "libelle": "Signatures : enregistrer la sienne (Limité)"
+    },
+    {
+      "table": "Signatures",
+      "condition": "user.Profil and \"Signatures:M:Limité\" in user.Profil.Droits and rec.Email == user.Email and newRec.Email == user.Email",
+      "droits": "+U",
+      "libelle": "Signatures : modifier la sienne (Limité)"
+    },
+    {
+      "table": "Signatures",
+      "condition": "user.Profil and \"Signatures:S:Limité\" in user.Profil.Droits and rec.Email == user.Email",
+      "droits": "+D",
+      "libelle": "Signatures : supprimer la sienne (Limité)"
     }
   ]
 }

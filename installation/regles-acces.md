@@ -114,10 +114,42 @@ Prêtes à copier, une ligne par table de données (générées depuis `installa
 | [ ] | `Personnes` | `user.Profil and "Personnes:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
 | [ ] | `Personnes` | `user.Profil and "Personnes:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
 | [ ] | `Personnes` | `user.Profil and "Personnes:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
-| [ ] | `Projets` | `user.Profil and "Projets:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
-| [ ] | `Projets` | `user.Profil and "Projets:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
-| [ ] | `Projets` | `user.Profil and "Projets:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
-| [ ] | `Projets` | `user.Profil and "Projets:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Etablissements` | `user.Profil and "Etablissements:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Etablissements` | `user.Profil and "Etablissements:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Etablissements` | `user.Profil and "Etablissements:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Etablissements` | `user.Profil and "Etablissements:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Professeurs` | `user.Profil and "Professeurs:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Professeurs` | `user.Profil and "Professeurs:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Professeurs` | `user.Profil and "Professeurs:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Professeurs` | `user.Profil and "Professeurs:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Types_rapport` | `user.Profil and "Types_rapport:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Types_rapport` | `user.Profil and "Types_rapport:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Types_rapport` | `user.Profil and "Types_rapport:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Types_rapport` | `user.Profil and "Types_rapport:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Rubriques` | `user.Profil and "Rubriques:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Rubriques` | `user.Profil and "Rubriques:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Rubriques` | `user.Profil and "Rubriques:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Rubriques` | `user.Profil and "Rubriques:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Phrases` | `user.Profil and "Phrases:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Phrases` | `user.Profil and "Phrases:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Phrases` | `user.Profil and "Phrases:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Phrases` | `user.Profil and "Phrases:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Competences_MD` | `user.Profil and "Competences_MD:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Competences_MD` | `user.Profil and "Competences_MD:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Competences_MD` | `user.Profil and "Competences_MD:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Competences_MD` | `user.Profil and "Competences_MD:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Parametres` | `user.Profil and "Parametres:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Parametres` | `user.Profil and "Parametres:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Parametres` | `user.Profil and "Parametres:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Parametres` | `user.Profil and "Parametres:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Rapports` | `user.Profil and "Rapports:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Rapports` | `user.Profil and "Rapports:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Rapports` | `user.Profil and "Rapports:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Rapports` | `user.Profil and "Rapports:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Signatures` | `user.Profil and "Signatures:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Signatures` | `user.Profil and "Signatures:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Signatures` | `user.Profil and "Signatures:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Signatures` | `user.Profil and "Signatures:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
 <!-- /schema:matrice -->
 
 - [ ] **Enregistrer.**

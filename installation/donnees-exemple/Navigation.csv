@@ -1,4 +1,5 @@
 ﻿Libelle,Widget,Ordre,Roles,Visible
-Personnes,personnes,10,,true
-Projets,projets,20,,true
+Rapports,rapports,10,,true
+Modèles & phrases,modeles,20,,true
+Annuaire,annuaire,30,,true
 Administration,admin,90,Administrateur·trice,true

@@ -6,20 +6,20 @@ import { PREFIXE } from '../commun/config.js';
 
 // ===== À ADAPTER (APP § 4 et § 8) =====
 // Tables de données présentes dans la matrice Permissions (pas Utilisateurs, Permissions, Navigation).
-export const TABLES_DONNEES = ['Personnes', 'Projets'];
+export const TABLES_DONNEES = ['Personnes', 'Etablissements', 'Professeurs', 'Types_rapport', 'Rubriques', 'Phrases',
+  'Competences_MD', 'Parametres', 'Rapports', 'Signatures'];
 // Table des fiches vers laquelle pointe Utilisateurs.Personne ('' si l'application n'en a pas).
 export const TABLE_FICHES = 'Personnes';
 // Rôles qui exigent une fiche (leurs droits « Limité » portent sur « mes » lignes).
-export const ROLES_AVEC_FICHE = ['Contributeur·trice'];
+export const ROLES_AVEC_FICHE = ['IA-IPR', 'CMi'];
 // Mêmes valeurs que les choix de Utilisateurs.Roles et Permissions.Role.
-export const ROLES = ['Administrateur·trice', 'Gestionnaire', 'Contributeur·trice', 'Lecteur·trice'];
+export const ROLES = ['Administrateur·trice', 'IA-IPR', 'CMi'];
 // Légende des rôles (onglets Accès et Permissions) : qui reçoit chaque rôle, en une phrase.
 /** @type {Record<string, string>} */
 export const DESCRIPTIONS_ROLES = {
-  'Administrateur·trice': 'administrateur·trices de l\'application : comptes, permissions, imports',
-  'Gestionnaire': 'gère toutes les fiches et tous les projets',
-  'Contributeur·trice': 'crée des projets et modifie ceux dont elle ou il est responsable',
-  'Lecteur·trice': 'consulte seulement',
+  'Administrateur·trice': 'administrateur·trices de l\'application : comptes, permissions, imports, modèles',
+  'IA-IPR': 'relit, commente, signe, valide et transmet les rapports ; règle les modèles et la bibliothèque de phrases',
+  'CMi': 'chargé·e de mission : rédige et signe ses rapports, propose des phrases',
 };
 // Contrôles des tables de fiches (onglet Contrôles, commun/controles.js) : doublons par e-mail, doublons probables par
 // nom (dans un même `groupe` si indiqué), fiches sans e-mail.
@@ -31,33 +31,61 @@ export const CONTROLES_FICHES = [
 // Une entrée par règle d'accès « Limité » saisie dans Grist.
 /** @type {Record<string, string>} */
 export const PORTEES = {
-  'Projets:M': 'projet dont on est responsable',
+  'Personnes:M': 'sa propre fiche',
+  'Phrases:C': 'ses phrases, non validées',
+  'Phrases:M': 'ses phrases, non validées',
+  'Phrases:S': 'ses phrases, non validées',
+  'Rapports:C': 'ses rapports, en brouillon',
+  'Rapports:M': 'ses rapports, en brouillon ou à reprendre (jusqu\'à la soumission)',
+  'Rapports:S': 'ses rapports, en brouillon',
+  'Signatures:L': 'sa signature',
+  'Signatures:C': 'sa signature',
+  'Signatures:M': 'sa signature',
+  'Signatures:S': 'sa signature',
 };
-// Onglet Import (SPEC § 4.5, commun/import.js) : colonnes du fichier (liste blanche) et tables à remplir, dans l'ordre.
-// null = pas d'onglet Import. Exemple du fil rouge : une ligne par projet, avec l'e-mail de sa ou son responsable.
+// Onglet Import (SPEC § 4.5, commun/import.js) : le fichier académique des professeur·es (une ligne par affectation,
+// colonnes de l'établissement comprises) remplit Etablissements puis Professeurs. Liste blanche : la date de naissance,
+// le téléphone, les notes… ne sont jamais lus. Complément par l'Annuaire de l'éducation (e-mail, position) d'après l'UAI.
 /** @type {import('../commun/import.js').DeclarationImport | null} */
 export const IMPORT = {
   nomModele: `${PREFIXE}-modele-import.csv`,
   colonnes: {
-    email: { type: 'email', synonymes: ['courriel', 'mel', 'responsable'], libelle: 'e-mail de la ou du responsable', exemple: 'camille.martin@exemple.example' },
-    prenom: { type: 'texte', libelle: 'prénom de la ou du responsable', exemple: 'Camille' },
-    nom: { type: 'texte', libelle: 'nom de la ou du responsable', exemple: 'Martin' },
-    titre: { type: 'texte', obligatoire: true, synonymes: ['projet', 'intitule'], libelle: 'titre du projet', exemple: 'Atlas' },
-    statut: { type: 'choix', valeurs: ['En cours', 'Terminé'], libelle: 'état du projet', exemple: 'En cours' },
-    description: { type: 'texte', libelle: 'description du projet' },
+    civilite: { type: 'choix', valeurs: ['M.', 'Mme'], libelle: 'civilité', exemple: 'Mme' },
+    nom: { type: 'texte', obligatoire: true, libelle: 'nom d\'usage', exemple: 'GERMAIN' },
+    prenom: { type: 'texte', obligatoire: true, libelle: 'prénom', exemple: 'Sophie' },
+    statut: { type: 'texte', libelle: 'statut (Titulaire, CDD, CDI)', exemple: 'Titulaire' },
+    grade: { type: 'texte', libelle: 'grade', exemple: 'CERT. CL N' },
+    echelon: { type: 'entier', min: 0, max: 15, libelle: 'échelon', exemple: '7' },
+    typenomination: { type: 'texte', synonymes: ['type_nomination'], libelle: 'type de nomination (STG = stagiaire)', exemple: 'SER' },
+    discipline: { type: 'texte', synonymes: ['nom_disc_affect', 'nomdiscaffect'], libelle: 'discipline d\'affectation', exemple: 'MATHEMATIQUES' },
+    email: { type: 'email', synonymes: ['mail_ouvert', 'mailouvert', 'mail'], libelle: 'e-mail', exemple: 'sophie.germain@exemple.example' },
+    uai: { type: 'texte', obligatoire: true, synonymes: ['rne'], libelle: 'UAI (Rne) de l\'affectation', exemple: '0450939B' },
+    etabnom: { type: 'texte', synonymes: ['etab_nom'], libelle: 'nom de l\'établissement', exemple: 'ALAIN FOURNIER' },
+    etabsecteur: { type: 'texte', synonymes: ['etab_secteur'], libelle: 'secteur', exemple: 'SECTEUR PUBLIC' },
+    etabadresse: { type: 'texte', synonymes: ['etab_adresse'], libelle: 'adresse de l\'établissement' },
+    etabcodepostal: { type: 'texte', synonymes: ['etab_code_postal'], libelle: 'code postal', exemple: '45100' },
+    etabville: { type: 'texte', synonymes: ['etab_ville'], libelle: 'commune', exemple: 'ORLEANS' },
+    etabdepartement: { type: 'texte', synonymes: ['etab_departement'], libelle: 'département' },
+    etabbassin: { type: 'texte', synonymes: ['etab_bassin'], libelle: 'bassin' },
+    mel: { type: 'email', libelle: 'e-mail de l\'établissement (Annuaire de l\'éducation)' },
+    lat: { type: 'decimal', min: -90, max: 90, libelle: 'latitude (Annuaire de l\'éducation)' },
+    lon: { type: 'decimal', min: -180, max: 180, libelle: 'longitude (Annuaire de l\'éducation)' },
   },
+  annuaire: { uai: 'uai', colonnes: { etabnom: 'nom', etabville: 'commune', etabcodepostal: 'codePostal', etabdepartement: 'libelleDepartement', mel: 'email', lat: 'lat', lon: 'lon' } },
   tables: [
-    // Personnes : rapprochées par e-mail ; une personne existante n'est que complétée (cases vides).
-    { table: 'Personnes', cle: ['Email'], champs: { Email: 'email', Prenom: 'prenom', Nom: 'nom' } },
-    // Projets : rapprochés par titre ; complétés ; une ligne par responsable (réunis par projet), par leur e-mail.
-    { table: 'Projets', cle: ['Titre'], champs: { Titre: 'titre', Statut: 'statut', Description: 'description',
-      Responsables: { ref: 'Personnes', par: 'email', liste: true } } },
+    // Établissements : rapprochés par UAI ; complétés (cases vides).
+    { table: 'Etablissements', cle: ['UAI'], champs: { UAI: 'uai', Nom: 'etabnom', Adresse: 'etabadresse', Code_postal: 'etabcodepostal',
+      Commune: 'etabville', Mel: 'mel', Departement: 'etabdepartement', Bassin: 'etabbassin', Lat: 'lat', Lon: 'lon' } },
+    // Professeur·es : une ligne par affectation (nom + prénom + UAI) ; le fichier de l'année fait référence.
+    { table: 'Professeurs', cle: ['Nom', 'Prenom', 'UAI'], fusion: 'remplacer', champs: { Civilite: 'civilite', Nom: 'nom', Prenom: 'prenom',
+      Statut: 'statut', Grade: 'grade', Echelon: 'echelon', Type_nomination: 'typenomination', Discipline: 'discipline',
+      UAI: 'uai', Email: 'email' } },
   ],
 };
 // Onglet Export (SPEC § 4.6, commun/export.js) : une archive .zip avec un CSV lisible par table, import.csv
 // (réimportable par l'onglet Import, si `reimport` et IMPORT sont déclarés) et LISEZMOI.txt. null = pas d'onglet.
 /** @type {{ application: string, prefixe: string, tables: string[], reimport: boolean } | null} */
-export const EXPORT = { application: "Rapports d'inspection", prefixe: PREFIXE, tables: ['Personnes', 'Projets'], reimport: true };
+export const EXPORT = { application: "Rapports d'inspection", prefixe: PREFIXE, tables: TABLES_DONNEES.filter(t => t !== 'Signatures'), reimport: false };
 
 // Onglet Campagnes (SPEC § 5.5, commun/campagnes.js) : une campagne par période (année scolaire), une seule active.
 // null = pas d'onglet. Exemple (recensement annuel) :

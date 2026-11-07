@@ -1,0 +1,8 @@
+﻿Prenom,Nom,Fonction,Initiales,Referent,Titre_signature,Stagiaires,Email
+Claire,Fontaine,IA-IPR,CF,,L'IA-IPR,true,claire.fontaine@ac-exemple.example
+Bruno,Leroy,IA-IPR,BL,,L'IA-IPR,true,bruno.leroy@ac-exemple.example
+Nadia,Benali,IA-IPR,NB,,L'IA-IPR,false,nadia.benali@ac-exemple.example
+Julie,Moreau,CMi,JM,Claire Fontaine,La chargée de mission,false,julie.moreau@ac-exemple.example
+Thomas,Girard,CMi,TG,Bruno Leroy,Le chargé de mission,false,thomas.girard@ac-exemple.example
+Inès,Robert,CMi,IR,Nadia Benali,La chargée de mission,false,ines.robert@ac-exemple.example
+Paul,Lambert,CMi,PL,,Le chargé de mission,false,paul.lambert@ac-exemple.example

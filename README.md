@@ -48,24 +48,149 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 [Schéma des liens.]
 
 <!-- schema:tables -->
-#### `Personnes` — fiches des personnes (annuaire) ; Utilisateurs.Personne y renvoie
+#### `Personnes` — annuaire des CMi et IA-IPR ; Utilisateurs.Personne y renvoie
 
 | Colonne | Type | Rôle |
 |---|---|---|
 | `Prenom` | Texte | Prénom |
 | `Nom` | Texte | Nom |
-| `Email` | Texte | unique ; comparé à user.Email par les règles « ma fiche » |
+| `Fonction` | Choix | Fonction |
+| `Initiales` | Texte | unique ; fin du nom du PDF (AAAA_MM_JJ_NOM_Prenom_XX) |
+| `Referent` | Référence → Personnes | CMi : son ou sa référent·e (copie du mail de transmission) |
+| `Titre_signature` | Texte | au-dessus de la signature : « La chargée de mission », « L'IA-IPR »… (saisi, jamais calculé) |
+| `Stagiaires` | Booléen | IA-IPR en copie du mail pour tout rapport PSTG |
+| `Email` | Texte | unique ; adresse professionnelle |
 | `Nom_complet` | Texte (formule) | colonne affichée des références |
 
-#### `Projets` — projets suivis (gabarit liste / fiche)
+#### `Etablissements` — établissements de l'académie (annuaire de l'éducation, open data) ; importés depuis l'Administration
 
 | Colonne | Type | Rôle |
 |---|---|---|
-| `Titre` | Texte | unique |
-| `Statut` | Choix | Statut |
-| `Responsables` | Liste de références → Personnes | portée « Limité » des Contributeur·trices |
-| `Echeance` | Date | Échéance |
+| `UAI` | Texte | unique (= Rne) |
+| `Nom` | Texte | libellé complet : « Collège Alain Fournier » |
+| `Sigle` | Texte | CLG, LYC, LP… |
+| `Secteur` | Choix | Secteur |
+| `Adresse` | Texte | Adresse |
+| `Code_postal` | Texte | Code postal |
+| `Commune` | Texte | Commune |
+| `Mel` | Texte | ce.<uai>@ac-orleans-tours.fr |
+| `Departement` | Texte | Département |
+| `Bassin` | Texte | Bassin |
+| `Lat` | Numérique | Latitude |
+| `Lon` | Numérique | Longitude |
+| `Libelle` | Texte (formule) | colonne affichée des références (unique par l'UAI) |
+
+#### `Professeurs` — professeur·es de mathématiques de l'année (colonnes utiles du fichier académique, importé depuis l'Administration) ; les colonnes sensibles ne sont jamais importées
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Civilite` | Choix | Civilité |
+| `Nom` | Texte | Nom |
+| `Prenom` | Texte | Prénom |
+| `Statut` | Texte | Titulaire, CDD, CDI |
+| `Grade` | Texte | AGREGE CLN, CERT. CL N, AC2C1, MD1… |
+| `Echelon` | Entier | Échelon |
+| `Type_nomination` | Texte | STG = stagiaire, SER = en service |
+| `Discipline` | Texte | Nom_disc_affect |
+| `UAI` | Texte | Rne de l'affectation |
+| `Email` | Texte | mail_ouvert |
+| `Etablissement` | Référence → Etablissements (formule) | établissement d'après l'UAI |
+| `Libelle` | Texte (formule) | colonne affichée (une ligne par affectation) |
+
+#### `Types_rapport` — types de rapport : Classique, PSTG, MD
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Code` | Texte | unique : CLASSIQUE, PSTG, MD |
+| `Libelle` | Texte | « Visite d'accompagnement (titulaire) »… |
+| `Titre` | Texte | « RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS » |
+| `Positionnement` | Booléen | onglet de positionnement sur les compétences (jamais imprimé dans le rapport) |
+| `Ordre` | Numérique | Ordre |
+
+#### `Rubriques` — rubriques des rapports, dans l'ordre ; une rubrique sert à un ou plusieurs types
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Code` | Texte | unique, stable : clé du texte dans Rapports.Contenu (seance, entretien, competences, bilan, conseils…) |
+| `Titre` | Texte | titre imprimé ; unique (colonne affichée des références) |
+| `Types` | Liste de références → Types_rapport | Types de rapport |
+| `Ordre` | Numérique | Ordre |
+| `Forme` | Choix | Puces : une ligne = une puce à l'impression |
+| `Consigne` | Texte | aide à la rédaction (texte rouge du modèle) : affichée, jamais imprimée |
+| `Texte_depart` | Texte | texte proposé à la création du rapport |
+| `Imprimee` | Booléen | Imprimée |
+
+#### `Phrases` — bibliothèque de phrases types (aide à la rédaction)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Rubrique` | Référence → Rubriques | Rubrique |
+| `Competence` | Choix | Compétence |
+| `Nature` | Choix | Nature |
+| `Texte` | Texte | {nom}, {civilite}, {prenom} remplacés à l'insertion |
+| `Auteur` | Référence → Personnes | Auteur·e |
+| `Validee` | Booléen | phrase proposée par un·e CMi : visible de tous après validation |
+| `Ordre` | Numérique | Ordre |
+
+#### `Competences_MD` — grille de positionnement des maître·sses délégué·es (MD)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Code` | Texte | unique : C1, C2… |
+| `Libelle` | Texte | Compétence |
+| `Domaine` | Texte | Domaine |
+| `Ordre` | Numérique | Ordre |
+
+#### `Parametres` — réglages de l'application (une ligne par clé)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Cle` | Texte | unique : discipline, secretariat, mail_objet, mail_texte, echelle_md… |
+| `Valeur` | Texte | Valeur |
 | `Description` | Texte | Description |
+
+#### `Rapports` — un rapport de visite ; identité recopiée à la création (le fichier des professeur·es change chaque année)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Type` | Référence → Types_rapport | Type |
+| `Professeur` | Référence → Professeurs | lien vers l'année en cours (peut se perdre au changement d'année) |
+| `Prof_civilite` | Texte | Civilité |
+| `Prof_nom` | Texte | Nom |
+| `Prof_prenom` | Texte | Prénom |
+| `Prof_statut` | Texte | Grade · Statut · échelon, composé à la création |
+| `Stagiaire_hors_liste` | Booléen | PSTG choisi pour un·e professeur·e non STG (alerte Siiprien) |
+| `UAI` | Texte | UAI |
+| `Etab_nom` | Texte | Établissement |
+| `Etab_commune` | Texte | Commune |
+| `Date_visite` | Date | Date de la visite |
+| `Heure` | Texte | HH:MM |
+| `Classe` | Texte | Classe |
+| `Effectif` | Entier | Effectif |
+| `Theme` | Texte | Thème |
+| `Contenu` | Texte | JSON { code de rubrique : texte } — chiffré |
+| `Structure` | Texte | JSON des rubriques (titres, ordre, forme) figé à la création : un modèle modifié ne change pas les anciens rapports |
+| `Positionnement` | Texte | JSON { code compétence : niveau } — chiffré |
+| `Commentaires` | Texte | JSON { code de rubrique : commentaire } — chiffré |
+| `Statut` | Choix | Statut |
+| `Auteur` | Référence → Personnes | portée « Limité » des CMi |
+| `Valideur` | Référence → Personnes | référent·e de l'auteur·e par défaut |
+| `Signature_cmi` | Texte | image (data URL) posée par le ou la CMi — chiffrée |
+| `Signature_ipr` | Texte | image (data URL) posée par l'IA-IPR — chiffrée |
+| `Signe_cmi_le` | Date | Signé CMi le |
+| `Valide_le` | Date | Validé le |
+| `Transmis_le` | Date | Transmis le |
+| `Historique` | Texte | JSON [{ date, qui, action }] |
+| `Annee` | Texte (formule) | Année scolaire |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
+#### `Signatures` — signature enregistrée de chaque compte ; chacun·e ne lit et n'écrit que la sienne
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Email` | Texte | exactement user.Email |
+| `Image` | Texte | image PNG (data URL) |
+| `Modifie_le` | Date | Modifiée le |
 
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit
 

@@ -1,0 +1,14 @@
+﻿Cle,Valeur,Description
+discipline,Mathématiques,discipline imprimée dans le tableau d'identification
+entete,"Inspection académique
+Inspection pédagogique régionale
+Mathématiques",lignes de l'en-tête du rapport
+secretariat,secretariat-ipr@ac-exemple.example,destinataire du mail de transmission
+mail_objet,Rapport de visite – {etablissement} – {professeur},"objet du mail ; champs : {etablissement}, {professeur}, {auteur}, {date}"
+mail_texte,"Bonjour,
+
+Voici un rapport à transmettre à l'établissement {etablissement}.
+Auteur : {auteur}
+
+Amicalement,",texte du mail ; mêmes champs que l'objet
+echelle_md,Insuffisant ; À consolider ; Satisfaisant ; Très satisfaisant,"niveaux du positionnement MD, séparés par « ; »"

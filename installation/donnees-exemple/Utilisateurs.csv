@@ -1,6 +1,8 @@
 ﻿Email,Roles,Personne,Actif
-admin@exemple.example,Administrateur·trice,,true
-camille.martin@exemple.example,Gestionnaire,Camille Martin,true
-sacha.bernard@exemple.example,Contributeur·trice,Sacha Bernard,true
-dominique.petit@exemple.example,"Contributeur·trice, Lecteur·trice",Dominique Petit,false
-lecteur@exemple.example,Lecteur·trice,,true
+admin@ac-exemple.example,Administrateur·trice,,true
+claire.fontaine@ac-exemple.example,IA-IPR,Claire Fontaine,true
+bruno.leroy@ac-exemple.example,IA-IPR,Bruno Leroy,true
+julie.moreau@ac-exemple.example,CMi,Julie Moreau,true
+thomas.girard@ac-exemple.example,CMi,Thomas Girard,true
+ines.robert@ac-exemple.example,CMi,Inès Robert,true
+paul.lambert@ac-exemple.example,CMi,Paul Lambert,false

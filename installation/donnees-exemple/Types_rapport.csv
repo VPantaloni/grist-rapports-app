@@ -1,0 +1,4 @@
+﻿Code,Libelle,Titre,Positionnement,Ordre
+CLASSIQUE,Visite d'accompagnement (titulaire),"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",false,10
+PSTG,Visite de professeur·e stagiaire,"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",false,20
+MD,Visite de maître·sse délégué·e (privé),"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",true,30

@@ -8,8 +8,9 @@ import { compteConnecte } from '../commun/droits.js';
 // l'icône est dans ICONES de index.html (même clé). Exemple : Personnes, Projets, Administration.
 /** @type {Record<string, { dossier: string, libelle: string }>} */
 export const ECRANS = {
-  personnes: { dossier: 'personnes', libelle: 'Personnes' },
-  projets: { dossier: 'projets', libelle: 'Projets' },
+  rapports: { dossier: 'rapports', libelle: 'Rapports' },
+  modeles: { dossier: 'modeles', libelle: 'Modèles & phrases' },
+  annuaire: { dossier: 'annuaire', libelle: 'Annuaire' },
   admin: { dossier: 'admin', libelle: 'Administration' },
   // Ajouté par le conteneur (pas de ligne Navigation) pour qui n'a pas l'Administration : même widget, onglet Mon compte.
   compte: { dossier: 'admin', libelle: 'Mon compte' },
@@ -18,7 +19,7 @@ export const ECRANS = {
 // leur lecture jusqu'à une écriture, un retour sur l'écran ou le bouton ↻ ; la relecture des 15 s ne les relit pas.
 // À ADAPTER (APP § 9) : noms de tables, [] si aucune.
 /** @type {string[]} */
-export const TABLES_STABLES = [];
+export const TABLES_STABLES = ['Etablissements', 'Professeurs', 'Types_rapport', 'Rubriques', 'Competences_MD', 'Parametres'];
 
 // Reprise d'une application d'avant la v2 (SPEC § 9) : noms sous lesquels ses anciens écrans cherchent le relais
 // (ex. 'laboHote'). Ils n'utilisent que api(fenetre) : ready, onRecords, fetchTable, applyUserActions, comme le relais
