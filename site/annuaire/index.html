@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Annuaire pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  #app { flex: 1; display: flex; min-height: 0; }
+  #menu { width: 290px; flex: none; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .outils { padding: 8px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
+  .outils .ligne { display: flex; gap: 6px; } .outils input { flex: 1; min-width: 0; }
+  #liste { flex: 1; overflow-y: auto; }
+  .groupe > button { width: 100%; text-align: left; border: none; border-radius: 0; background: var(--bg2);
+    border-bottom: 1px solid var(--border); border-left: 4px solid var(--border); font-weight: 600; padding: 6px 8px; }
+  .groupe > button .nb { color: var(--muted); font-weight: normal; }
+  .groupe ul { list-style: none; margin: 0; padding: 0; }
+  .groupe li { padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--border); cursor: pointer; border-left: 3px solid transparent; }
+  .groupe li:hover { background: var(--bg2); } .groupe li.sel { background: var(--sel); border-left-color: var(--accent); }
+  .groupe li .det { display: block; font-size: 12px; color: var(--muted); }
+  #fiche { flex: 1; overflow-y: auto; padding: 14px 16px; min-width: 0; position: relative; }
+  #aide { position: absolute; top: 8px; right: 10px; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center;
+    justify-content: center; text-decoration: none; color: var(--fg); background: var(--bg2); border: 1px solid var(--border); }
+  #aide:hover { border-color: var(--accent); color: var(--accent); }
+  .entete { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin: 0 36px 10px 0; }
+  .entete h1 { font-size: 19px; margin: 0; flex: 1; min-width: 200px; }
+  .entete .sous { display: block; font-size: 13px; font-weight: normal; color: var(--muted); margin-top: 2px; }
+  .bloc { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+  .bloc h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
+  .suggestions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; } .suggestions button { font-size: 12px; padding: 1px 8px; }
+  @media (max-width: 640px) { body.plein-ecran { overflow: auto; height: auto; } #app { flex-direction: column; }
+    #menu { width: auto; border-right: none; border-bottom: 1px solid var(--border); } #liste { max-height: 40vh; } }
+</style>
+</head>
+<body class="plein-ecran">
+<div id="msg">Chargement…</div>
+<div id="app" hidden>
+  <aside id="menu">
+    <div class="outils">
+      <button id="nouveau" class="primary">+ Nouvelle fiche</button>
+      <div class="ligne"><input id="recherche" type="search" placeholder="Rechercher (nom, initiales, e-mail)…"><button id="recharger" title="Relire les tables">↻</button></div>
+    </div>
+    <div id="liste"></div>
+  </aside>
+  <main id="fiche"></main>
+</div>
+
+<script type="module">
+import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { identifierMoi, droitsTable } from '../commun/droits.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
+import { liste } from '../commun/donnees.js';
+import { TABLE, FONCTIONS, TITRES, nomComplet, grouper, initialesProposees, validerFiche, champsFiche, peutModifier,
+  empecheSuppression, compteDe, actionsAcces } from './logique.js';
+
+const pref = preferences('Annuaire');
+const D = { personnes: [], utilisateurs: [], rapports: [], phrases: [] };
+let moi = null, droits = droitsTable(null, TABLE), admin = false;
+let sel = Number(pref.lire('Sel', '0')) || 0;
+let edition = null;
+const AIDE = '<a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide : mode d\'emploi de l\'Annuaire">?</a>';
+const personne = id => D.personnes.find(p => p.id === id);
+function choisir(id) { sel = id; pref.ecrire('Sel', String(id)); }
+
+function afficherListe() {
+  const g = grouper(D.personnes, $('recherche').value);
+  $('liste').innerHTML = g.length ? g.map(x => `<div class="groupe"><button type="button" disabled>${esc(x.titre)} <span class="nb">(${x.personnes.length})</span></button>
+    <ul>${x.personnes.map(p => `<li data-id="${p.id}" class="${p.id === sel ? 'sel' : ''}">${esc(nomComplet(p))}${p.Initiales ? ` <span class="muted">(${esc(p.Initiales)})</span>` : ''}
+      <span class="det">${esc(p.Email || 'sans e-mail')}${p.Stagiaires ? ' · stagiaires' : ''}${compteDe(p, D.utilisateurs) ? '' : (admin ? ' · sans accès' : '')}</span></li>`).join('')}</ul></div>`).join('')
+    : '<p class="vide">Aucune fiche. « + Nouvelle fiche » pour commencer (vous-même d\'abord).</p>';
+  const ok = droits.C === 'Oui';
+  $('nouveau').classList.toggle('inactif', !ok);
+  $('nouveau').title = ok ? 'Créer une fiche (CMi ou IA-IPR)' : 'Création réservée aux administrateur·trices';
+}
+
+function afficherFiche() {
+  if (edition) return afficherFormulaire();
+  const p = personne(sel);
+  if (!p) { $('fiche').innerHTML = AIDE + '<p class="vide">Choisis une fiche dans la liste.</p>'; return; }
+  const ref = personne(p.Referent), cmi = D.personnes.filter(x => x.Referent === p.id);
+  const u = compteDe(p, D.utilisateurs);
+  const modif = peutModifier(droits, moi, p);
+  $('fiche').innerHTML = `${AIDE}<div class="entete"><h1>${esc(nomComplet(p))}<span class="sous">${esc(p.Fonction || '')}${p.Initiales ? ' · ' + esc(p.Initiales) : ''}</span></h1>
+      ${droits.M !== 'Non' ? `<button id="modifier" class="${modif ? '' : 'inactif'}" title="${modif ? 'Modifier cette fiche' : 'Seule sa propre fiche se modifie'}">Modifier</button>` : ''}
+      ${droits.S === 'Oui' ? '<button id="supprimer" class="danger" title="Supprimer (double clic)">Supprimer</button>' : ''}</div>
+    <div class="bloc"><h2>Fiche</h2><dl>
+      <dt>E-mail</dt><dd>${esc(p.Email) || '<span class="muted">—</span>'}</dd>
+      <dt>Titre de signature</dt><dd>${esc(p.Titre_signature) || '<span class="muted">— (titre par défaut)</span>'}</dd>
+      ${p.Fonction === 'IA-IPR' ? `<dt>Stagiaires</dt><dd>${p.Stagiaires ? 'en copie des rapports PSTG' : 'non'}</dd>
+        <dt>CMi référé·es</dt><dd>${cmi.length ? cmi.map(x => esc(nomComplet(x))).join(', ') : '<span class="muted">aucun·e</span>'}</dd>`
+        : `<dt>IA-IPR référent·e</dt><dd>${ref ? esc(nomComplet(ref)) : '<span class="ko">aucun·e</span>'}</dd>`}
+    </dl></div>
+    ${admin ? `<div class="bloc"><h2>Accès à l'application</h2>${u
+      ? `<p>Compte <code>${esc(u.Email)}</code> · rôles ${esc(liste(u.Roles).join(', ') || '—')} · ${u.Actif ? 'actif' : '<span class="ko">inactif</span>'}${u.Personne === p.id ? '' : ' · <span class="ko">non relié à cette fiche</span>'}</p>
+        ${!u.Actif || u.Personne !== p.id || !liste(u.Roles).includes(p.Fonction) ? '<button id="acces">Mettre à jour l\'accès</button>' : ''}`
+      : `<p class="muted">Pas encore de compte.</p><button id="acces" ${p.Email ? '' : 'class="inactif" title="Renseigner d\'abord l\'e-mail (celui du compte Grist)"'}>Donner accès à l'application</button>`}
+      <p class="petit muted">Le compte utilise l'e-mail de la fiche : il doit être exactement celui du compte Grist. Penser aussi à partager le document Grist avec cette personne.</p></div>` : ''}`;
+  if ($('modifier') && modif) $('modifier').addEventListener('click', () => { edition = { id: p.id, ...p }; afficherFiche(); });
+  if ($('supprimer')) {
+    const raison = empecheSuppression(p, D);
+    if (raison) { $('supprimer').classList.add('inactif'); $('supprimer').title = 'Suppression impossible : ' + raison; }
+    else boutonConfirmation($('supprimer'), 'Confirmer la suppression', async () => { if (await ecrire([['RemoveRecord', TABLE, p.id]], 'Fiche supprimée', charger)) { choisir(0); afficherFiche(); } });
+  }
+  if ($('acces') && !$('acces').classList.contains('inactif')) $('acces').addEventListener('click', async () => {
+    const a = actionsAcces(p, D.utilisateurs);
+    if (a) await ecrire(a, 'Accès donné', charger);
+    afficherFiche();
+  });
+}
+
+function afficherFormulaire() {
+  const f = edition, ipr = D.personnes.filter(x => x.Fonction === 'IA-IPR' && x.id !== f.id);
+  $('fiche').innerHTML = `${AIDE}<div class="entete"><h1>${f.id ? 'Modifier la fiche' : 'Nouvelle fiche'}</h1></div>
+    <div class="grille">
+      <label class="champ"><span>Prénom</span><input type="text" id="f-Prenom" value="${esc(f.Prenom || '')}"></label>
+      <label class="champ"><span>Nom</span><input type="text" id="f-Nom" value="${esc(f.Nom || '')}"></label>
+      <label class="champ"><span>Fonction</span><select id="f-Fonction" ${admin || !f.id ? '' : 'disabled title="Réservé aux administrateur·trices"'}><option value="">—</option>
+        ${FONCTIONS.map(x => `<option ${x === f.Fonction ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label class="champ"><span>Initiales (nom du PDF)</span><input type="text" id="f-Initiales" value="${esc(f.Initiales || '')}" maxlength="5"></label>
+      <label class="champ"><span>E-mail (celui du compte Grist)</span><input type="text" id="f-Email" value="${esc(f.Email || '')}"></label>
+      ${f.Fonction === 'IA-IPR' ? `<label class="champ"><span>Rapports PSTG</span><label><input type="checkbox" id="f-Stagiaires" ${f.Stagiaires ? 'checked' : ''}> en copie des rapports de stagiaires</label></label>`
+        : `<label class="champ"><span>IA-IPR référent·e</span><select id="f-Referent"><option value="0">—</option>
+          ${ipr.map(x => `<option value="${x.id}" ${x.id === f.Referent ? 'selected' : ''}>${esc(nomComplet(x))}</option>`).join('')}</select></label>`}
+    </div>
+    <label class="champ"><span>Titre au-dessus de la signature</span><input type="text" id="f-Titre_signature" value="${esc(f.Titre_signature || '')}" placeholder="La chargée de mission">
+      <div class="suggestions">${TITRES.map(t => `<button type="button" data-titre="${esc(t)}">${esc(t)}</button>`).join('')}</div></label>
+    <ul class="erreurs" id="f-erreurs"></ul>
+    <div class="actions"><button id="f-ok" class="primary">Enregistrer</button><button id="f-annuler">Annuler</button></div>`;
+  const lire = () => {
+    for (const c of ['Prenom', 'Nom', 'Initiales', 'Email', 'Titre_signature']) f[c] = $('f-' + c).value;
+    f.Fonction = $('f-Fonction').value;
+    if ($('f-Referent')) f.Referent = Number($('f-Referent').value) || 0;
+    if ($('f-Stagiaires')) f.Stagiaires = $('f-Stagiaires').checked;
+  };
+  $('f-Fonction').addEventListener('change', () => { lire(); afficherFormulaire(); });
+  const ini = () => { if (!f.id && !$('f-Initiales').value.trim()) $('f-Initiales').placeholder = initialesProposees($('f-Prenom').value, $('f-Nom').value); };
+  $('f-Prenom').addEventListener('input', ini); $('f-Nom').addEventListener('input', ini); ini();
+  $('fiche').querySelectorAll('[data-titre]').forEach(b => b.addEventListener('click', () => { $('f-Titre_signature').value = b.dataset.titre; }));
+  $('f-annuler').addEventListener('click', () => { edition = null; afficherFiche(); });
+  $('f-ok').addEventListener('click', async () => {
+    lire();
+    if (!f.Initiales.trim()) f.Initiales = initialesProposees(f.Prenom, f.Nom);
+    const err = validerFiche(f, D.personnes, f.id || null);
+    $('f-erreurs').innerHTML = err.map(e => `<li>${esc(e)}</li>`).join('');
+    if (err.length) return;
+    const champs = champsFiche(f);
+    if (f.id) { if (await ecrire([['UpdateRecord', TABLE, f.id, champs]], 'Fiche enregistrée', charger)) { edition = null; afficherFiche(); } return; }
+    const res = await ecrire([['AddRecord', TABLE, null, champs]], 'Fiche créée');
+    if (!res) return;
+    edition = null;
+    if (res.retValues && res.retValues[0]) choisir(res.retValues[0]);
+    await charger(); afficherFiche();
+  });
+}
+
+const change = detecteurChangement();
+const charger = sansChevauchement(async () => {
+  const [p, u, r, ph] = await Promise.all([lireTable(TABLE), lireTable('Utilisateurs'), lireTable('Rapports'), lireTable('Phrases')]);
+  if (p.erreur) { message(`Impossible de lire la table ${TABLE} : ${p.erreur}`, true); $('app').hidden = true; return; }
+  D.personnes = p.lignes; D.utilisateurs = u.lignes || []; D.rapports = r.lignes || []; D.phrases = ph.lignes || [];
+  moi = identifierMoi(D.utilisateurs).moi;
+  droits = droitsTable(moi, TABLE);
+  admin = !!moi && liste(moi.Roles).includes('Administrateur·trice');
+  if (sel && !personne(sel)) choisir(0);
+  if (!sel && moi && moi.Personne) choisir(moi.Personne);
+  if (!change([p.lignes, u.lignes, sel]) && !$('app').hidden) return;
+  message(''); $('app').hidden = false;
+  afficherListe();
+  if (!edition) afficherFiche();
+});
+
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  grist.onRecords(regrouper(charger));
+  installerBulles();
+  $('recherche').addEventListener('input', afficherListe);
+  $('recharger').addEventListener('click', () => relireSansCache(charger));
+  $('nouveau').addEventListener('click', () => {
+    if (droits.C !== 'Oui') { toast($('nouveau').title + '.', true); return; }
+    edition = { id: null, Prenom: '', Nom: '', Fonction: 'CMi', Initiales: '', Email: '', Titre_signature: '', Referent: (moi && moi.Personne) || 0, Stagiaires: false };
+    afficherFiche();
+  });
+  $('liste').addEventListener('click', e => {
+    const li = e.target.closest('li[data-id]');
+    if (!li) return;
+    if (edition) { toast('Termine d\'abord la modification (Enregistrer ou Annuler).', true); return; }
+    choisir(Number(li.dataset.id)); afficherListe(); afficherFiche();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && edition) { edition = null; afficherFiche(); } });
+  relectureReguliere(charger, () => !!edition);
+  await charger();
+}
+</script>
+</body>
+</html>
