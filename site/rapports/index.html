@@ -233,7 +233,8 @@ function afficherCreation() {
   const etab = c.uai && D.etabs.find(e => e.UAI === c.uai);
   const p = c.prof && D.profs.find(x => x.id === c.prof);
   const ipr = D.personnes.filter(x => x.Fonction === 'IA-IPR');
-  const cmi = D.personnes.filter(x => x.Fonction === 'CMi');
+  // Auteur·e : les CMi d'abord, puis les IA-IPR (un·e IA-IPR peut aussi rédiger un rapport).
+  const cmi = [...D.personnes].sort((a, b) => (a.Fonction === 'CMi' ? 0 : 1) - (b.Fonction === 'CMi' ? 0 : 1) || nomFiche(a).localeCompare(nomFiche(b), 'fr'));
   $('phrases').hidden = true;
   $('fiche').innerHTML = `<div class="entete"><h1>Nouveau rapport<span class="sous">Choisir le ou la professeur·e (ou d'abord l'établissement), puis compléter l'en-tête.</span></h1></div>
     ${!p ? `${etab ? `<div class="puce">Établissement : <strong>${esc(etab.Nom)}</strong> (${esc(etab.Commune)}) <button id="c-sans-etab" title="Retirer l'établissement">✕</button></div>` : ''}
@@ -250,17 +251,19 @@ function afficherCreation() {
         ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Nom || '')} ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Commune || '')} — UAI ${esc(p.UAI)}
         <button class="lien" id="c-autre">Changer</button></p></div>
       <div class="grille">
-        <label class="champ"><span>Type de rapport</span><select id="c-type">${D.types.map(t => `<option value="${esc(t.Code)}" ${t.Code === c.typeCode ? 'selected' : ''}>${esc(t.Libelle || t.Code)}</option>`).join('')}</select></label>
+        <label class="champ"><span>Type de rapport</span><select id="c-type">${D.types.length ? '' : '<option value="">— aucun type —</option>'}${D.types.map(t => `<option value="${esc(t.Code)}" ${t.Code === c.typeCode ? 'selected' : ''}>${esc(t.Libelle || t.Code)}</option>`).join('')}</select></label>
         <label class="champ"><span>Date de la visite</span><input type="date" id="c-date" value="${esc(c.date)}"></label>
         <label class="champ"><span>Heure</span><input type="text" id="c-heure" value="${esc(c.heure)}" placeholder="08:30"></label>
         <label class="champ"><span>Classe</span><input type="text" id="c-classe" value="${esc(c.classe)}" placeholder="4e B"></label>
         <label class="champ"><span>Effectif</span><input type="text" id="c-effectif" value="${esc(c.effectif)}" inputmode="numeric"></label>
-        ${!moiPers() || estAdmin(moi) ? `<label class="champ"><span>CMi (auteur·e)</span><select id="c-auteur"><option value="">—</option>
-          ${cmi.map(x => `<option value="${x.id}" ${x.id === c.auteur ? 'selected' : ''}>${esc(nomFiche(x))}</option>`).join('')}</select></label>` : ''}
+        ${!moiPers() || estAdmin(moi) ? `<label class="champ"><span>Auteur·e (CMi)</span><select id="c-auteur"><option value="">—</option>
+          ${cmi.map(x => `<option value="${x.id}" ${x.id === c.auteur ? 'selected' : ''}>${esc(nomFiche(x))}${x.Fonction === 'IA-IPR' ? ' (IA-IPR)' : ''}</option>`).join('')}</select></label>` : ''}
         <label class="champ"><span>IA-IPR</span><select id="c-valideur"><option value="">—</option>
           ${ipr.map(x => `<option value="${x.id}" ${x.id === c.valideur ? 'selected' : ''}>${esc(nomFiche(x))}</option>`).join('')}</select></label>
         <label class="champ large"><span>Thème de la séance</span><input type="text" id="c-theme" value="${esc(c.theme)}"></label>
       </div>
+      ${!D.types.length ? '<div class="alerte ko">La table <strong>Types_rapport</strong> est vide (et sans doute aussi Rubriques et Phrases) : écran Installer → « Importer les données d\'exemple », qui ne remplit que les tables vides.</div>' : ''}
+      ${D.types.length && !D.rubriques.length ? '<div class="alerte">La table <strong>Rubriques</strong> est vide : le rapport n\'aura aucune rubrique à rédiger.</div>' : ''}
       ${pstgHorsListe(c.typeCode, p) ? '<div class="alerte">⚠ Pas dans la liste des stagiaires de Siiprien (type de nomination : '
         + esc(p.Type_nomination || 'vide') + '). Le rapport PSTG sera marqué « hors liste ».</div>' : ''}
       <ul class="erreurs" id="c-erreurs"></ul>
@@ -645,7 +648,7 @@ if (await initialiserGrist()) {
     await envoyer();
     const a = personne(moiPers());
     creation = { q: '', uai: '', prof: 0, typeCode: 'CLASSIQUE', date: new Date().toISOString().slice(0, 10), heure: '', classe: '', effectif: '',
-      theme: '', valideur: (a && a.Fonction === 'IA-IPR' ? a.id : a && a.Referent) || 0, auteur: a && a.Fonction === 'CMi' ? a.id : 0 };
+      theme: '', valideur: (a && a.Fonction === 'IA-IPR' ? a.id : a && a.Referent) || 0, auteur: a ? a.id : 0 };
     afficherFiche();
   });
   $('liste').addEventListener('click', async e => {
