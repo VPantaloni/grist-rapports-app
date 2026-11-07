@@ -30,6 +30,47 @@ export const CONTROLES_FICHES = [
 // Portées « Limité » définies dans les règles d'accès (APP § 8) ; ailleurs, Limité vaut Non.
 // Une entrée par règle d'accès « Limité » saisie dans Grist.
 /** @type {Record<string, string>} */
+// Matrice par défaut (APP § 8) : [Lire, Créer, Modifier, Supprimer] par rôle et par table. Sert au bouton « Appliquer
+// les droits par défaut » de l'onglet Permissions et au fichier d'exemple Permissions.csv (même contenu, testé).
+/** @type {Record<string, Record<string, string[]>>} */
+export const MATRICE_DEFAUT = (() => {
+  const O = 'Oui', N = 'Non', L = 'Limité';
+  /** @type {Record<string, [string[], string[]]>} table : [IA-IPR, CMi] */
+  const m = {
+    Personnes: [[O, N, L, N], [O, N, L, N]],
+    Etablissements: [[O, N, N, N], [O, N, N, N]],
+    Professeurs: [[O, N, N, N], [O, N, N, N]],
+    Types_rapport: [[O, N, O, N], [O, N, N, N]],
+    Rubriques: [[O, O, O, O], [O, N, N, N]],
+    Phrases: [[O, O, O, O], [O, L, L, L]],
+    Competences_MD: [[O, O, O, O], [O, N, N, N]],
+    Parametres: [[O, N, O, N], [O, N, N, N]],
+    Rapports: [[O, O, O, N], [O, L, L, L]],
+    Signatures: [[L, L, L, L], [L, L, L, L]],
+  };
+  return {
+    'Administrateur·trice': Object.fromEntries(Object.keys(m).map(t => [t, [O, O, O, O]])),
+    'IA-IPR': Object.fromEntries(Object.entries(m).map(([t, v]) => [t, v[0]])),
+    CMi: Object.fromEntries(Object.entries(m).map(([t, v]) => [t, v[1]])),
+  };
+})();
+// Actions pour appliquer la matrice par défaut à un rôle : lignes manquantes créées, lignes différentes corrigées.
+/** @param {string} role @param {Ligne[]} permissions @returns {any[]} */
+export function actionsMatriceDefaut(role, permissions) {
+  const defaut = MATRICE_DEFAUT[role] || {};
+  const { index } = indexPermissions(permissions);
+  const lignes = index[role] || {};
+  /** @type {any[]} */
+  const actions = [];
+  for (const [t, [Lire, Creer, Modifier, Supprimer]] of Object.entries(defaut)) {
+    const v = { Lire, Creer, Modifier, Supprimer };
+    const l = lignes[t];
+    if (!l) actions.push(['AddRecord', 'Permissions', null, { Role: role, Table: t, ...v }]);
+    else if (Object.entries(v).some(([k, x]) => l[k] !== x)) actions.push(['UpdateRecord', 'Permissions', l.id, v]);
+  }
+  return actions;
+}
+
 export const PORTEES = {
   'Personnes:M': 'sa propre fiche',
   'Phrases:C': 'ses phrases, non validées',

@@ -274,21 +274,21 @@
     {
       "id": "Rubriques",
       "role": "rubriques des rapports, dans l'ordre ; une rubrique sert à un ou plusieurs types",
-      "affichee": "Titre",
+      "affichee": "Code",
       "colonnes": [
         {
           "id": "Code",
           "libelle": "Code",
           "type": "Text",
           "obligatoire": true,
-          "role": "unique, stable : clé du texte dans Rapports.Contenu (seance, entretien, competences, bilan, conseils…)"
+          "role": "unique, stable (colonne affichée des références) : clé du texte dans Rapports.Contenu"
         },
         {
           "id": "Titre",
           "libelle": "Titre",
           "type": "Text",
           "obligatoire": true,
-          "role": "titre imprimé ; unique (colonne affichée des références)"
+          "role": "titre (imprimé si « Titre imprimé ») ; deux rubriques peuvent avoir le même titre (ex. bilan par compétences, version MD)"
         },
         {
           "id": "Types",
@@ -394,7 +394,7 @@
     },
     {
       "id": "Competences_MD",
-      "role": "grille de positionnement des maître·sses délégué·es (MD)",
+      "role": "grille de positionnement des maître·sses délégué·es (MD) : compétences et descripteurs par niveau",
       "affichee": "Code",
       "colonnes": [
         {
@@ -402,13 +402,19 @@
           "libelle": "Code",
           "type": "Text",
           "obligatoire": true,
-          "role": "unique : C1, C2…"
+          "role": "unique : MD1, MD2…"
         },
         {
           "id": "Libelle",
           "libelle": "Compétence",
           "type": "Text",
           "obligatoire": true
+        },
+        {
+          "id": "Descripteurs",
+          "libelle": "Descripteurs",
+          "type": "Text",
+          "role": "aide au positionnement : un paragraphe par niveau, commençant par « Niveau : » (ex. « À consolider : … »)"
         },
         {
           "id": "Domaine",

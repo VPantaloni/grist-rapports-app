@@ -73,7 +73,9 @@
   #phrases .filtres { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
   #phrases .filtres button { padding: 1px 7px; font-size: 12px; }
   #phrases .filtres button.actif { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-  table.md td.c input { margin: 0; }
+  .md .niveaux { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; }
+  .md .niveau { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+  .md .niveau.choisi { border-color: var(--accent); background: var(--sel); }
   .signature img { max-width: 260px; max-height: 100px; background: #fff; border: 1px solid var(--border); border-radius: 4px; }
 
   dialog { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-width: 520px; width: calc(100% - 32px);
@@ -131,7 +133,7 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
-  redigeParIpr, peutValiderSeul, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
+  redigeParIpr, peutValiderSeul, niveauxMd, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
@@ -394,13 +396,15 @@ function afficherFiche() {
 }
 
 function corpsMd(r, redige) {
-  const niveaux = String(D.params.echelle_md || 'Insuffisant ; À consolider ; Satisfaisant ; Très satisfaisant').split(';').map(x => x.trim()).filter(Boolean);
+  const niveaux = niveauxMd(D.params.echelle_md);
   const p = lireObjet(r.Positionnement);
   const comps = [...D.competences].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
   return `<p class="muted">Positionnement du ou de la maître·sse délégué·e : enregistré avec le rapport, <strong>jamais imprimé dans le rapport</strong>.</p>
-    <table class="md"><tr><th>Compétence</th>${niveaux.map(n => `<th class="c">${esc(n)}</th>`).join('')}</tr>
-    ${comps.map(k => `<tr><td>${esc(k.Code)} – ${esc(k.Libelle)}</td>${niveaux.map(n => `<td class="c"><input type="radio" name="md-${esc(k.Code)}"
-      data-md="${esc(k.Code)}" value="${esc(n)}" ${p[k.Code] === n ? 'checked' : ''} ${redige ? '' : 'disabled'}></td>`).join('')}</tr>`).join('')}</table>
+    ${D.params.aide_md ? `<div class="alerte petit">${esc(D.params.aide_md)}</div>` : ''}
+    ${comps.map(k => { const d = descripteurs(k.Descripteurs, niveaux); return `<div class="bloc md"><h3 style="font-size:14px;margin:0 0 6px">${esc(k.Libelle)}</h3>
+      <div class="niveaux">${niveaux.map(n => `<label class="niveau ${p[k.Code] === n ? 'choisi' : ''}"><span><input type="radio" name="md-${esc(k.Code)}"
+        data-md="${esc(k.Code)}" value="${esc(n)}" ${p[k.Code] === n ? 'checked' : ''} ${redige ? '' : 'disabled'}> <strong>${esc(n)}</strong></span>
+        ${d[n] ? `<span class="petit">${esc(d[n])}</span>` : ''}</label>`).join('')}</div></div>`; }).join('')}
     <div class="actions"><button id="imprimer-md">Imprimer le positionnement</button></div>`;
 }
 function corpsHistorique(r) {
@@ -471,10 +475,11 @@ function brancherFiche(r) {
   const comms = () => { const o = lireObjet(r.Commentaires); fiche.querySelectorAll('[data-comm]').forEach(t => { if (t.value.trim()) o[t.dataset.comm] = t.value; else delete o[t.dataset.comm]; }); return o; };
   fiche.querySelectorAll('[data-comm]').forEach(t => t.addEventListener('input', () => noter(r.id, { Commentaires: JSON.stringify(comms()), Valideur: moiPers() || r.Valideur })));
   fiche.querySelectorAll('[data-md]').forEach(i => i.addEventListener('change', () => {
-    const p = lireObjet(r.Positionnement); p[i.dataset.md] = i.value; noter(r.id, { Positionnement: JSON.stringify(p) });
+    i.closest('.niveaux').querySelectorAll('.niveau').forEach(l => l.classList.toggle('choisi', l.contains(i)));
+    const p = lireObjet(r.Positionnement); p[i.dataset.md] = i.value; r.Positionnement = JSON.stringify(p); noter(r.id, { Positionnement: r.Positionnement });
   }));
   if ($('imprimer-md')) $('imprimer-md').addEventListener('click', () => ouvrirOnglet(htmlPositionnement(r, D.competences,
-    String(D.params.echelle_md || '').split(';').map(x => x.trim()).filter(Boolean), `Positionnement MD – ${r.Prof_nom} ${r.Prof_prenom}`), 'positionnement'));
+    niveauxMd(D.params.echelle_md), `Positionnement MD – ${r.Prof_nom} ${r.Prof_prenom}`), 'positionnement'));
   const qui = initialesMoi() || (moi && moi.Email) || '';
   if ($('b-soumettre')) $('b-soumettre').addEventListener('click', async () => {
     if (masque()) return toast(TIP_MASQUE + '.', true);
@@ -609,7 +614,8 @@ function contexte(r) {
   return { titreDocument: t.Titre || 'RAPPORT DE VISITE', entete: String(D.params.entete || 'Inspection pédagogique régionale').split('\n'),
     discipline: D.params.discipline || '', cmi: nomPers(r.Auteur), titreCmi: a.Titre_signature || 'Le ou la chargé·e de mission',
     ipr: nomPers(r.Valideur), titreIpr: v.Titre_signature || 'L\'IA-IPR', nomFichier: nomFichierPdf(r, a.Initiales || ''),
-    sansCmi: redigeParIpr(r, D.personnes) };
+    sansCmi: redigeParIpr(r, D.personnes), pied: D.params.pied || 'RAPPORT DE VISITE - inspection de mathématiques',
+    tailleSignature: D.params.taille_signature || 15 };
 }
 function ouvrirOnglet(html, nom) {
   let w = null;

@@ -19,7 +19,7 @@ export const ONGLETS = [
     detail: l => `${l.Code || ''} · ${l.Forme || 'Texte'}${l.Imprimee === false ? ' · non imprimée' : ''}`,
     aide: 'Rubriques des rapports, dans l\'ordre. Un rapport fige ses rubriques à sa création : modifier une rubrique ne change pas les rapports existants.',
     colonnes: [
-      { id: 'Titre', lib: 'Titre', type: 'texte', obligatoire: true, unique: true },
+      { id: 'Titre', lib: 'Titre', type: 'texte', obligatoire: true, aide: 'Deux rubriques peuvent porter le même titre (ex. « Bilan par compétences », version MD).' },
       { id: 'Code', lib: 'Code (stable, sans espace)', type: 'texte', obligatoire: true, unique: true, aide: 'Clé du texte dans les rapports : ne plus la changer une fois des rapports écrits.' },
       { id: 'Types', lib: 'Types de rapport', type: 'refs', cible: 'Types_rapport', affichee: 'Code' },
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
@@ -50,15 +50,17 @@ export const ONGLETS = [
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
     ] },
   { cle: 'grille', libelle: 'Grille MD', table: 'Competences_MD', titre: l => `${l.Code || ''} – ${l.Libelle || ''}`,
-    aide: 'Compétences du positionnement des maître·sses délégué·es (jamais imprimé dans le rapport). L\'échelle des niveaux est le paramètre « echelle_md ».',
+    aide: 'Compétences du positionnement des maître·sses délégué·es (jamais imprimé dans le rapport), avec leurs descripteurs par niveau. L\'échelle est le paramètre « echelle_md », la remarque affichée au-dessus est « aide_md ».',
     colonnes: [
       { id: 'Code', lib: 'Code', type: 'texte', obligatoire: true, unique: true },
       { id: 'Libelle', lib: 'Compétence', type: 'long', obligatoire: true },
+      { id: 'Descripteurs', lib: 'Descripteurs (aide au positionnement)', type: 'long', facultative: true,
+        aide: 'Un paragraphe par niveau, commençant par le niveau : « À consolider : … », « Satisfaisant : … », « Très satisfaisant : … ».' },
       { id: 'Domaine', lib: 'Domaine', type: 'texte' },
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
     ] },
   { cle: 'parametres', libelle: 'Paramètres', table: 'Parametres', titre: l => String(l.Cle || ''), detail: l => String(l.Description || ''),
-    aide: 'discipline, entete (une ligne par ligne d\'en-tête), secretariat (destinataire), mail_objet et mail_texte ({etablissement}, {professeur}, {auteur}, {date}), echelle_md (niveaux séparés par « ; »). Les IA-IPR en copie des PSTG se règlent dans l\'Annuaire.',
+    aide: 'discipline, entete (une ligne par ligne d\'en-tête, en gras), pied (bas de page), taille_signature (hauteur des signatures imprimées, en mm), secretariat (destinataire), mail_objet et mail_texte ({etablissement}, {professeur}, {auteur}, {date}), echelle_md (niveaux séparés par « ; »), aide_md. Les IA-IPR en copie des PSTG se règlent dans l\'Annuaire.',
     colonnes: [
       { id: 'Cle', lib: 'Clé', type: 'texte', obligatoire: true, unique: true },
       { id: 'Valeur', lib: 'Valeur', type: 'long' },

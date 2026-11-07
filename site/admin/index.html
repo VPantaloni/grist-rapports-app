@@ -239,7 +239,7 @@ import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrem
   deriverCle, creerVerificateur, verifierCle, ouvrirAvecPhrase, validerNouvellePhrase, validerChangementPhrase, actionCreerTable, actionsColonnesTable,
   actionsNouvellePhrase, rangerCle, oublierCle, cleAuDemarrage, suivreCle, definirCle, cryptoDisponible } from '../commun/chiffrement.js';
 import { IMPORT, EXPORT, CAMPAGNES, LIEUX, DESCRIPTIONS_ROLES, CONTROLES_FICHES, TABLES_DONNEES, TABLE_FICHES, ROLES, PORTEES, ACTIONS, COLONNES_ACTION, matriceDroits, droitsCalcules,
-  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair } from './logique.js';
+  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair, actionsMatriceDefaut } from './logique.js';
 
 const pref = preferences('Admin');   // dernier onglet ouvert, rôle affiché dans la matrice
 const prefApp = preferences('App');   // case « Voir en tant que », lue par le conteneur app/
@@ -487,6 +487,7 @@ function afficherMatrice() {
   const { index } = indexPermissions(D.permissions);
   const lignesRole = index[roleMatrice] || {};
   const manquantes = TABLES_DONNEES.filter(t => !lignesRole[t]);
+  const defaut = actionsMatriceDefaut(roleMatrice, D.permissions);
   const cls = n => n === 'Oui' ? 'oui' : n === 'Limité' ? 'lim' : 'non';
   $('matrice').innerHTML = `
     ${roleMatrice === 'Administrateur·trice' ? '<div class="alerte">Les administrateur·trices ont tous les droits par la règle d\'accès D3, quelle que soit cette matrice ; elle ne sert qu\'à l\'affichage dans les widgets.</div>' : ''}
@@ -503,7 +504,8 @@ function afficherMatrice() {
         }).join('')}</tr>`;
       }).join('')}
     </table>
-    ${manquantes.length ? `<div class="actions"><button id="creer-manquantes">Créer les lignes manquantes (${manquantes.length})</button></div>` : ''}
+    ${manquantes.length || defaut.length ? `<div class="actions">${defaut.length ? `<button id="matrice-defaut" class="primary" title="Crée les lignes manquantes et remet les cases aux droits par défaut de l'application (double clic)">Appliquer les droits par défaut (${defaut.length} ligne(s))</button>` : ''}
+      ${manquantes.length ? `<button id="creer-manquantes">Créer les lignes manquantes à « Non » (${manquantes.length})</button>` : ''}</div>` : ''}
     <p class="muted petit">Un clic fait passer une case à la valeur suivante : Non → Oui → Limité (seulement là où une portée existe) → Non.
       Enregistrement immédiat ; la colonne <code>Droits</code> des comptes se recalcule.</p>
     <details><summary>Portées « Limité »</summary><ul class="petit">
@@ -518,6 +520,7 @@ function afficherMatrice() {
     const suivant = niveauSuivant(b.textContent.trim(), table, action);
     ecrire([['UpdateRecord', 'Permissions', Number(id), { [COLONNES_ACTION[action]]: suivant }]], `${roleMatrice} · ${table} · ${ACTIONS.find(x => x[0] === action)[1]} : ${suivant}`);
   }));
+  if (defaut.length) boutonConfirmation($('matrice-defaut'), 'Confirmer : droits par défaut', () => ecrire(defaut, `${roleMatrice} : droits par défaut appliqués`));
   if (manquantes.length) $('creer-manquantes').addEventListener('click', () => ecrire(
     manquantes.map(t => ['AddRecord', 'Permissions', null, { Role: roleMatrice, Table: t, Lire: 'Non', Creer: 'Non', Modifier: 'Non', Supprimer: 'Non' }]),
     `${manquantes.length} ligne(s) créée(s)`));

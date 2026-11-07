@@ -80,7 +80,7 @@ function afficherListe() {
   let l = trier(o, lignes(), $('recherche').value);
   if (ph) l = filtrerPhrases(l, { rubrique: Number($('f-rubrique').value) || 0, competence: $('f-competence').value, aValider: $('f-valider').checked });
   $('liste').innerHTML = l.length ? l.map(x => `<li data-id="${x.id}" class="${x.id === sel ? 'sel' : ''} ${ph && x.Validee !== true ? 'a-valider' : ''}">${esc(o.titre(x))}
-    ${o.detail ? `<span class="det">${esc(o.detail(x))}${ph ? ' · ' + esc(affiche('Rubriques', 'Titre', x.Rubrique)) : ''}</span>` : ''}</li>`).join('')
+    ${o.detail ? `<span class="det">${esc(o.detail(x))}${ph ? ' · ' + esc(affiche('Rubriques', 'Code', x.Rubrique)) : ''}</span>` : ''}</li>`).join('')
     : '<li class="vide" style="cursor:default">Aucune ligne.</li>';
   const ok = peutCreer(droits(), moi);
   $('nouveau').classList.toggle('inactif', !ok); $('lot').classList.toggle('inactif', !ok);
@@ -95,7 +95,7 @@ function champ(c, v, actif) {
   if (c.type === 'case') return `<label class="champ"><input type="checkbox" data-c="${c.id}" ${v ? 'checked' : ''} ${dis}> ${esc(c.lib)}${aide}</label>`;
   if (c.type === 'choix') return `<label class="champ">${tete}<select data-c="${c.id}" ${dis}>${c.choix.map(x => `<option value="${esc(x)}" ${x === (v ?? '') ? 'selected' : ''}>${esc(x || '—')}</option>`).join('')}</select>${aide}</label>`;
   if (c.type === 'ref') return `<label class="champ">${tete}<select data-c="${c.id}" ${dis}><option value="0">—</option>${trier(onglet('rubriques'), T[c.cible] || [])
-    .map(x => `<option value="${x.id}" ${x.id === v ? 'selected' : ''}>${esc(x[c.affichee])}</option>`).join('')}</select>${aide}</label>`;
+    .map(x => `<option value="${x.id}" ${x.id === v ? 'selected' : ''}>${esc(x.Titre || x[c.affichee])}${x.Code ? ` (${esc(x.Code)})` : ''}</option>`).join('')}</select>${aide}</label>`;
   if (c.type === 'refs') return `<div class="champ">${tete}<div class="cases">${(T[c.cible] || []).map(x => `<label><input type="checkbox" data-refs="${c.id}" value="${x.id}"
     ${liste(v).includes(x.id) ? 'checked' : ''} ${dis}> ${esc(x[c.affichee])}</label>`).join('')}</div>${aide}</div>`;
   return `<label class="champ">${tete}<input type="text" data-c="${c.id}" value="${esc(v ?? '')}" ${dis}>${aide}</label>`;
@@ -113,7 +113,7 @@ function afficherFiche() {
   $('fiche').innerHTML = `<h1>${nouveau ? 'Nouvelle ligne' : esc(o.titre(l))}</h1><p class="note">${esc(o.aide)}</p>
     ${o.cle === 'phrases' && !nouveau ? `<p class="petit muted">Auteur·e : ${esc(affiche('Personnes', 'Nom_complet', l.Auteur) || '—')}</p>` : ''}
     ${cols.map(c => champ(c, f[c.id], actif && !(c.validation && !peutValider(d)))).join('')}
-    ${o.colonnes.some(c => c.facultative && !(COLS[o.table] || []).includes(c.id)) ? '<p class="petit muted">Colonne « Titre_imprime » absente de Rubriques : l\'écran Installer (« Créer la structure ») l\'ajoute. En attendant, seul « Bilan par compétence » a son titre imprimé.</p>' : ''}
+    ${o.colonnes.some(c => c.facultative && !(COLS[o.table] || []).includes(c.id)) ? '<p class="petit muted">Colonne facultative absente du document (Rubriques.Titre_imprime ou Competences_MD.Descripteurs) : l\'écran Installer (« Créer la structure ») l\'ajoute.</p>' : ''}
     <ul class="erreurs" id="erreurs"></ul>
     <div class="actions">${actif ? '<button id="ok" class="primary">Enregistrer</button>' : '<span class="muted">Lecture seule.</span>'}
       ${nouveau ? '<button id="annuler">Annuler</button>' : peutSupprimer(o.table, d, moi, l) ? '<button id="suppr" class="danger" title="Double clic">Supprimer</button>' : ''}</div>`;
@@ -175,7 +175,7 @@ function afficherLot() {
 
 function remplirFiltres() {
   const r = $('f-rubrique'), v = r.value;
-  r.innerHTML = '<option value="">Toutes les rubriques</option>' + trier(onglet('rubriques'), T.Rubriques || []).map(x => `<option value="${x.id}">${esc(x.Titre)}</option>`).join('');
+  r.innerHTML = '<option value="">Toutes les rubriques</option>' + trier(onglet('rubriques'), T.Rubriques || []).map(x => `<option value="${x.id}">${esc(x.Titre)} (${esc(x.Code)})</option>`).join('');
   r.value = v;
   if ($('f-competence').options.length === 1) $('f-competence').innerHTML += COMPETENCES.map(c => `<option>${c}</option>`).join('');
 }

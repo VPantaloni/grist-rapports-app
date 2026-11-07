@@ -111,8 +111,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 
 | Colonne | Type | Rôle |
 |---|---|---|
-| `Code` | Texte | unique, stable : clé du texte dans Rapports.Contenu (seance, entretien, competences, bilan, conseils…) |
-| `Titre` | Texte | titre imprimé ; unique (colonne affichée des références) |
+| `Code` | Texte | unique, stable (colonne affichée des références) : clé du texte dans Rapports.Contenu |
+| `Titre` | Texte | titre (imprimé si « Titre imprimé ») ; deux rubriques peuvent avoir le même titre (ex. bilan par compétences, version MD) |
 | `Types` | Liste de références → Types_rapport | Types de rapport |
 | `Ordre` | Numérique | Ordre |
 | `Forme` | Choix | Puces : une ligne = une puce à l'impression |
@@ -133,12 +133,13 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Validee` | Booléen | phrase proposée par un·e CMi : visible de tous après validation |
 | `Ordre` | Numérique | Ordre |
 
-#### `Competences_MD` — grille de positionnement des maître·sses délégué·es (MD)
+#### `Competences_MD` — grille de positionnement des maître·sses délégué·es (MD) : compétences et descripteurs par niveau
 
 | Colonne | Type | Rôle |
 |---|---|---|
-| `Code` | Texte | unique : C1, C2… |
+| `Code` | Texte | unique : MD1, MD2… |
 | `Libelle` | Texte | Compétence |
+| `Descripteurs` | Texte | aide au positionnement : un paragraphe par niveau, commençant par « Niveau : » (ex. « À consolider : … ») |
 | `Domaine` | Texte | Domaine |
 | `Ordre` | Numérique | Ordre |
 

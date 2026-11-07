@@ -249,3 +249,23 @@ export function tailleSignature(l, h, lMax = 480, hMax = 180) {
   const k = Math.min(1, lMax / (l || 1), hMax / (h || 1));
   return { l: Math.max(1, Math.round(l * k)), h: Math.max(1, Math.round(h * k)) };
 }
+
+// --- Positionnement MD ---
+
+// Niveaux de l'échelle (Parametres.echelle_md, séparés par « ; »).
+/** @param {any} texte */
+export const niveauxMd = texte => String(texte || 'À consolider ; Satisfaisant ; Très satisfaisant').split(';').map(x => x.trim()).filter(Boolean);
+// Descripteurs d'une compétence : un paragraphe par niveau, « Niveau : texte » (comparaison sans accent ni casse).
+/** @param {any} texte @param {string[]} niveaux @returns {Record<string, string>} */
+export function descripteurs(texte, niveaux) {
+  /** @type {Record<string, string>} */
+  const d = {};
+  let courant = '';
+  for (const ligne of String(texte || '').split(/\r?\n/)) {
+    const m = /^\s*([^:]{2,40}?)\s*:\s*(.*)$/.exec(ligne);
+    const n = m && niveaux.find(x => norm(x) === norm(m[1]));
+    if (n && m) { courant = n; d[n] = m[2].trim(); }
+    else if (courant && ligne.trim()) d[courant] += ' ' + ligne.trim();
+  }
+  return d;
+}
