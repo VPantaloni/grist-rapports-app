@@ -43,8 +43,9 @@ export const PORTEES = {
   'Signatures:M': 'sa signature',
   'Signatures:S': 'sa signature',
 };
-// Onglet Import (SPEC § 4.5, commun/import.js) : le fichier académique des professeur·es (une ligne par affectation,
-// colonnes de l'établissement comprises) remplit Etablissements puis Professeurs. Liste blanche : la date de naissance,
+// Onglet Import (SPEC § 4.5, commun/import.js) : deux fichiers possibles. Le fichier académique des professeur·es (une
+// ligne par affectation, colonnes de l'établissement comprises) remplit Etablissements puis Professeurs ; le fichier
+// open data des établissements (geocode…) remplit Etablissements seulement (Professeurs non concernée : sans nom). Liste blanche : la date de naissance,
 // le téléphone, les notes… ne sont jamais lus. L'Annuaire de l'éducation (d'après l'UAI) l'emporte pour le nom complet,
 // la commune, le code postal, le département, l'e-mail et la position ; le fichier reste utilisé si l'UAI n'y est pas.
 /** @type {import('../commun/import.js').DeclarationImport | null} */
@@ -53,8 +54,8 @@ export const IMPORT = {
   colonnes: {
     civilite: { type: 'choix', valeurs: ['M.', 'Mme'], equivalences: { MM: 'Mme', MME: 'Mme', Madame: 'Mme', M: 'M.', MR: 'M.', Monsieur: 'M.' },
       libelle: 'civilité (MM = Mme)', exemple: 'Mme' },
-    nom: { type: 'texte', obligatoire: true, libelle: 'nom d\'usage', exemple: 'GERMAIN' },
-    prenom: { type: 'texte', obligatoire: true, libelle: 'prénom', exemple: 'Sophie' },
+    nom: { type: 'texte', libelle: 'nom d\'usage (fichier des professeur·es)', exemple: 'GERMAIN' },
+    prenom: { type: 'texte', libelle: 'prénom (fichier des professeur·es)', exemple: 'Sophie' },
     statut: { type: 'texte', libelle: 'statut (Titulaire, CDD, CDI)', exemple: 'Titulaire' },
     grade: { type: 'texte', libelle: 'grade', exemple: 'CERT. CL N' },
     echelon: { type: 'entier', min: 0, max: 15, libelle: 'échelon', exemple: '7' },
@@ -65,19 +66,20 @@ export const IMPORT = {
     etabnom: { type: 'texte', synonymes: ['etab_nom'], libelle: 'nom de l\'établissement', exemple: 'ALAIN FOURNIER' },
     etabsecteur: { type: 'choix', valeurs: ['Public', 'Privé'], equivalences: { 'SECTEUR PUBLIC': 'Public', 'SECTEUR PRIVE': 'Privé', PU: 'Public', PR: 'Privé' },
       synonymes: ['etab_secteur'], libelle: 'secteur', exemple: 'SECTEUR PUBLIC' },
-    etabadresse: { type: 'texte', synonymes: ['etab_adresse'], libelle: 'adresse de l\'établissement' },
-    etabcodepostal: { type: 'texte', synonymes: ['etab_code_postal'], libelle: 'code postal', exemple: '45100' },
+    etabadresse: { type: 'texte', synonymes: ['etab_adresse', 'Adresse : désignation de la voie'], libelle: 'adresse de l\'établissement' },
+    etabcodepostal: { type: 'texte', synonymes: ['etab_code_postal', 'Adresse : code postal'], libelle: 'code postal', exemple: '45100' },
     etabville: { type: 'texte', synonymes: ['etab_ville'], libelle: 'commune', exemple: 'ORLEANS' },
-    etabdepartement: { type: 'texte', synonymes: ['etab_departement'], libelle: 'département' },
+    etabdepartement: { type: 'texte', synonymes: ['etab_departement', 'Libellé du département ou de la collectivité'], libelle: 'département' },
     etabbassin: { type: 'texte', synonymes: ['etab_bassin'], libelle: 'bassin' },
     mel: { type: 'email', libelle: 'e-mail de l\'établissement (Annuaire de l\'éducation)' },
-    lat: { type: 'decimal', min: -90, max: 90, libelle: 'latitude (Annuaire de l\'éducation)' },
-    lon: { type: 'decimal', min: -180, max: 180, libelle: 'longitude (Annuaire de l\'éducation)' },
+    lat: { type: 'decimal', min: -90, max: 90, synonymes: ['Latitude WGS84'], libelle: 'latitude' },
+    lon: { type: 'decimal', min: -180, max: 180, synonymes: ['Longitude WGS84'], libelle: 'longitude' },
+    sigle: { type: 'texte', synonymes: ['Sigle de l\'UAI'], libelle: 'sigle (CLG, LYC…), fichier des établissements', exemple: 'CLG' },
   },
   annuaire: { uai: 'uai', priorite: 'annuaire', colonnes: { etabnom: 'nom', etabville: 'commune', etabcodepostal: 'codePostal', etabdepartement: 'libelleDepartement', mel: 'email', lat: 'lat', lon: 'lon' } },
   tables: [
     // Établissements : rapprochés par UAI ; le fichier (complété par l'Annuaire de l'éducation) fait référence.
-    { table: 'Etablissements', cle: ['UAI'], fusion: 'remplacer', champs: { UAI: 'uai', Nom: 'etabnom', Secteur: 'etabsecteur', Adresse: 'etabadresse', Code_postal: 'etabcodepostal',
+    { table: 'Etablissements', cle: ['UAI'], fusion: 'remplacer', champs: { UAI: 'uai', Nom: 'etabnom', Sigle: 'sigle', Secteur: 'etabsecteur', Adresse: 'etabadresse', Code_postal: 'etabcodepostal',
       Commune: 'etabville', Mel: 'mel', Departement: 'etabdepartement', Bassin: 'etabbassin', Lat: 'lat', Lon: 'lon' } },
     // Professeur·es : une ligne par affectation (nom + prénom + UAI) ; le fichier de l'année fait référence.
     { table: 'Professeurs', cle: ['Nom', 'Prenom', 'UAI'], fusion: 'remplacer', champs: { Civilite: 'civilite', Nom: 'nom', Prenom: 'prenom',

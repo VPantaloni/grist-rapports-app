@@ -268,6 +268,15 @@ export function planifier(lignes, decl, existant) {
     for (const l of existant[t.table] || []) { const k = cleDe(l); if (k && !ids[t.table].has(k)) ids[t.table].set(k, l.id); }
     crees[t.table] = new Set();
 
+    // Table non concernée par ce fichier : une colonne de sa clé n'apparaît sur aucune ligne (ex. fichier des seuls
+    // établissements, sans nom de professeur·e) → une seule remarque, au lieu d'une alerte par ligne.
+    const absentes = t.cle.filter(c => { const src = t.champs[c]; const s = typeof src === 'string' ? src : src && src.par; return !s || !lignes.some(l => !estVide(l.v[s])); });
+    if (absentes.length && lignes.length) {
+      remarques.push({ niveau: 'info', message: `${t.table} : non concernée par ce fichier (${absentes.join(', ')} absent).` });
+      tables.push({ table: t.table, ajouts: [], majs: [], inchanges: 0, ecarts: [] });
+      continue;
+    }
+
     // Lignes du fichier → champs de cette table, regroupés par clé (fusion des doublons concordants).
     /** @type {Map<string, { n: number, champs: Record<string, any> }>} */
     const parCle = new Map();
