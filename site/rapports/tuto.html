@@ -13,6 +13,7 @@
   ol, ul { padding-left: 22px; } li { margin-bottom: 4px; }
   .etapes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font-size: 13px; }
   .etapes span { padding: 2px 10px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
+  ins { background: #dbe6ff; text-decoration: underline; } del { background: #fde2e1; color: #b42318; }
   kbd { font: 12px monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg2); }
 </style>
 </head>
@@ -25,7 +26,8 @@
   <div class="etapes"><span>Brouillon</span>→<span>Soumis</span>→<span>À reprendre</span> (si renvoyé) →<span>Validé</span>→<span>Transmis</span></div>
   <ul>
     <li><strong>Chargé·e de mission (CMi)</strong> : crée le rapport, le rédige, puis <em>Signer et soumettre</em>. Il part en relecture chez l'IA-IPR et n'est plus modifiable, sauf s'il est renvoyé.</li>
-    <li><strong>IA-IPR</strong> : relit, corrige directement, laisse un commentaire sous chaque rubrique si besoin, puis <em>Renvoyer à reprendre</em> ou <em>Signer et valider</em>.</li>
+    <li><strong>IA-IPR</strong> : relit ; chaque modification du texte devient une <strong>suggestion</strong> (le texte du ou de la CMi n'est pas écrasé), et un commentaire peut être laissé sous chaque rubrique. Puis <em>Renvoyer à reprendre</em> ou <em>Signer et valider</em> (les suggestions encore en attente sont alors appliquées).</li>
+    <li><strong>Code couleur de la relecture</strong> : <ins>texte ajouté</ins> (bleu souligné), <del>texte retiré</del> (rouge barré), commentaire (bandeau orange), commentaire traité (gris). La ou le CMi, rapport soumis ou à reprendre, <em>Accepte</em> ou <em>Refuse</em> chaque suggestion et <em>Marque traité</em> chaque commentaire.</li>
     <li><strong>Échanges par mail</strong> (messagerie ouverte, texte prêt) : la ou le CMi, une fois le rapport soumis, <em>✉ Prévenir l'IA-IPR</em> ; l'IA-IPR, après relecture, <em>✉ Prévenir le ou la CMi</em> (modifications, suggestions, commentaires) ; la ou le CMi répond <em>✉ OK pour valider</em>. L'IA-IPR peut aussi valider sans attendre cet accord : seul·e l'IA-IPR valide définitivement et transmet.</li>
     <li>Une fois validé : <em>Imprimer / PDF</em>, <em>Préparer le mail</em> au secrétariat, puis <em>Marquer transmis</em>.</li>
     <li><strong>IA-IPR qui rédige seul·e</strong> : choisir soi-même comme auteur·e. Pas de case ni de signature CMi, pas de relecture : <em>Signer et valider</em> directement.</li>
@@ -47,7 +49,7 @@
     <li>« Conseils pour la poursuite » : <strong>une ligne = une puce</strong> à l'impression.</li>
     <li>Onglet <strong>Aperçu et retouches</strong> : le rapport tel qu'il sera imprimé (police Marianne, 10 pt). Cliquer dans un paragraphe pour le corriger à la lecture d'ensemble ; la correction est enregistrée et se retrouve dans l'onglet Rédaction. Les titres de rubrique ne sont pas imprimés (sauf « Bilan par compétence ») : ils apparaissent au survol.</li>
     <li>Enregistrement <strong>automatique</strong> environ une seconde après la dernière frappe (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>S</kbd> pour tout de suite).</li>
-    <li>Rapport <strong>MD</strong> : onglet <em>Positionnement MD</em> ; pour chaque compétence, les descripteurs de chaque niveau (À consolider, Satisfaisant, Très satisfaisant) aident à choisir. Il est enregistré avec le rapport mais <strong>n'apparaît jamais dans le rapport imprimé</strong> (bouton à part pour l'imprimer).</li>
+    <li>Rapport <strong>MD</strong> : onglet <em>Positionnement MD</em>, sur les <strong>trois compétences</strong> : choisir un niveau (À consolider, Satisfaisant, Très satisfaisant, avec leurs descripteurs) ; une <strong>phrase d'illustration</strong> de ce niveau est proposée, à retoucher librement. Le positionnement est enregistré avec le rapport mais <strong>n'apparaît jamais dans le rapport imprimé</strong> (bouton à part pour l'imprimer).</li>
   </ul>
 
   <h2>Signer</h2>

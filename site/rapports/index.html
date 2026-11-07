@@ -56,6 +56,16 @@
   .rubrique .lu { white-space: pre-wrap; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 4px; min-height: 28px; }
   .commentaire { margin-top: 4px; padding: 6px 8px; border-left: 3px solid var(--warn); background: var(--warn-bg); font-size: 13px; white-space: pre-wrap; }
   .commentaire textarea { width: 100%; min-height: 50px; margin-top: 4px; }
+  /* Relecture : ajouts (bleu, soulignés), suppressions (rouge, barrées), commentaires (orange), traités (gris). */
+  ins { background: color-mix(in srgb, var(--info) 22%, transparent); color: inherit; text-decoration: underline; text-decoration-color: var(--info); text-underline-offset: 2px; }
+  del { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); text-decoration: line-through; }
+  .suggestion { margin-top: 4px; padding: 6px 8px; border-left: 3px solid var(--info); background: color-mix(in srgb, var(--info) 7%, transparent); font-size: 13px; }
+  .suggestion .titre, .commentaire .titre { font-weight: 600; font-size: 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .suggestion .titre button, .commentaire .titre button { font-size: 12px; padding: 1px 8px; }
+  .diff { white-space: pre-wrap; margin-top: 3px; }
+  .commentaire.traite { border-left-color: var(--muted); background: var(--bg2); color: var(--muted); }
+  .legende { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 12px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; }
+  .legende .c { border-left: 3px solid var(--warn); background: var(--warn-bg); padding: 0 6px; }
   .barre { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 8px 0; display: flex;
     gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
   .barre .etat { margin-left: auto; font-size: 12px; color: var(--muted); }
@@ -136,7 +146,9 @@ import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffre
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
   redigeParIpr, peutValiderSeul, niveauxMd, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
-  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange } from './logique.js';
+  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
+  lirePositionnement, positionner, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre,
+  diffMots } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
 const pref = preferences('Rapports');
@@ -332,6 +344,17 @@ async function creer() {
 }
 
 // --- Fiche ---
+// Relecture : texte du rapport → suggestion, mot à mot (ajouts <ins>, suppressions <del>).
+function htmlDiff(a, b) {
+  return diffMots(a, b).map(x => x.t === '=' ? esc(x.x) : x.t === '+' ? `<ins>${esc(x.x)}</ins>` : `<del>${esc(x.x)}</del>`).join('');
+}
+function legendeRelecture(b, relit, repond) {
+  if (!relit && !b.suggestions && !b.commentaires && !b.traites) return '';
+  const etat = [b.suggestions ? `${b.suggestions} suggestion${b.suggestions > 1 ? 's' : ''} en attente` : '',
+    b.commentaires ? `${b.commentaires} commentaire${b.commentaires > 1 ? 's' : ''} à traiter` : '', b.traites ? `${b.traites} traité${b.traites > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+  return `<div class="legende"><strong>Relecture</strong><ins>texte ajouté</ins><del>texte retiré</del><span class="c">commentaire</span>
+    <span class="muted">${esc(etat || 'aucune suggestion pour l\'instant')}${relit ? ' — vos modifications restent des suggestions ; elles s\'appliquent si vous validez' : repond && b.suggestions ? ' — accepter ou refuser chaque suggestion' : ''}</span></div>`;
+}
 function afficherFiche() {
   if (creation) return afficherCreation();
   const r = rapportSel();
@@ -350,7 +373,8 @@ function afficherFiche() {
   const parIpr = redigeParIpr(r, D.personnes);
   const relit = !parIpr && peutRelire(droits, moi, r) && !masque();
   const structure = lireStructure(r.Structure);
-  const contenu = lireObjet(r.Contenu), comm = lireObjet(r.Commentaires);
+  const contenu = lireObjet(r.Contenu), rel = lireRelecture(r.Commentaires), bilanRel = bilanRelecture(r.Commentaires);
+  const repond = !parIpr && peutRepondre(droits, moi, r) && !masque();
   const consigne = code => (D.rubriques.find(x => x.Code === code) || {}).Consigne || '';
   if (onglet === 'md' && !t.Positionnement) onglet = 'redaction';
   const ch = (id, lib, val, attrs = '') => `<label class="champ"><span>${lib}</span>${redige
@@ -363,7 +387,7 @@ function afficherFiche() {
     </div>
     ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)}.</div>` : ''}
     ${r.Stagiaire_hors_liste ? '<div class="alerte">⚠ PSTG hors liste : pas dans la liste des stagiaires de Siiprien.</div>' : ''}
-    ${r.Statut === 'À reprendre' && Object.keys(comm).length ? '<div class="alerte">Rapport renvoyé : voir les commentaires de l\'IA-IPR sous les rubriques.</div>' : ''}
+    ${r.Statut === 'À reprendre' ? '<div class="alerte">Rapport renvoyé : voir les suggestions et commentaires de l\'IA-IPR sous les rubriques.</div>' : ''}
     <div class="bloc"><h2>En-tête</h2><div class="grille">
       <label class="champ"><span>Statut</span><div>${esc(r.Prof_statut) || '—'}</div></label>
       <label class="champ"><span>UAI</span><div>${esc(r.UAI)}</div></label>
@@ -381,15 +405,19 @@ function afficherFiche() {
     </div>
     <div id="corps">${onglet === 'apercu' ? `<p class="muted petit">${redige ? 'Clique dans un paragraphe pour le corriger : la modification est enregistrée et reprise dans l\'onglet Rédaction. Les titres non imprimés apparaissent au survol.' : 'Lecture seule.'}</p>
       <iframe id="apercu" title="Aperçu du rapport" style="width:100%;height:75vh;border:1px solid var(--border);border-radius:6px;background:#fff"></iframe>`
-      : onglet === 'md' ? corpsMd(r, redige) : onglet === 'historique' ? corpsHistorique(r) : structure.map(x => `
+      : onglet === 'md' ? corpsMd(r, redige) : onglet === 'historique' ? corpsHistorique(r) : `${legendeRelecture(bilanRel, relit, repond)}${structure.map(x => { const n = rel[x.code] || { c: '' }; return `
       <div class="rubrique" data-rubrique="${esc(x.code)}">
         <h3>${esc(x.titre)} ${x.forme === 'Puces' ? '<span class="forme">(une ligne = une puce)</span>' : ''}${x.imprimee === false ? '<span class="forme">(non imprimée)</span>' : ''}</h3>
-        ${consigne(x.code) && redige ? `<details class="consigne"><summary>Consigne</summary><p>${esc(consigne(x.code))}</p></details>` : ''}
-        ${redige ? `<textarea data-texte="${esc(x.code)}" rows="5">${esc(contenu[x.code] || '')}</textarea>`
+        ${consigne(x.code) && (redige || relit) ? `<details class="consigne"><summary>Consigne</summary><p>${esc(consigne(x.code))}</p></details>` : ''}
+        ${relit ? `<textarea data-sugg="${esc(x.code)}" rows="5" title="Vos modifications sont des suggestions : le ou la CMi les accepte ou les refuse ; elles s'appliquent si vous validez.">${esc(typeof n.s === 'string' ? n.s : contenu[x.code] || '')}</textarea>
+          <div class="suggestion" data-diff="${esc(x.code)}" ${typeof n.s === 'string' ? '' : 'hidden'}><div class="titre">Votre suggestion</div><div class="diff">${typeof n.s === 'string' ? htmlDiff(contenu[x.code] || '', n.s) : ''}</div></div>
+          <div class="commentaire">Commentaire de relecture<textarea data-comm="${esc(x.code)}" placeholder="Visible du ou de la CMi">${esc(n.c || '')}</textarea></div>`
+        : `${redige ? `<textarea data-texte="${esc(x.code)}" rows="5">${esc(contenu[x.code] || '')}</textarea>`
           : `<div class="lu">${esc(contenu[x.code] || '') || '<span class="muted">—</span>'}</div>`}
-        ${relit ? `<div class="commentaire">Commentaire de relecture<textarea data-comm="${esc(x.code)}" placeholder="Visible du ou de la CMi si le rapport est renvoyé">${esc(comm[x.code] || '')}</textarea></div>`
-          : comm[x.code] ? `<div class="commentaire"><strong>IA-IPR :</strong> ${esc(comm[x.code])}</div>` : ''}
-      </div>`).join('')}</div>
+        ${typeof n.s === 'string' ? `<div class="suggestion"><div class="titre">Suggestion de l'IA-IPR${repond ? ` <button data-trancher="${esc(x.code)}" data-ok="1" class="primary">Accepter</button><button data-trancher="${esc(x.code)}" data-ok="0">Refuser</button>` : ''}</div>
+          <div class="diff">${htmlDiff(contenu[x.code] || '', n.s)}</div></div>` : ''}
+        ${n.c ? `<div class="commentaire ${n.ok ? 'traite' : ''}"><div class="titre">${n.ok ? '✓ Commentaire traité' : 'Commentaire de l\'IA-IPR'}${repond ? ` <button data-traiter="${esc(x.code)}" data-ok="${n.ok ? '0' : '1'}">${n.ok ? 'À reprendre' : 'Marquer traité'}</button>` : ''}</div>${esc(n.c)}</div>` : ''}`}
+      </div>`; }).join('')}`}</div>
     <div class="bloc signature"><h2>Signatures</h2><div class="grille">
       ${parIpr ? '' : `<div><span class="muted">${esc((personne(r.Auteur) || {}).Titre_signature || 'CMi')}</span><br>${r.Signature_cmi ? `<img src="${esc(r.Signature_cmi)}" alt="Signature CMi">` : '<span class="muted">non signé</span>'}</div>`}
       <div><span class="muted">${esc((personne(r.Valideur) || {}).Titre_signature || 'IA-IPR')}</span><br>${r.Signature_ipr ? `<img src="${esc(r.Signature_ipr)}" alt="Signature IA-IPR">` : '<span class="muted">non signé</span>'}</div>
@@ -401,14 +429,19 @@ function afficherFiche() {
 
 function corpsMd(r, redige) {
   const niveaux = niveauxMd(D.params.echelle_md);
-  const p = lireObjet(r.Positionnement);
+  const p = lirePositionnement(r.Positionnement);
   const comps = [...D.competences].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
-  return `<p class="muted">Positionnement du ou de la maître·sse délégué·e : enregistré avec le rapport, <strong>jamais imprimé dans le rapport</strong>.</p>
+  return `<p class="muted">Positionnement du ou de la maître·sse délégué·e : pour chaque compétence, un niveau et une phrase. Enregistré avec le rapport, <strong>jamais imprimé dans le rapport</strong>.</p>
     ${D.params.aide_md ? `<div class="alerte petit">${esc(D.params.aide_md)}</div>` : ''}
-    ${comps.map(k => { const d = descripteurs(k.Descripteurs, niveaux); return `<div class="bloc md"><h3 style="font-size:14px;margin:0 0 6px">${esc(k.Libelle)}</h3>
-      <div class="niveaux">${niveaux.map(n => `<label class="niveau ${p[k.Code] === n ? 'choisi' : ''}"><span><input type="radio" name="md-${esc(k.Code)}"
-        data-md="${esc(k.Code)}" value="${esc(n)}" ${p[k.Code] === n ? 'checked' : ''} ${redige ? '' : 'disabled'}> <strong>${esc(n)}</strong></span>
-        ${d[n] ? `<span class="petit">${esc(d[n])}</span>` : ''}</label>`).join('')}</div></div>`; }).join('')}
+    ${comps.length > 3 ? `<div class="alerte petit">La grille compte ${comps.length} compétences : Modèles &amp; phrases → Grille MD pour ne garder que les trois du positionnement.</div>` : ''}
+    ${comps.map(k => { const d = descripteurs(k.Descripteurs, niveaux), x = p[k.Code] || { niveau: '', phrase: '' };
+      return `<div class="bloc md"><h3 style="font-size:14px;margin:0 0 6px">${esc(k.Libelle)}</h3>
+      <div class="niveaux">${niveaux.map(n => `<label class="niveau ${x.niveau === n ? 'choisi' : ''}"><span><input type="radio" name="md-${esc(k.Code)}"
+        data-md="${esc(k.Code)}" value="${esc(n)}" ${x.niveau === n ? 'checked' : ''} ${redige ? '' : 'disabled'}> <strong>${esc(n)}</strong></span>
+        ${d[n] ? `<span class="petit">${esc(d[n])}</span>` : ''}</label>`).join('')}</div>
+      <label class="champ" style="margin-top:6px"><span>Phrase${redige ? ' (proposée selon le niveau, modifiable)' : ''}</span>${redige
+        ? `<textarea data-md-phrase="${esc(k.Code)}" rows="2" placeholder="Choisir un niveau : une phrase d'illustration est proposée">${esc(x.phrase)}</textarea>`
+        : `<div>${esc(x.phrase) || '<span class="muted">—</span>'}</div>`}</label></div>`; }).join('')}
     <div class="actions"><button id="imprimer-md">Imprimer le positionnement</button></div>`;
 }
 function corpsHistorique(r) {
@@ -480,11 +513,44 @@ function brancherFiche(r) {
     t.addEventListener('input', () => noter(r.id, { Contenu: JSON.stringify(textes()) }));
     t.addEventListener('focus', () => { champActif = t; if (rubriqueActive !== t.dataset.texte) { rubriqueActive = t.dataset.texte; competenceFiltre = ''; afficherPhrases(); } });
   });
-  const comms = () => { const o = lireObjet(r.Commentaires); fiche.querySelectorAll('[data-comm]').forEach(t => { if (t.value.trim()) o[t.dataset.comm] = t.value; else delete o[t.dataset.comm]; }); return o; };
-  fiche.querySelectorAll('[data-comm]').forEach(t => t.addEventListener('input', () => noter(r.id, { Commentaires: JSON.stringify(comms()), Valideur: moiPers() || r.Valideur })));
+  fiche.querySelectorAll('[data-comm]').forEach(t => t.addEventListener('input', () => {
+    r.Commentaires = commenter(r.Commentaires, t.dataset.comm, t.value);
+    noter(r.id, { Commentaires: r.Commentaires, Valideur: moiPers() || r.Valideur });
+  }));
+  fiche.querySelectorAll('[data-sugg]').forEach(t => {
+    t.addEventListener('input', () => {
+      const code = t.dataset.sugg, actuel = lireObjet(r.Contenu)[code] || '';
+      r.Commentaires = suggerer(r.Commentaires, code, t.value, actuel);
+      const d = fiche.querySelector(`[data-diff="${CSS.escape(code)}"]`);
+      if (d) { d.hidden = t.value === actuel; d.querySelector('.diff').innerHTML = htmlDiff(actuel, t.value); }
+      noter(r.id, { Commentaires: r.Commentaires, Valideur: moiPers() || r.Valideur });
+    });
+    t.addEventListener('focus', () => { champActif = t; if (rubriqueActive !== t.dataset.sugg) { rubriqueActive = t.dataset.sugg; competenceFiltre = ''; afficherPhrases(); } });
+  });
+  fiche.querySelectorAll('[data-trancher]').forEach(b => b.addEventListener('click', async () => {
+    await envoyer();
+    const x = rapportSel(), code = b.dataset.trancher, ok = b.dataset.ok === '1';
+    const titre = (lireStructure(x.Structure).find(y => y.code === code) || {}).titre || code;
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { ...trancher(x.Contenu, x.Commentaires, code, ok),
+      Historique: ajouterHistorique(x.Historique, qui, `suggestion ${ok ? 'acceptée' : 'refusée'} : ${titre}`) }]], ok ? 'Suggestion acceptée' : 'Suggestion refusée');
+    afficherFiche();
+  }));
+  fiche.querySelectorAll('[data-traiter]').forEach(b => b.addEventListener('click', async () => {
+    await envoyer();
+    const x = rapportSel();
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: traiter(x.Commentaires, b.dataset.traiter, b.dataset.ok === '1') }]], b.dataset.ok === '1' ? 'Commentaire traité' : 'Commentaire à reprendre');
+    afficherFiche();
+  }));
+  const illustrations = code => descripteurs((D.competences.find(k => k.Code === code) || {}).Phrases_types, niveauxMd(D.params.echelle_md));
   fiche.querySelectorAll('[data-md]').forEach(i => i.addEventListener('change', () => {
     i.closest('.niveaux').querySelectorAll('.niveau').forEach(l => l.classList.toggle('choisi', l.contains(i)));
-    const p = lireObjet(r.Positionnement); p[i.dataset.md] = i.value; r.Positionnement = JSON.stringify(p); noter(r.id, { Positionnement: r.Positionnement });
+    r.Positionnement = positionner(r.Positionnement, i.dataset.md, { niveau: i.value }, illustrations(i.dataset.md));
+    const t = fiche.querySelector(`[data-md-phrase="${CSS.escape(i.dataset.md)}"]`);
+    if (t) t.value = lirePositionnement(r.Positionnement)[i.dataset.md].phrase;
+    noter(r.id, { Positionnement: r.Positionnement });
+  }));
+  fiche.querySelectorAll('[data-md-phrase]').forEach(t => t.addEventListener('input', () => {
+    r.Positionnement = positionner(r.Positionnement, t.dataset.mdPhrase, { phrase: t.value }); noter(r.id, { Positionnement: r.Positionnement });
   }));
   if ($('imprimer-md')) $('imprimer-md').addEventListener('click', () => ouvrirOnglet(htmlPositionnement(r, D.competences,
     niveauxMd(D.params.echelle_md), `Positionnement MD – ${r.Prof_nom} ${r.Prof_prenom}`), 'positionnement'));
@@ -501,10 +567,12 @@ function brancherFiche(r) {
   if ($('b-valider')) $('b-valider').addEventListener('click', async () => {
     if (masque()) return toast(TIP_MASQUE + '.', true);
     await envoyer();
-    const x = rapportSel();
-    demanderSignature('Signer et valider', 'Ta signature sera posée et le rapport validé. Il pourra ensuite être imprimé et transmis au secrétariat.',
+    const x = rapportSel(), app = appliquerSuggestions(x.Contenu, x.Commentaires);
+    demanderSignature('Signer et valider', `Ta signature sera posée et le rapport validé. Il pourra ensuite être imprimé et transmis au secrétariat.${app.appliquees
+      ? ` Tes ${app.appliquees} suggestion(s) encore en attente seront appliquées au texte.` : ''}`,
       img => ecrireRapport([['UpdateRecord', TABLE, x.id, { Signature_ipr: img, Valideur: moiPers() || x.Valideur, Valide_le: aujourdhuiGrist(),
-        Statut: 'Validé', Historique: ajouterHistorique(x.Historique, qui, 'signé et validé') }]], 'Rapport validé'));
+        Statut: 'Validé', ...(app.appliquees ? { Contenu: app.Contenu, Commentaires: app.Commentaires } : {}),
+        Historique: ajouterHistorique(x.Historique, qui, 'signé et validé' + (app.appliquees ? ` (${app.appliquees} suggestion(s) appliquée(s))` : '')) }]], 'Rapport validé'));
   });
   if ($('b-renvoyer') && !masque()) boutonConfirmation($('b-renvoyer'), 'Confirmer le renvoi', async () => {
     await envoyer();
@@ -549,7 +617,7 @@ function afficherPhrases() {
   panneau.querySelectorAll('[data-comp]').forEach(b => b.addEventListener('click', () => { competenceFiltre = b.dataset.comp; afficherPhrases(); }));
   panneau.querySelectorAll('[data-phrase]').forEach(d => d.addEventListener('click', () => {
     const p = D.phrases.find(x => x.id === Number(d.dataset.phrase));
-    const t = champActif && document.body.contains(champActif) ? champActif : $('fiche').querySelector(`[data-texte="${CSS.escape(code)}"]`);
+    const t = champActif && document.body.contains(champActif) ? champActif : $('fiche').querySelector(`[data-texte="${CSS.escape(code)}"], [data-sugg="${CSS.escape(code)}"]`);
     if (!p || !t) return;
     const { texte, curseur } = inserer(t.value, t.selectionStart ?? t.value.length, t.selectionEnd ?? t.value.length, remplirChamps(p.Texte, v));
     t.value = texte; t.focus(); t.setSelectionRange(curseur, curseur);

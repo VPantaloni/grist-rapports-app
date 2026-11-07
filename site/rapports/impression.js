@@ -3,7 +3,7 @@
 // page comme le modèle Word : logo et en-tête, titre, tableau d'identification, thème, rubriques, signatures,
 // « Page n sur N ». Les consignes et le positionnement MD n'y figurent jamais. Logique pure (tests/rapports.test.js).
 import { LOGO } from './logo.js';
-import { dateFr, anneeScolaire, lireStructure, lireObjet, titreImprime } from './logique.js';
+import { dateFr, anneeScolaire, lireStructure, lireObjet, titreImprime, lirePositionnement } from './logique.js';
 
 // Police Marianne (Système de design de l'État, paquet @gouvfr/dsfr) : celle installée sur le poste, sinon le CDN ;
 // Arial si aucune n'est disponible.
@@ -155,13 +155,15 @@ ${rubriques.map(x => `<div class="rub">${titreImprime(x) ? `<h2>${esc(x.titre)}<
 // Positionnement MD (imprimé à part, jamais dans le rapport).
 /** @param {Record<string, any>} r @param {{ Code: any, Libelle: any }[]} competences @param {string[]} niveaux @param {string} titre */
 export function htmlPositionnement(r, competences, niveaux, titre) {
-  const p = lireObjet(r.Positionnement);
+  const p = lirePositionnement(r.Positionnement);
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(titre)}</title><style>
   body { font: 11pt Arial, sans-serif; margin: 15mm; } table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #000; padding: 2mm; font-size: 10pt; } th { background: #eee; } td.x { text-align: center; font-weight: bold; }
+  td, th { border: 1px solid #000; padding: 2mm; font-size: 10pt; vertical-align: top; } th { background: #eee; } td.x { text-align: center; font-weight: bold; }
+  td.phrase { font-size: 9.5pt; }
 </style></head><body><h1 style="font-size:14pt">${esc(titre)}</h1>
 <p>${esc([r.Prof_civilite, r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '))} — ${esc(r.Etab_nom)} — visite du ${esc(dateFr(r.Date_visite))}</p>
 <table><tr><th>Compétence</th>${niveaux.map(n => `<th>${esc(n)}</th>`).join('')}</tr>
-${competences.map(k => `<tr><td>${esc(k.Code)} – ${esc(k.Libelle)}</td>${niveaux.map(n => `<td class="x">${p[String(k.Code)] === n ? '×' : ''}</td>`).join('')}</tr>`).join('')}
+${competences.map(k => { const x = p[String(k.Code)] || { niveau: '', phrase: '' }; return `<tr><td>${esc(k.Libelle)}</td>${niveaux.map(n => `<td class="x">${x.niveau === n ? '×' : ''}</td>`).join('')}</tr>
+${x.phrase ? `<tr><td class="phrase" colspan="${niveaux.length + 1}">${esc(x.phrase)}</td></tr>` : ''}`; }).join('')}
 </table></body></html>`;
 }

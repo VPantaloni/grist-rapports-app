@@ -312,3 +312,139 @@ export function lienEchange(type, r, personnes, params, v) {
   if (!a) return '';
   return lienMailto(a, [], remplirMail(m.objet, v), remplirMail(String((params && params['mail_' + type]) || '').trim() || m.texte, v));
 }
+
+// --- Positionnement MD : un niveau et une phrase par compétence ---
+// Rapports.Positionnement : { code : { niveau, phrase } } ; ancienne forme { code : niveau } lue aussi.
+/** @param {any} json @returns {Record<string, { niveau: string, phrase: string }>} */
+export function lirePositionnement(json) {
+  /** @type {Record<string, { niveau: string, phrase: string }>} */
+  const o = {};
+  for (const [k, v] of Object.entries(lireObjet(json))) {
+    o[k] = typeof v === 'string' ? { niveau: v, phrase: '' } : { niveau: String((v && v.niveau) || ''), phrase: String((v && v.phrase) || '') };
+  }
+  return o;
+}
+// Nouveau niveau choisi : la phrase devient l'illustration de ce niveau si elle est vide ou si c'est encore une
+// illustration (non retouchée) ; une phrase écrite par l'auteur·e est gardée.
+/** @param {any} json @param {string} code @param {{ niveau?: string, phrase?: string }} x @param {Record<string, string>} illustrations niveau → phrase */
+export function positionner(json, code, x, illustrations = {}) {
+  const p = lirePositionnement(json);
+  const avant = p[code] || { niveau: '', phrase: '' };
+  const apres = { ...avant, ...x };
+  if (x.niveau !== undefined && x.phrase === undefined) {
+    const brute = !avant.phrase.trim() || Object.values(illustrations).some(t => t.trim() === avant.phrase.trim());
+    if (brute) apres.phrase = illustrations[x.niveau] || '';
+  }
+  p[code] = apres;
+  return JSON.stringify(p);
+}
+
+// --- Relecture : suggestions de l'IA-IPR et commentaires, que le ou la CMi accepte ou refuse ---
+// Rapports.Commentaires : { code de rubrique : { c: commentaire, s: texte suggéré, ok: commentaire traité } } ;
+// ancienne forme { code : commentaire } lue aussi.
+/** @typedef {{ c: string, s?: string, ok?: boolean }} NoteRelecture */
+/** @param {any} json @returns {Record<string, NoteRelecture>} */
+export function lireRelecture(json) {
+  /** @type {Record<string, NoteRelecture>} */
+  const o = {};
+  for (const [k, v] of Object.entries(lireObjet(json))) {
+    if (typeof v === 'string') { if (v.trim()) o[k] = { c: v }; continue; }
+    if (!v || typeof v !== 'object') continue;
+    const n = { c: String(v.c || '') };
+    if (typeof v.s === 'string') n.s = v.s;
+    if (v.ok) n.ok = true;
+    o[k] = n;
+  }
+  return o;
+}
+// Enregistrement : entrées vides retirées.
+/** @param {Record<string, NoteRelecture>} rel */
+export function ecrireRelecture(rel) {
+  /** @type {Record<string, NoteRelecture>} */
+  const o = {};
+  for (const [k, v] of Object.entries(rel)) {
+    const n = /** @type {NoteRelecture} */ ({ c: String(v.c || '') });
+    if (typeof v.s === 'string') n.s = v.s;
+    if (v.ok && n.c.trim()) n.ok = true;
+    if (n.c.trim() || typeof n.s === 'string') o[k] = n;
+  }
+  return Object.keys(o).length ? JSON.stringify(o) : '';
+}
+// Suggestion saisie par l'IA-IPR pour une rubrique : identique au texte du rapport = pas de suggestion.
+/** @param {any} json @param {string} code @param {string} texte @param {string} actuel */
+export function suggerer(json, code, texte, actuel) {
+  const rel = lireRelecture(json);
+  const n = rel[code] || { c: '' };
+  if (texte === actuel) delete n.s; else n.s = texte;
+  rel[code] = n;
+  return ecrireRelecture(rel);
+}
+/** @param {any} json @param {string} code @param {string} commentaire */
+export function commenter(json, code, commentaire) {
+  const rel = lireRelecture(json);
+  const n = rel[code] || { c: '' };
+  n.c = commentaire;
+  if (!commentaire.trim()) delete n.ok;
+  rel[code] = n;
+  return ecrireRelecture(rel);
+}
+// Accepter (le texte suggéré remplace celui de la rubrique) ou refuser une suggestion ; marquer un commentaire traité.
+/** @param {any} contenuJson @param {any} relJson @param {string} code @param {boolean} accepter @returns {{ Contenu: string, Commentaires: string }} */
+export function trancher(contenuJson, relJson, code, accepter) {
+  const contenu = lireObjet(contenuJson), rel = lireRelecture(relJson);
+  const n = rel[code];
+  if (n && typeof n.s === 'string') { if (accepter) contenu[code] = n.s; delete n.s; }
+  return { Contenu: JSON.stringify(contenu), Commentaires: ecrireRelecture(rel) };
+}
+/** @param {any} relJson @param {string} code @param {boolean} ok */
+export function traiter(relJson, code, ok) {
+  const rel = lireRelecture(relJson);
+  if (rel[code]) rel[code].ok = ok;
+  return ecrireRelecture(rel);
+}
+// À la validation par l'IA-IPR : les suggestions encore en attente sont appliquées (le rapport validé est celui relu).
+/** @param {any} contenuJson @param {any} relJson @returns {{ Contenu: string, Commentaires: string, appliquees: number }} */
+export function appliquerSuggestions(contenuJson, relJson) {
+  const contenu = lireObjet(contenuJson), rel = lireRelecture(relJson);
+  let appliquees = 0;
+  for (const [k, n] of Object.entries(rel)) if (typeof n.s === 'string') { contenu[k] = n.s; delete n.s; appliquees++; }
+  return { Contenu: JSON.stringify(contenu), Commentaires: ecrireRelecture(rel), appliquees };
+}
+// Suggestions en attente et commentaires non traités (bandeau de la fiche).
+/** @param {any} relJson */
+export function bilanRelecture(relJson) {
+  const rel = Object.values(lireRelecture(relJson));
+  return { suggestions: rel.filter(n => typeof n.s === 'string').length, commentaires: rel.filter(n => n.c.trim() && !n.ok).length,
+    traites: rel.filter(n => n.c.trim() && n.ok).length };
+}
+// Le ou la CMi auteur·e répond à la relecture (accepte, refuse, marque traité) : rapport soumis ou à reprendre.
+/** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
+export const peutRepondre = (droits, moi, r) => droits.M !== 'Non' && !!personne(moi) && r.Auteur === personne(moi)
+  && ['Soumis', 'À reprendre'].includes(String(r.Statut));
+
+// Différence mot à mot (plus longue sous-suite commune) : segments '=' gardés, '+' ajoutés, '-' retirés. Au-delà de
+// 3 millions de comparaisons, tout le texte est donné comme remplacé.
+/** @param {string} a @param {string} b @returns {{ t: '=' | '+' | '-', x: string }[]} */
+export function diffMots(a, b) {
+  const mots = (/** @type {string} */ t) => String(t || '').split(/(\s+|[.,;:!?«»()…])/).filter(x => x !== '');   // mots, espaces, ponctuation
+  const A = mots(a), B = mots(b);
+  /** @type {{ t: '=' | '+' | '-', x: string }[]} */
+  const out = [];
+  const pousser = (/** @type {'=' | '+' | '-'} */ t, /** @type {string} */ x) => {
+    const d = out[out.length - 1];
+    if (d && d.t === t) d.x += x; else out.push({ t, x });
+  };
+  if (A.length * B.length > 3e6) { if (a) pousser('-', a); if (b) pousser('+', b); return out; }
+  const n = A.length, m = B.length;
+  const L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { pousser('=', A[i]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) pousser('-', A[i++]);
+    else pousser('+', B[j++]);
+  }
+  while (i < n) pousser('-', A[i++]);
+  while (j < m) pousser('+', B[j++]);
+  return out;
+}

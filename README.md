@@ -144,6 +144,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Code` | Texte | unique : MD1, MD2… |
 | `Libelle` | Texte | Compétence |
 | `Descripteurs` | Texte | aide au positionnement : un paragraphe par niveau, commençant par « Niveau : » (ex. « À consolider : … ») |
+| `Phrases_types` | Texte | une phrase par niveau, « Niveau : phrase » : proposée quand on choisit ce niveau, modifiable dans le rapport |
 | `Domaine` | Texte | Domaine |
 | `Ordre` | Numérique | Ordre |
 

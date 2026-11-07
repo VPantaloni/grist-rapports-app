@@ -423,6 +423,12 @@
           "role": "aide au positionnement : un paragraphe par niveau, commençant par « Niveau : » (ex. « À consolider : … »)"
         },
         {
+          "id": "Phrases_types",
+          "libelle": "Phrases d'illustration",
+          "type": "Text",
+          "role": "une phrase par niveau, « Niveau : phrase » : proposée quand on choisit ce niveau, modifiable dans le rapport"
+        },
+        {
           "id": "Domaine",
           "libelle": "Domaine",
           "type": "Text"
@@ -1045,9 +1051,9 @@
     {
       "table": "Rapports",
       "colonne": "Commentaires",
-      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or (\"IA-IPR\" in user.Profil.Roles and newRec.Valideur == user.Profil.Personne)))",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or (\"IA-IPR\" in user.Profil.Roles and newRec.Valideur == user.Profil.Personne) or (rec.Auteur == user.Profil.Personne and rec.Statut in (\"Soumis\", \"À reprendre\"))))",
       "droits": "-U",
-      "libelle": "Rapports.Commentaires : seul·e l'IA-IPR valideur·e commente, signe, valide et transmet"
+      "libelle": "Rapports.Commentaires : l'IA-IPR valideur·e suggère et commente ; l'auteur·e accepte, refuse, marque traité"
     },
     {
       "table": "Personnes",
@@ -1081,9 +1087,9 @@
     },
     {
       "table": "Rapports",
-      "condition": "user.Profil and \"Rapports:M:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and rec.Statut in (\"Brouillon\", \"À reprendre\") and newRec.Auteur == user.Profil.Personne and newRec.Statut in (\"Brouillon\", \"À reprendre\", \"Soumis\")",
+      "condition": "user.Profil and \"Rapports:M:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and rec.Statut in (\"Brouillon\", \"À reprendre\", \"Soumis\") and newRec.Auteur == user.Profil.Personne and newRec.Statut in (\"Brouillon\", \"À reprendre\", \"Soumis\")",
       "droits": "+U",
-      "libelle": "Rapports : rédiger ses rapports jusqu'à la soumission (Limité)"
+      "libelle": "Rapports : rédiger ses rapports jusqu'à la soumission, puis répondre à la relecture (Limité)"
     },
     {
       "table": "Rapports",
