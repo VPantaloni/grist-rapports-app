@@ -25,7 +25,7 @@
   .groupe li .nom { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .groupe li .det { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .g-Brouillon > button { border-left-color: #9ca3af; } .g-Soumis > button { border-left-color: var(--info); }
-  .g-Areprendre > button { border-left-color: var(--warn); } .g-Valide > button { border-left-color: #16a34a; }
+  .g-Areprendre > button { border-left-color: var(--warn); } .g-Valide > button { border-left-color: var(--accent); }
   .g-Transmis > button { border-left-color: var(--accent); }
 
   /* Fiche */
@@ -136,7 +136,7 @@ import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffre
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
   redigeParIpr, peutValiderSeul, niveauxMd, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
-  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee } from './logique.js';
+  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
 const pref = preferences('Rapports');
@@ -427,6 +427,10 @@ function boutons(r) {
     b.push(`<button id="b-valider" class="primary${masque() ? ' inactif' : ''}" title="Poser ma signature et valider le rapport">Signer et valider</button>`);
     b.push(`<button id="b-renvoyer"${inactif} title="Renvoyer au ou à la CMi avec les commentaires (double clic)">Renvoyer à reprendre</button>`);
   }
+  for (const k of mailsRelecture(droits, moi, r, parIpr)) {
+    const m = MAILS_RELECTURE[k];
+    b.push(`<button data-echange="${k}" title="Ouvrir la messagerie vers ${m.vers === 'ipr' ? 'l\'IA-IPR' : 'le ou la CMi'} (texte prêt, modifiable avant l'envoi)">${esc(m.bouton)}</button>`);
+  }
   b.push(`<button id="b-imprimer"${inactif || ' title="Ouvrir le rapport mis en page dans un nouvel onglet, puis Ctrl/Cmd + P → PDF"'}>Imprimer / PDF</button>`);
   if (peutTransmettre(droits, moi, r)) {
     b.push(`<button id="b-mail" title="Ouvrir la messagerie : secrétariat, copies ; joindre le PDF enregistré">✉ Préparer le mail</button>`);
@@ -510,6 +514,7 @@ function brancherFiche(r) {
   });
   if ($('b-imprimer')) $('b-imprimer').addEventListener('click', async () => { if (masque()) return toast(TIP_MASQUE + '.', true); await envoyer(); imprimer(rapportSel()); });
   if ($('b-mail')) $('b-mail').addEventListener('click', () => preparerMail(rapportSel()));
+  $('fiche').querySelectorAll('[data-echange]').forEach(x => x.addEventListener('click', () => echange(rapportSel(), x.dataset.echange)));
   if ($('b-transmis') && !masque()) boutonConfirmation($('b-transmis'), 'Confirmer : transmis', async () => {
     const x = rapportSel();
     await ecrireRapport([['UpdateRecord', TABLE, x.id, { Statut: 'Transmis', Transmis_le: aujourdhuiGrist(),
@@ -633,6 +638,16 @@ function ouvrirOnglet(html, nom) {
   toast('Nouvel onglet bloqué : page téléchargée (.html), à ouvrir puis imprimer.');
 }
 function imprimer(r) { const c = contexte(r); ouvrirOnglet(htmlImpression(r, c), c.nomFichier); }
+// Échange CMi ↔ IA-IPR pendant la relecture : messagerie ouverte, texte prêt.
+function echange(r, type) {
+  const v = { etablissement: [r.Etab_nom, r.Etab_commune].filter(Boolean).join(', '), professeur: [r.Prof_civilite, r.Prof_prenom, r.Prof_nom].filter(Boolean).join(' '),
+    auteur: nomPers(r.Auteur), ipr: nomPers(r.Valideur), date: dateFr(r.Date_visite) };
+  const lien = lienEchange(type, r, D.personnes, D.params, v);
+  if (!lien) { toast(`Adresse e-mail ${MAILS_RELECTURE[type].vers === 'ipr' ? 'de l\'IA-IPR' : 'du ou de la CMi'} absente : la renseigner dans l'Annuaire.`, true); return; }
+  const a = document.createElement('a');
+  a.href = lien; a.target = '_top';
+  document.body.appendChild(a); a.click(); a.remove();
+}
 function preparerMail(r) {
   const t = typeDe(r), d = destinataires(r, t.Code, D.personnes, D.params.secretariat || '');
   if (!d.a) { toast('Adresse du secrétariat absente : Parametres → secretariat.', true); return; }

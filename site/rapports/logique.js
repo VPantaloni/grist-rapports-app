@@ -236,7 +236,7 @@ export function destinataires(r, codeType, personnes, secretariat) {
 }
 // Texte d'un modèle de mail : {etablissement}, {professeur}, {auteur}, {date} remplacés.
 /** @param {string} modele @param {Record<string, any>} v */
-export const remplirMail = (modele, v) => String(modele || '').replace(/\{(etablissement|professeur|auteur|date)\}/g, (_, k) => String(v[k] ?? ''));
+export const remplirMail = (modele, v) => String(modele || '').replace(/\{(etablissement|professeur|auteur|ipr|date)\}/g, (_, k) => String(v[k] ?? ''));
 /** @param {string} a @param {string[]} cc @param {string} objet @param {string} corps */
 export function lienMailto(a, cc, objet, corps) {
   const p = [cc.length ? `cc=${encodeURIComponent(cc.join(','))}` : '', `subject=${encodeURIComponent(objet)}`, `body=${encodeURIComponent(corps)}`];
@@ -277,4 +277,38 @@ export function visiteAssociee(visites, x) {
   const v = x.visite ? visites.find(y => y.id === x.visite) : null;
   if (v) return v.Rapport ? null : v;
   return visites.find(y => !y.Rapport && y.Professeur && y.Professeur === x.prof && y.CMi === x.auteur) || null;
+}
+
+// --- Échanges CMi ↔ IA-IPR pendant la relecture (messagerie ouverte, rien n'est écrit dans Grist) ---
+// proposition : le ou la CMi prévient l'IA-IPR que le rapport est proposé (soumis) ;
+// modifications : l'IA-IPR prévient le ou la CMi des modifications, suggestions et commentaires ;
+// accord : le ou la CMi répond « OK pour valider ». Seul·e l'IA-IPR valide et transmet.
+// Textes : Parametres mail_proposition, mail_modifications, mail_accord ({professeur}, {etablissement}, {date},
+// {auteur}, {ipr}), sinon ceux-ci.
+export const MAILS_RELECTURE = {
+  proposition: { vers: 'ipr', bouton: '✉ Prévenir l\'IA-IPR', objet: 'Rapport proposé en relecture – {professeur} ({date})',
+    texte: 'Bonjour,\n\nJe viens de proposer le rapport de visite de {professeur} ({etablissement}, visite du {date}). Il est en relecture dans l\'application Rapports d\'inspection.\n\nBien cordialement,\n{auteur}' },
+  modifications: { vers: 'cmi', bouton: '✉ Prévenir le ou la CMi', objet: 'Rapport relu – {professeur} ({date})',
+    texte: 'Bonjour,\n\nJ\'ai relu le rapport de visite de {professeur} ({etablissement}, visite du {date}). Les modifications effectuées, les suggestions à valider et mes commentaires sont dans l\'application Rapports d\'inspection.\nSi tout vous convient, merci de me répondre « OK pour valider » : je finaliserai alors le rapport.\n\nBien cordialement,\n{ipr}' },
+  accord: { vers: 'ipr', bouton: '✉ OK pour valider', objet: 'OK pour valider – {professeur} ({date})',
+    texte: 'Bonjour,\n\nJ\'ai pris connaissance des modifications et des commentaires sur le rapport de {professeur} ({date}) : OK pour valider.\n\nBien cordialement,\n{auteur}' },
+};
+// Boutons d'échange proposés : CMi auteur·e d'un rapport soumis → proposition et accord ; IA-IPR qui relit (rapport
+// soumis ou à reprendre) → modifications. Jamais pour un rapport rédigé par un·e IA-IPR seul·e.
+/** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r @param {boolean} parIpr @returns {string[]} */
+export function mailsRelecture(droits, moi, r, parIpr) {
+  if (parIpr) return [];
+  const m = [];
+  if (personne(moi) && r.Auteur === personne(moi) && r.Statut === 'Soumis') m.push('proposition', 'accord');
+  if (droits.M === 'Oui' && (estAdmin(moi) || (estIpr(moi) && !!personne(moi))) && ['Soumis', 'À reprendre'].includes(String(r.Statut))) m.push('modifications');
+  return m;
+}
+// Lien mailto d'un échange : destinataire (IA-IPR valideur·e ou CMi auteur·e), objet et texte remplis ; '' sans adresse.
+/** @param {keyof typeof MAILS_RELECTURE} type @param {Ligne} r @param {Ligne[]} personnes @param {Record<string, string>} params @param {Record<string, any>} v */
+export function lienEchange(type, r, personnes, params, v) {
+  const m = MAILS_RELECTURE[type];
+  const dest = personnes.find(x => x.id === (m.vers === 'ipr' ? r.Valideur : r.Auteur));
+  const a = String((dest && dest.Email) || '').trim();
+  if (!a) return '';
+  return lienMailto(a, [], remplirMail(m.objet, v), remplirMail(String((params && params['mail_' + type]) || '').trim() || m.texte, v));
 }

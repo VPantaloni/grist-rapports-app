@@ -54,7 +54,7 @@ export function periode(v) {
   return a.getUTCFullYear() === b.getUTCFullYear()
     ? `${MOIS[a.getUTCMonth()]} → ${libelleMois(v.Mois_fin)}` : `${libelleMois(v.Mois_debut)} → ${libelleMois(v.Mois_fin)}`;
 }
-// Dernier jour du mois de fin (ou du mois de début si pas de fin) : au-delà, la visite non calée est en retard.
+// Dernier jour du mois de fin (ou du mois de début si pas de fin).
 /** @param {Ligne} v @returns {number | null} */
 export function finPeriode(v) {
   const d = dateDe(v.Mois_fin) || dateDe(v.Mois_debut);
@@ -177,32 +177,32 @@ export function preparerImport(lignes, D, cmi, rentree) {
 /** @typedef {{ cle: string, libelle: string, rang: number, faite: boolean }} Etat */
 /** @type {Etat[]} */
 export const ETATS = [
-  { cle: 'retard', libelle: 'En retard', rang: 0, faite: false },
   { cle: 'a_caler', libelle: 'À caler', rang: 1, faite: false },
   { cle: 'calee', libelle: 'Calée', rang: 2, faite: false },
-  { cle: 'a_rediger', libelle: 'Rapport à rédiger', rang: 3, faite: true },
-  { cle: 'redaction', libelle: 'Rapport en cours', rang: 4, faite: true },
-  { cle: 'reprendre', libelle: 'À reprendre', rang: 5, faite: true },
-  { cle: 'relecture', libelle: 'En relecture', rang: 6, faite: true },
+  { cle: 'redaction', libelle: 'En cours', rang: 3, faite: true },
+  { cle: 'reprendre', libelle: 'À reprendre', rang: 4, faite: true },
+  { cle: 'relecture', libelle: 'En relecture', rang: 5, faite: true },
   { cle: 'valide', libelle: 'Validé', rang: 7, faite: true },
   { cle: 'transmis', libelle: 'Transmis', rang: 8, faite: true },
 ];
 const etatCle = (/** @type {string} */ k) => /** @type {Etat} */ (ETATS.find(e => e.cle === k));
+// Date calée passée sans rapport : « en cours » (APP § 11).
 const PAR_STATUT = /** @type {Record<string, string>} */ ({ Brouillon: 'redaction', 'À reprendre': 'reprendre', Soumis: 'relecture', 'Validé': 'valide', Transmis: 'transmis' });
 // rapport : la ligne de Rapports reliée (ou undefined) ; auj : date Grist du jour.
 /** @param {Ligne} v @param {Ligne | undefined} rapport @param {number} auj @returns {Etat} */
 export function etat(v, rapport, auj) {
   if (rapport) return etatCle(PAR_STATUT[String(rapport.Statut)] || 'redaction');
-  if (v.Date_prevue) return etatCle(v.Date_prevue <= auj ? 'a_rediger' : 'calee');
-  const fin = finPeriode(v);
-  return etatCle(fin !== null && fin < auj ? 'retard' : 'a_caler');
+  if (v.Date_prevue) return etatCle(v.Date_prevue <= auj ? 'redaction' : 'calee');
+  return etatCle('a_caler');
 }
-// Visites avec leur état et leur rapport ; triées : en retard, puis par période et nom.
+// Période passée sans date calée ni rapport : signalée dans « À caler » (pas un état à part).
+/** @param {Ligne} v @param {Etat} e @param {number} auj */
+export const periodeDepassee = (v, e, auj) => { const f = finPeriode(v); return e.cle === 'a_caler' && f !== null && f < auj; };
+// Visites avec leur état et leur rapport ; triées par date calée (sinon début de période), puis nom.
 /** @param {Ligne[]} visites @param {Ligne[]} rapports @param {number} auj */
 export function enrichir(visites, rapports, auj) {
   return visites.map(v => { const r = rapports.find(x => x.id === v.Rapport); return { v, r, e: etat(v, r, auj) }; })
-    .sort((a, b) => Number(b.e.cle === 'retard') - Number(a.e.cle === 'retard')
-      || (Number(a.v.Date_prevue || a.v.Mois_debut) || 9e9) - (Number(b.v.Date_prevue || b.v.Mois_debut) || 9e9)
+    .sort((a, b) => (Number(a.v.Date_prevue || a.v.Mois_debut) || 9e9) - (Number(b.v.Date_prevue || b.v.Mois_debut) || 9e9)
       || String(a.v.Prof_nom || '').localeCompare(String(b.v.Prof_nom || ''), 'fr'));
 }
 // Compteurs par état.
@@ -234,7 +234,7 @@ export function bilanParCmi(lignes, horsPlan, personnes) {
   return ids.map(id => {
     const m = lignes.filter(l => (Number(l.v.CMi) || 0) === id);
     return { id, nom: nom(id), prevues: m.length, faites: m.filter(l => l.e.faite).length,
-      retard: m.filter(l => l.e.cle === 'retard').length, relecture: m.filter(l => l.e.cle === 'relecture').length,
+      relecture: m.filter(l => l.e.cle === 'relecture').length,
       validees: m.filter(l => l.e.cle === 'valide' || l.e.cle === 'transmis').length,
       horsPlan: horsPlan.filter(r => (Number(r.Auteur) || 0) === id).length };
   }).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
@@ -253,7 +253,7 @@ export function visiteDepuisRapport(r) {
     Mois_debut: mois, Mois_fin: mois, Visite_inspe: null, Date_prevue: r.Date_visite || null, Notes: 'ajoutée d\'après un rapport hors plan', Rapport: r.id };
 }
 
-// Visites d'un·e CMi, regroupées : en retard, puis par mois (date calée, sinon début de période), rapports terminés à la fin.
+// Visites d'un·e CMi, regroupées par mois (date calée, sinon début de période), rapports validés ou transmis à la fin.
 /** @param {{ v: Ligne, r?: Ligne, e: Etat }[]} lignes */
 export function grouperMesVisites(lignes) {
   /** @type {{ cle: string, titre: string, lignes: typeof lignes }[]} */
@@ -263,8 +263,7 @@ export function grouperMesVisites(lignes) {
     if (!x) g.push(x = { cle, titre, lignes: [] });
     x.lignes.push(l);
   };
-  for (const l of lignes.filter(x => x.e.cle === 'retard')) ajouter('retard', 'En retard', l);
-  const encours = lignes.filter(x => x.e.cle !== 'retard' && x.e.rang < 7)
+  const encours = lignes.filter(x => x.e.rang < 7)
     .sort((a, b) => (Number(a.v.Date_prevue || a.v.Mois_debut) || 9e9) - (Number(b.v.Date_prevue || b.v.Mois_debut) || 9e9));
   for (const l of encours) { const s = l.v.Date_prevue || l.v.Mois_debut; const lib = libelleMois(s); ajouter('m' + (lib || '?'), lib ? lib[0].toUpperCase() + lib.slice(1) : 'Sans période', l); }
   for (const l of lignes.filter(x => x.e.rang >= 7)) ajouter('fini', 'Rapports validés ou transmis', l);

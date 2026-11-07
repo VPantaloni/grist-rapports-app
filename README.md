@@ -294,8 +294,8 @@ renseigner pour son document.
 le ou la CMi, la période (mois de début et de fin), la date de visite INSPE et le statut tel que dans le plan
 (« AGREG 50 % »…). « Importer un plan » lit un copier-coller du tableur des collègues (NOM, Prénom, statut,
 établissement, ville, période de visite, Visite INSPE, UAI) : chaque professeur·e est retrouvé·e par l'UAI et le nom,
-les doublons et visites déjà au plan sont écartés. L'onglet **Suivi** compte les visites par état (en retard, à caler,
-calée, rapport à rédiger, en cours, en relecture, validé, transmis), donne un bilan par CMi et signale les rapports
+les doublons et visites déjà au plan sont écartés. L'onglet **Suivi** compte les visites par état (à caler, calée,
+en cours, en relecture, à reprendre, validé, transmis), donne un bilan par CMi et signale les rapports
 rédigés hors plan (« Ajouter au plan »). Les CMi ne voient que **leurs** visites (« Mes visites ») : contacts de
 l'établissement (e-mail `ce.<UAI>@ac-orleans-tours.fr`, téléphone), date à caler, notes, puis « Rédiger le rapport »,
 qui ouvre l'écran Rapports déjà rempli et relie le rapport à la visite.

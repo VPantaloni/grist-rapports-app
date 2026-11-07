@@ -2,12 +2,12 @@
    Chargement : <link rel="stylesheet" href="../commun/style.css"> (accueil : commun/style.css). */
 
 /* ===== À ADAPTER : couleur d'accent de l'application (clair, puis sombre), aussi dans favicon.svg. =====
-   Par défaut, le vert de Grist. Exemple indigo : #4f46e5 / #eef2ff, et en sombre #a5b4fc / #14123a / #2b2f55. */
+   Rapports d'inspection : violet #5b21a3 (APP § 11) ; en sombre, un violet clair lisible sur fond foncé. */
 :root {
-  --accent: #16b378; --accent-fg: #ffffff; --sel: #e6f7f0;
+  --accent: #5b21a3; --accent-fg: #ffffff; --sel: #f1eafa;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --accent: #1dcb89; --accent-fg: #10231b; --sel: #1d3a30; }
+  :root { --accent: #b48cf2; --accent-fg: #1c0b36; --sel: #2e2147; }
 }
 /* ===== fin des réglages ===== */
 

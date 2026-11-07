@@ -60,7 +60,7 @@ export const ONGLETS = [
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
     ] },
   { cle: 'parametres', libelle: 'Paramètres', table: 'Parametres', titre: l => String(l.Cle || ''), detail: l => String(l.Description || ''),
-    aide: 'discipline, entete (une ligne par ligne d\'en-tête, en gras), pied (bas de page), taille_signature (hauteur des signatures imprimées, en mm), secretariat (destinataire), mail_objet et mail_texte ({etablissement}, {professeur}, {auteur}, {date}), echelle_md (niveaux séparés par « ; »), aide_md. Les IA-IPR en copie des PSTG se règlent dans l\'Annuaire.',
+    aide: 'discipline, entete (une ligne par ligne d\'en-tête, en gras), pied (bas de page), taille_signature (hauteur des signatures imprimées, en mm), secretariat (destinataire), mail_objet et mail_texte ({etablissement}, {professeur}, {auteur}, {date}), mail_proposition, mail_modifications et mail_accord (textes des échanges CMi ↔ IA-IPR ; aussi {ipr} ; vide = texte prévu), echelle_md (niveaux séparés par « ; »), aide_md. Les IA-IPR en copie des PSTG se règlent dans l\'Annuaire.',
     colonnes: [
       { id: 'Cle', lib: 'Clé', type: 'texte', obligatoire: true, unique: true },
       { id: 'Valeur', lib: 'Valeur', type: 'long' },
