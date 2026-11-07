@@ -282,7 +282,8 @@ export function bilanParCmi(lignes, horsPlan, personnes) {
   const nom = (/** @type {number} */ id) => { const p = personnes.find(x => x.id === id); return p ? String(p.Nom_complet || [p.Prenom, p.Nom].join(' ')) : 'sans CMi'; };
   return ids.map(id => {
     const m = lignes.filter(l => (Number(l.v.CMi) || 0) === id);
-    return { id, nom: nom(id), prevues: m.length, faites: m.filter(l => l.e.faite).length,
+    const p = personnes.find(x => x.id === id);
+    return { id, nom: nom(id), dues: p && Number(p.nb_visites_dues) > 0 ? Number(p.nb_visites_dues) : 0, prevues: m.length, faites: m.filter(l => l.e.faite).length,
       relecture: m.filter(l => l.e.cle === 'relecture').length,
       validees: m.filter(l => l.e.cle === 'valide' || l.e.cle === 'transmis').length,
       horsPlan: horsPlan.filter(r => (Number(r.Auteur) || 0) === id).length };
@@ -355,4 +356,12 @@ export function valider(f) {
   if (!Number(f.CMi)) e.push('CMi : à choisir.');
   if (f.Mois_debut && f.Mois_fin && f.Mois_fin < f.Mois_debut) e.push('Période : le mois de fin précède le mois de début.');
   return e;
+}
+
+// Visites dues (lettre de mission, Personnes.nb_visites_dues) face aux visites au plan et aux visites faites.
+/** @param {Ligne | undefined} cmi @param {{ e: Etat }[]} lignes visites de l'année de ce ou cette CMi */
+export function objectif(cmi, lignes) {
+  const dues = cmi && Number(cmi.nb_visites_dues) > 0 ? Math.floor(Number(cmi.nb_visites_dues)) : 0;
+  const prevues = lignes.length, faites = lignes.filter(l => l.e.faite).length;
+  return { dues, prevues, faites, manque: dues ? Math.max(0, dues - prevues) : 0 };
 }

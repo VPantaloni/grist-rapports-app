@@ -60,11 +60,16 @@ export function validerFiche(f, personnes, id) {
 
 // Champs à écrire (Referent seulement pour un·e CMi ; Stagiaires seulement pour un·e IA-IPR).
 /** @param {Record<string, any>} f */
-export function champsFiche(f) {
+// avecDues : la colonne nb_visites_dues (visites attendues selon la lettre de mission) existe dans le document.
+/** @param {Record<string, any>} f @param {boolean} [avecDues] */
+export function champsFiche(f, avecDues = false) {
   const ipr = f.Fonction === 'IA-IPR';
-  return { Prenom: String(f.Prenom || '').trim(), Nom: String(f.Nom || '').trim(), Fonction: f.Fonction,
+  /** @type {Record<string, any>} */
+  const c = { Prenom: String(f.Prenom || '').trim(), Nom: String(f.Nom || '').trim(), Fonction: f.Fonction,
     Initiales: String(f.Initiales || '').trim().toUpperCase(), Referent: ipr ? 0 : (f.Referent || 0),
     Titre_signature: String(f.Titre_signature || '').trim(), Stagiaires: ipr && !!f.Stagiaires, Email: String(f.Email || '').trim() };
+  if (avecDues) { const n = parseInt(String(f.nb_visites_dues ?? ''), 10); c.nb_visites_dues = ipr || !Number.isFinite(n) || n < 0 ? 0 : n; }
+  return c;
 }
 
 // Peut-on modifier cette fiche ? « Limité » : la sienne (même condition que la règle d'accès).

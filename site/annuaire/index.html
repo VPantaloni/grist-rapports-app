@@ -75,6 +75,8 @@ function afficherListe() {
   $('nouveau').title = ok ? 'Créer une fiche (CMi ou IA-IPR)' : 'Création réservée aux administrateur·trices';
 }
 
+// Colonne Personnes.nb_visites_dues présente dans le document (ajoutée par l'utilisateur·trice ou par l'Installer) ?
+const avecDues = () => D.personnes.some(p => 'nb_visites_dues' in p);
 function afficherFiche() {
   if (edition) return afficherFormulaire();
   const p = personne(sel);
@@ -90,7 +92,8 @@ function afficherFiche() {
       <dt>Titre de signature</dt><dd>${esc(p.Titre_signature) || '<span class="muted">— (titre par défaut)</span>'}</dd>
       ${p.Fonction === 'IA-IPR' ? `<dt>Stagiaires</dt><dd>${p.Stagiaires ? 'en copie des rapports PSTG' : 'non'}</dd>
         <dt>CMi référé·es</dt><dd>${cmi.length ? cmi.map(x => esc(nomComplet(x))).join(', ') : '<span class="muted">aucun·e</span>'}</dd>`
-        : `<dt>IA-IPR référent·e</dt><dd>${ref ? esc(nomComplet(ref)) : '<span class="ko">aucun·e</span>'}</dd>`}
+        : `<dt>IA-IPR référent·e</dt><dd>${ref ? esc(nomComplet(ref)) : '<span class="ko">aucun·e</span>'}</dd>
+          ${avecDues() ? `<dt>Visites dues</dt><dd>${Number(p.nb_visites_dues) || '<span class="muted">—</span>'} <span class="muted">(lettre de mission)</span></dd>` : ''}`}
     </dl></div>
     ${admin ? `<div class="bloc"><h2>Accès à l'application</h2>${u
       ? `<p>Compte <code>${esc(u.Email)}</code> · rôles ${esc(liste(u.Roles).join(', ') || '—')} · ${u.Actif ? 'actif' : '<span class="ko">inactif</span>'}${u.Personne === p.id ? '' : ' · <span class="ko">non relié à cette fiche</span>'}</p>
@@ -122,7 +125,8 @@ function afficherFormulaire() {
       <label class="champ"><span>E-mail (celui du compte Grist)</span><input type="text" id="f-Email" value="${esc(f.Email || '')}"></label>
       ${f.Fonction === 'IA-IPR' ? `<label class="champ"><span>Rapports PSTG</span><label><input type="checkbox" id="f-Stagiaires" ${f.Stagiaires ? 'checked' : ''}> en copie des rapports de stagiaires</label></label>`
         : `<label class="champ"><span>IA-IPR référent·e</span><select id="f-Referent"><option value="0">—</option>
-          ${ipr.map(x => `<option value="${x.id}" ${x.id === f.Referent ? 'selected' : ''}>${esc(nomComplet(x))}</option>`).join('')}</select></label>`}
+          ${ipr.map(x => `<option value="${x.id}" ${x.id === f.Referent ? 'selected' : ''}>${esc(nomComplet(x))}</option>`).join('')}</select></label>
+          ${avecDues() ? `<label class="champ"><span>Visites dues (lettre de mission)</span><input type="number" min="0" step="1" id="f-nb_visites_dues" value="${esc(f.nb_visites_dues ?? '')}"></label>` : ''}`}
     </div>
     <label class="champ"><span>Titre au-dessus de la signature</span><input type="text" id="f-Titre_signature" value="${esc(f.Titre_signature || '')}" placeholder="La chargée de mission">
       <div class="suggestions">${TITRES.map(t => `<button type="button" data-titre="${esc(t)}">${esc(t)}</button>`).join('')}</div></label>
@@ -133,6 +137,7 @@ function afficherFormulaire() {
     f.Fonction = $('f-Fonction').value;
     if ($('f-Referent')) f.Referent = Number($('f-Referent').value) || 0;
     if ($('f-Stagiaires')) f.Stagiaires = $('f-Stagiaires').checked;
+    if ($('f-nb_visites_dues')) f.nb_visites_dues = $('f-nb_visites_dues').value;
   };
   $('f-Fonction').addEventListener('change', () => { lire(); afficherFormulaire(); });
   const ini = () => { if (!f.id && !$('f-Initiales').value.trim()) $('f-Initiales').placeholder = initialesProposees($('f-Prenom').value, $('f-Nom').value); };
@@ -145,7 +150,7 @@ function afficherFormulaire() {
     const err = validerFiche(f, D.personnes, f.id || null);
     $('f-erreurs').innerHTML = err.map(e => `<li>${esc(e)}</li>`).join('');
     if (err.length) return;
-    const champs = champsFiche(f);
+    const champs = champsFiche(f, avecDues());
     if (f.id) { if (await ecrire([['UpdateRecord', TABLE, f.id, champs]], 'Fiche enregistrée', charger)) { edition = null; afficherFiche(); } return; }
     const res = await ecrire([['AddRecord', TABLE, null, champs]], 'Fiche créée');
     if (!res) return;

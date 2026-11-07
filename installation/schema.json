@@ -59,6 +59,12 @@
           "role": "unique ; adresse professionnelle"
         },
         {
+          "id": "nb_visites_dues",
+          "libelle": "Visites dues",
+          "type": "Int",
+          "role": "CMi : nombre de visites attendues selon la lettre de mission (affiché sur son plan et dans le bilan)"
+        },
+        {
           "id": "Nom_complet",
           "libelle": "Nom complet",
           "type": "Text",

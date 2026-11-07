@@ -45,6 +45,9 @@
   details.bloc summary { font-weight: 600; cursor: pointer; }
   table.bilan { font-size: 13px; margin-top: 6px; } table.bilan td, table.bilan th { padding: 3px 10px 3px 0; text-align: right; }
   table.bilan td:first-child, table.bilan th:first-child { text-align: left; }
+  .objectif { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; max-width: 640px; }
+  .objectif .jauge { height: 6px; background: var(--bg2); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .objectif .jauge span { display: block; height: 100%; background: var(--accent); }
   .groupe-titre { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; }
   .cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
   .carte { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -107,7 +110,7 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
   hoteEcran } from '../commun/grist.js';
 import { norm, nomFiche } from '../commun/donnees.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
-  filtrer, periodeDepassee, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
+  filtrer, periodeDepassee, objectif, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
   valider, lireTableauColle, preparerImport, fichesCmiACreer } from './logique.js';
 
 const pref = preferences('Plan');
@@ -170,8 +173,9 @@ function afficherSuivi() {
       ${ETATS.map(e => `<button data-etat="${e.cle}" class="c-${e.cle} ${filtre.etat === e.cle ? 'actif' : ''}"><b>${n[e.cle]}</b><span>${esc(e.libelle.toLowerCase())}</span></button>`).join('')}
     </div>
     <details class="bloc" ${pref.lire('Bilan', '1') === '1' ? 'open' : ''} id="bilan"><summary>Bilan par CMi (${esc(libelleAnnee(rentree))})</summary>
-      ${bilan.length ? `<table class="bilan"><tr><th>CMi</th><th>Prévues</th><th>Effectuées</th><th>En relecture</th><th>Validées ou transmises</th><th>Hors plan</th></tr>
-        ${bilan.map(b => `<tr><td><button class="lien" data-cmi="${b.id}">${esc(b.nom)}</button></td><td>${b.prevues}</td><td>${b.faites}</td>
+      ${bilan.length ? `<table class="bilan"><tr><th>CMi</th><th title="Visites attendues selon la lettre de mission (Annuaire)">Dues</th><th>Prévues</th><th>Effectuées</th><th>En relecture</th><th>Validées ou transmises</th><th>Hors plan</th></tr>
+        ${bilan.map(b => `<tr><td><button class="lien" data-cmi="${b.id}">${esc(b.nom)}</button></td><td>${b.dues || '<span class="muted">—</span>'}</td>
+          <td class="${b.dues && b.prevues < b.dues ? 'ko' : ''}" title="${b.dues && b.prevues < b.dues ? `${b.dues - b.prevues} visite(s) à ajouter au plan` : ''}">${b.prevues}</td><td>${b.faites}</td>
           <td>${b.relecture}</td><td>${b.validees}</td><td class="${b.horsPlan ? 'ko' : ''}">${b.horsPlan}</td></tr>`).join('')}</table>`
         : '<p class="vide">Aucune visite pour cette année.</p>'}
     </details>
@@ -216,10 +220,15 @@ function afficherMes() {
   const auj = aujourdhui();
   const miennes = enrichir(visitesAnnee().filter(v => moi && v.CMi === moi.Personne), D.rapports, auj);
   const g = grouperMesVisites(miennes);
+  const o = objectif(personne(moi && moi.Personne), miennes);
+  const bandeau = o.dues ? `<div class="objectif"><strong>${o.faites} / ${o.dues}</strong> visites effectuées
+      <span class="muted">· ${o.prevues} au plan · ${o.dues} dues selon ta lettre de mission (${esc(libelleAnnee(rentree))})</span>
+      <div class="jauge"><span style="width:${Math.min(100, Math.round(100 * o.faites / o.dues))}%"></span></div>
+      ${o.manque ? `<div class="petit">Il reste ${o.manque} visite(s) à inscrire au plan : voir avec ton IA-IPR référent·e.</div>` : ''}</div>` : '';
   $('contenu').innerHTML = !moi || !moi.Personne
     ? '<p class="vide">Ton compte n\'est pas relié à une fiche de l\'annuaire : demande à un·e administrateur·trice (Administration → Accès).</p>'
-    : g.length ? g.map(x => `<h2 class="groupe-titre">${esc(x.titre)} (${x.lignes.length})</h2><div class="cartes">${x.lignes.map(carte).join('')}</div>`).join('')
-      : `<p class="vide">Aucune visite au plan pour toi en ${esc(libelleAnnee(rentree))}.</p>`;
+    : bandeau + (g.length ? g.map(x => `<h2 class="groupe-titre">${esc(x.titre)} (${x.lignes.length})</h2><div class="cartes">${x.lignes.map(carte).join('')}</div>`).join('')
+      : `<p class="vide">Aucune visite au plan pour toi en ${esc(libelleAnnee(rentree))}.</p>`);
 }
 
 // --- Saisie d'une visite (IA-IPR) ---

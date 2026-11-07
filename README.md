@@ -63,6 +63,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Titre_signature` | Texte | au-dessus de la signature : « La chargée de mission », « L'IA-IPR »… (saisi, jamais calculé) |
 | `Stagiaires` | Booléen | IA-IPR en copie du mail pour tout rapport PSTG |
 | `Email` | Texte | unique ; adresse professionnelle |
+| `nb_visites_dues` | Entier | CMi : nombre de visites attendues selon la lettre de mission (affiché sur son plan et dans le bilan) |
 | `Nom_complet` | Texte (formule) | colonne affichée des références |
 
 #### `Etablissements` — établissements de l'académie (annuaire de l'éducation, open data) ; importés depuis l'Administration
