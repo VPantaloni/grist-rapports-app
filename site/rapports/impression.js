@@ -50,6 +50,18 @@ export function gradeEchelon(statut) {
 export const interesse = civilite => /^m(?:me|lle)\b/i.test(String(civilite || '').trim()) ? "L'intéressée"
   : /^m\.?$|^monsieur$/i.test(String(civilite || '').trim()) ? "L'intéressé" : "L'intéressé·e";
 
+// « Enseignant », « Enseignante » selon la civilité (APP § 11, même exception que `interesse`) ; sinon inclusif.
+/** @param {any} civilite */
+export const enseignant = civilite => (/^m(?:me|lle)\b/i.test(String(civilite || '').trim()) ? 'Enseignante'
+  : /^m\.?$|^monsieur$/i.test(String(civilite || '').trim()) ? 'Enseignant' : 'Enseignant·e');
+// Prénom en minuscules capitalisées (« JEAN-MARC » → « Jean-Marc »), nom en capitales.
+/** @param {any} t */
+export const prenomCapitalise = t => String(t || '').trim().toLocaleLowerCase('fr').replace(/(^|[\s'’-])(\p{L})/gu, (_, a, b) => a + b.toLocaleUpperCase('fr'));
+// « M. Évariste GALOIS » : civilité, prénom, NOM.
+/** @param {Record<string, any>} r */
+export const identite = r => [String(r.Prof_civilite || '').trim(), prenomCapitalise(r.Prof_prenom), String(r.Prof_nom || '').trim().toLocaleUpperCase('fr')]
+  .filter(Boolean).join(' ');
+
 // o.editable : aperçu modifiable (onglet « Aperçu » de l'écran) : mêmes page et police, chaque rubrique et le thème
 // modifiables sur place (contenteditable, texte brut, data-texte = code de la rubrique), rubriques vides comprises.
 /** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @param {{ editable?: boolean }} [o] @returns {string} */
@@ -122,7 +134,7 @@ ${ed ? '' : `<div class="outil">Ctrl / Cmd + P → « Enregistrer au format PDF 
 ${enteteUne}
 <table class="id">
   <tr><td colspan="3" class="titre">${esc(c.titreDocument)}</td></tr>
-  <tr><td colspan="3">Nom et prénom du professeur·e : <strong>${esc([r.Prof_civilite, prof].filter(Boolean).join(' '))}</strong></td></tr>
+  <tr><td colspan="3">${esc(enseignant(r.Prof_civilite))} : <strong>${esc(identite(r))}</strong></td></tr>
   <tr><td>Grade : ${esc(grade)}</td><td>Échelon : ${esc(echelon)}</td><td>Discipline : ${esc(c.discipline)}</td></tr>
   <tr><td colspan="3">Coordonnées établissement : ${esc([r.Etab_nom, r.Etab_commune].filter(Boolean).join(', '))}${r.UAI ? ` – UAI ${esc(r.UAI)}` : ''}</td></tr>
   <tr><td>Date de la visite : ${esc(dateFr(r.Date_visite))}</td>${c.sansCmi ? `<td colspan="2">${esc(c.titreIpr)} : ${esc(c.ipr)}</td>`
