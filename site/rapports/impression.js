@@ -63,10 +63,15 @@ export function htmlImpression(r, c, o = {}) {
   const hSig = Math.min(40, Math.max(6, Number(c.tailleSignature) || 15));
   const sig = (/** @type {string} */ titre, /** @type {any} */ img) => `<div class="s"><div class="t">${esc(titre)}</div>
     ${imageSure(img) ? `<img src="${imageSure(img)}" alt="Signature">` : '<div class="vide"></div>'}</div>`;
-  // En-tête répété sur chaque page (thead d'un tableau, repris par le navigateur à chaque page imprimée).
-  const entete = `<div class="entete"><img src="${LOGO}" alt="Académie d'Orléans-Tours">
-    <div class="centre">${esc(c.titreDocument).replace(/,\s*/, '<br>')}</div>
-    <div class="droite"><div class="lignes">${c.entete.map(esc).join('<br>')}</div><div class="annee">Année scolaire ${esc(anneeScolaire(r.Date_visite))}</div></div></div>`;
+  // En-têtes du modèle Word : la page 1 a le sien (grand logo, lignes en gras, année scolaire, pas de titre) ; les
+  // pages suivantes reprennent un en-tête réduit avec le titre au centre (thead, répété par le navigateur à chaque
+  // page). Sur la page 1, l'en-tête de première page recouvre ce thead (marge négative, fond blanc).
+  const lignes = c.entete.map(esc).join('<br>');
+  const enteteSuite = `<div class="entete suite"><img src="${LOGO}" alt="Académie d'Orléans-Tours">
+    <div class="centre">${esc(String(c.titreDocument || '').replace(/,\s*/, ' '))}</div>
+    <div class="droite"><div class="lignes">${lignes}</div></div></div>`;
+  const enteteUne = `<div class="entete une"><img src="${LOGO}" alt="Académie d'Orléans-Tours">
+    <div class="droite"><div class="lignes">${lignes}</div><div class="annee">Année scolaire ${esc(anneeScolaire(r.Date_visite))}</div></div></div>`;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(c.nomFichier)}</title>
 <style>
   ${POLICE}
@@ -75,15 +80,19 @@ export function htmlImpression(r, c, o = {}) {
   .outil { position: sticky; top: 0; z-index: 2; background: #f5f6f7; padding: 8px; border-bottom: 1px solid #ccc; font: 13px sans-serif; }
   .page { max-width: 180mm; margin: 0 auto; padding: 6mm 0; }
   table.mise { width: 100%; border-collapse: collapse; } table.mise > thead > tr > td, table.mise > tbody > tr > td { padding: 0; }
-  .entete { display: flex; justify-content: space-between; align-items: center; gap: 4mm; padding-bottom: 5mm; }
-  .entete img { width: 34mm; flex: none; }
-  .entete .centre { flex: 1; text-align: center; font-size: 7.5pt; font-weight: 700; text-transform: uppercase; }
+  .entete { display: flex; justify-content: space-between; align-items: center; gap: 4mm; background: #fff; }
   .entete .droite { text-align: right; flex: none; }
-  .entete .lignes { font-size: 11pt; font-weight: 700; line-height: 1.2; }
-  .entete .annee { font-size: 9pt; margin-top: 2mm; padding-top: 1mm; border-top: 1px solid #000; }
+  .entete.suite { height: 18mm; box-sizing: border-box; padding-bottom: 3mm; }
+  .entete.suite img { width: 21mm; flex: none; }
+  .entete.suite .centre { flex: 1; text-align: center; font-size: 8pt; font-weight: 700; text-transform: uppercase; }
+  .entete.suite .lignes { font-size: 8pt; line-height: 1.25; }
+  .entete.une { position: relative; z-index: 1; margin-top: -18mm; padding-bottom: 4mm; align-items: flex-start; }
+  .entete.une img { width: 46mm; flex: none; }
+  .entete.une .lignes { font-size: 11pt; font-weight: 700; line-height: 1.25; }
+  .entete.une .annee { font-size: 10pt; margin-top: 2mm; padding-top: 1mm; border-top: 1px solid #000; }
   table.id { width: 100%; border-collapse: collapse; margin-bottom: 3mm; font-size: 9.5pt; }
   table.id td { border: 1px solid #000; padding: 1mm 2mm; vertical-align: top; }
-  table.id td.titre { text-align: center; font-weight: 700; text-transform: uppercase; }
+  table.id td.titre { text-align: center; font-weight: 700; font-size: 14pt; text-transform: uppercase; border: 0; border-bottom: 1px solid #000; padding: 0 0 2mm; }
   .theme { text-align: right; font-weight: 700; margin: 2mm 0 4mm; } .theme span.l { text-decoration: underline; }
   h2 { font-size: 10pt; margin: 4mm 0 1mm; }
   .rub { margin-top: 3mm; }
@@ -101,9 +110,10 @@ export function htmlImpression(r, c, o = {}) {
   @media print { .outil { display: none; } .page { padding: 0; } }
 </style></head><body>
 ${ed ? '' : `<div class="outil">Ctrl / Cmd + P → « Enregistrer au format PDF ». Nom proposé : <strong>${esc(c.nomFichier)}.pdf</strong></div>`}
-<div class="page"><table class="mise"><thead><tr><td>${entete}</td></tr></thead><tbody><tr><td>
+<div class="page"><table class="mise"><thead><tr><td>${enteteSuite}</td></tr></thead><tbody><tr><td>
+${enteteUne}
 <table class="id">
-  <tr><td colspan="3" class="titre">${esc(c.titreDocument.replace(/,\s*/, ' '))}</td></tr>
+  <tr><td colspan="3" class="titre">${esc(c.titreDocument)}</td></tr>
   <tr><td colspan="3">Nom et prénom du professeur·e : <strong>${esc([r.Prof_civilite, prof].filter(Boolean).join(' '))}</strong></td></tr>
   <tr><td>Grade : ${esc(grade)}</td><td>Échelon : ${esc(echelon)}</td><td>Discipline : ${esc(c.discipline)}</td></tr>
   <tr><td colspan="3">Coordonnées établissement : ${esc([r.Etab_nom, r.Etab_commune].filter(Boolean).join(', '))}${r.UAI ? ` – UAI ${esc(r.UAI)}` : ''}</td></tr>
