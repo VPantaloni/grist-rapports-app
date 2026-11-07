@@ -1,0 +1,6 @@
+# Version du kit grist-app-generator d'où vient cette application (lue par outils/mettre-a-jour.sh du kit).
+version=2.2.5
+commit=34223ba8f832d27b6322eb901aabd90e244574ca
+id=rapports
+nom=Rapports d'inspection
+pseudo=VPantaloni

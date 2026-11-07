@@ -1,0 +1,6 @@
+﻿Email,Roles,Personne,Actif
+admin@exemple.example,Administrateur·trice,,true
+camille.martin@exemple.example,Gestionnaire,Camille Martin,true
+sacha.bernard@exemple.example,Contributeur·trice,Sacha Bernard,true
+dominique.petit@exemple.example,"Contributeur·trice, Lecteur·trice",Dominique Petit,false
+lecteur@exemple.example,Lecteur·trice,,true

@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Administration pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0 12px 0 0; }
+  nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  nav button { background: none; border-color: transparent; }
+  nav button.actif { background: var(--sel); color: var(--accent); font-weight: 600; }
+  nav button .nb { font-size: 11px; background: var(--danger); color: #fff; border-radius: 8px; padding: 0 6px; margin-left: 4px; }
+  .onglet { padding: 12px; }
+  .grille { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+
+  section { border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; min-width: 0; margin-bottom: 12px; }
+  .grille section { margin-bottom: 0; }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  dl { gap: 4px 12px; }
+
+  .oui { color: var(--accent); font-weight: 600; }
+  .lim { color: var(--warn); font-weight: 600; }
+  .non { color: var(--muted); }
+  .brut td { overflow-wrap: anywhere; }
+  .brut tr.droits td { font-size: 12px; color: var(--muted); padding-top: 0; }
+  .brut tr.entete td { border-bottom: none; }
+
+  /* Comptes d'accès */
+  .titre-section { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .titre-section h2 { margin: 0; }
+  .aide-section { margin: 0 0 8px; }
+  .barre { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .barre input { flex: 1; min-width: 160px; }
+  table.liste tr[data-id] { cursor: pointer; }
+  table.liste tr[data-id]:hover td { background: var(--bg2); }
+  table.liste tr.sel td { background: var(--sel); }
+  table.liste td { overflow-wrap: anywhere; }
+  tr.inactif td { color: var(--muted); }
+  .cases { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .cases label { white-space: nowrap; }
+
+  /* Permissions */
+  .roles { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+  .roles button.actif { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button.niveau { width: 100%; min-width: 64px; }
+  button.niveau.oui { background: var(--sel); }
+  button.niveau.lim { background: var(--warn-bg); }
+
+  /* Import */
+  #imp-apercu ul { margin: 4px 0 8px; padding-left: 18px; }
+  #imp-apercu .bloquant { color: var(--danger); font-weight: 600; }
+  #imp-apercu li.alerte-i { color: var(--warn); }
+  #imp-notice table td:first-child { white-space: nowrap; }
+
+  /* Légende des rôles (Accès, Permissions) */
+  .legende { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 6px 0 0; }
+  .legende dt { font-weight: 600; color: var(--fg); }
+  .legende dd { margin: 0; color: var(--muted); }
+
+  /* Positions (Contrôles) */
+  #positions .lieu { padding: 6px 0; border-top: 1px solid var(--border); }
+  #positions .lieu .autre { display: flex; gap: 6px; margin-top: 4px; }
+  #positions .lieu .autre input { flex: 1; min-width: 0; }
+  #positions .resultats button { display: block; margin-top: 3px; text-align: left; }
+
+  /* Contrôles */
+  .controle h3 { font-size: 14px; margin: 0 0 4px; }
+  .controle ul { margin: 0; padding-left: 18px; }
+  .controle.erreur { border-left: 4px solid var(--danger); }
+  .controle.alerte-c { border-left: 4px solid var(--warn); }
+  .controle.info { border-left: 4px solid var(--border); }
+
+  /* Chiffrement */
+  #onglet-chiffrement input[type=password] { width: 100%; box-sizing: border-box; margin-bottom: 6px; }
+  #onglet-chiffrement .etat-cle { font-weight: 600; }
+  #onglet-chiffrement .etat-cle.ouvert { color: var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Administration</h1>
+  <!-- Onglets réservés aux admins ou à une fonction déclarée : masqués d'emblée, montrés par afficherOnglets() (pas de flash). -->
+  <nav id="onglets">
+    <button data-onglet="moi">Mon compte</button>
+    <button data-onglet="utilisateurs" data-admin hidden>Accès</button>
+    <button data-onglet="permissions" data-admin hidden>Permissions</button>
+    <button data-onglet="import" data-admin hidden data-import>Import</button>
+    <button data-onglet="campagnes" data-admin hidden data-campagnes>Campagnes</button>
+    <button data-onglet="export" data-admin hidden data-export>Export</button>
+    <button data-onglet="chiffrement" data-admin hidden data-chiffrement>Chiffrement</button>
+    <button data-onglet="controles" data-admin hidden>Contrôles</button>
+  </nav>
+  <button id="recharger" title="Relire les tables">↻</button>
+</header>
+<div id="msg">Chargement…</div>
+
+<div id="app" hidden>
+  <div class="onglet" id="onglet-moi">
+    <div class="grille">
+      <section>
+        <h2>Mon compte</h2>
+        <div id="identification"></div>
+        <dl id="compte"></dl>
+        <div id="option-voir"></div>
+      </section>
+      <section>
+        <h2>Mes droits</h2>
+        <div id="droits"></div>
+      </section>
+      <section>
+        <h2>Lecture des tables</h2>
+        <p class="muted" style="margin:0 0 8px">Lignes que Grist me laisse lire (règles d'accès).</p>
+        <div id="lecture"></div>
+      </section>
+      <section>
+        <h2>Diagnostic</h2>
+        <div id="diagnostic"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="onglet" id="onglet-utilisateurs" hidden>
+    <div class="grille">
+      <section>
+        <div class="titre-section">
+          <h2>Comptes d'accès</h2>
+          <button id="ajouter" class="primary">+ Nouveau compte d'accès</button>
+        </div>
+        <p class="muted petit aide-section">Un compte permet de se connecter à l'application avec un rôle. Il se rattache, si besoin,
+          à une fiche (table des personnes), nécessaire pour les droits « Limité » sur ses propres lignes.</p>
+        <div class="barre">
+          <input id="recherche" type="search" placeholder="Rechercher (e-mail, nom, rôle)…">
+        </div>
+        <div id="liste-utilisateurs"></div>
+        <div class="legende-roles"></div>
+      </section>
+      <section id="formulaire" hidden></section>
+    </div>
+  </div>
+
+  <div class="onglet" id="onglet-permissions" hidden>
+    <section>
+      <h2>Matrice des permissions</h2>
+      <div class="roles" id="roles-matrice"></div>
+      <div id="matrice"></div>
+      <div class="legende-roles"></div>
+    </section>
+  </div>
+
+  <div class="onglet" id="onglet-import" hidden>
+    <div class="grille">
+      <section>
+        <h2>Importer un fichier</h2>
+        <p class="muted petit aide-section">Fichier CSV (Excel : <em>Enregistrer sous → CSV</em>) ou cellules copiées d'un
+          tableur. Le fichier est lu dans ce navigateur : rien n'est écrit dans Grist avant « Intégrer », et seules les
+          colonnes prévues sont lues.</p>
+        <div class="barre">
+          <input type="file" id="imp-fichier" accept=".csv,.txt,text/csv,text/plain">
+          <button id="imp-modele" title="Fichier vide avec les en-têtes attendus (séparateur « ; », UTF-8)">Télécharger le modèle</button>
+        </div>
+        <details><summary>Ou coller les cellules d'un tableur (en-têtes compris)</summary>
+          <textarea id="imp-coller" rows="6" style="width:100%;margin-top:6px" spellcheck="false"></textarea>
+          <div class="actions"><button id="imp-lire-colle">Lire le texte collé</button></div>
+        </details>
+        <details><summary>Format du fichier</summary><div id="imp-notice"></div></details>
+      </section>
+      <section id="imp-apercu" hidden></section>
+    </div>
+  </div>
+
+  <div class="onglet" id="onglet-campagnes" hidden>
+    <div class="grille">
+      <section><h2>Campagnes</h2><div id="campagnes"></div></section>
+      <section id="camp-formulaire" hidden></section>
+    </div>
+  </div>
+
+  <div class="onglet" id="onglet-export" hidden>
+    <section>
+      <h2>Exporter les données</h2>
+      <div id="exp-contenu"></div>
+      <div id="exp-phrase-bloc" hidden><label class="champ"><span>Phrase secrète (toujours redemandée : l'archive contient les
+        données en clair)</span><input type="password" id="exp-phrase" autocomplete="off"></label></div>
+      <div class="actions"><button id="exp-telecharger" class="primary">Télécharger l'export (.zip)</button></div>
+      <p class="muted petit" style="margin:8px 0 0">L'archive est fabriquée dans ce navigateur, avec les seules lignes que ton compte peut
+        lire. Elle peut contenir des données personnelles : la ranger dans un lieu sûr, non partagé. La sauvegarde complète
+        (formules, règles d'accès, pages) reste le fichier .grist (menu du document → Télécharger le document).</p>
+    </section>
+  </div>
+
+  <div class="onglet" id="onglet-chiffrement" hidden>
+    <div class="grille">
+      <section><h2>Phrase secrète</h2><div id="chi-etat"></div></section>
+      <section><h2>À savoir</h2>
+        <ul class="petit" style="margin:0;padding-left:18px">
+          <li>Les champs déclarés (<code>CHIFFREMENT</code>, <code>config.js</code>) sont chiffrés <strong>dans ce navigateur</strong> :
+            dans Grist, ils sont illisibles pour tout le monde, propriétaires compris, sans la phrase.</li>
+          <li>La phrase n'est <strong>jamais</strong> envoyée ni gardée. <strong>Phrase perdue = données perdues</strong> :
+            la noter dans un lieu sûr (gestionnaire de mots de passe), et garder les fichiers d'origine.</li>
+          <li>Révélées, les données restent visibles dans l'onglet jusqu'à 5 minutes sans activité, ou « Masquer ».</li>
+          <li>Changer la phrase rechiffre tout, mais l'<strong>historique</strong> de Grist et les anciennes copies .grist
+            restent lisibles avec l'ancienne : en cas de fuite de la phrase, repartir d'un document neuf (Export, nouvelle
+            phrase, Import).</li>
+          <li>Les colonnes chiffrées ne se trient ni ne se filtrent dans Grist, et ne servent pas aux formules ni aux règles
+            d'accès. Une référence vers une table chiffrée affiche son pseudonyme (« C-0417 ») s'il y en a un.</li>
+        </ul></section>
+    </div>
+  </div>
+
+  <div class="onglet" id="onglet-controles" hidden>
+    <section id="positions" class="controle info" hidden></section>
+    <div id="controles"></div>
+  </div>
+</div>
+
+<script type="module">
+import { liste, nomFiche, empreinteSaisie } from '../commun/donnees.js';
+import { installerChoix } from '../commun/choix.js';
+import { identifierMoi } from '../commun/droits.js';
+import { $, esc, message, installerBulles, preferences, boutonConfirmation, toast } from '../commun/interface.js';
+import { initialiserGrist, lireTable, ecrire as ecrireGrist, hote, sansChevauchement, regrouper, relectureReguliere,
+  relireSansCache } from '../commun/grist.js';
+import { lireJournal, viderJournal, journaliser, messageSimple } from '../commun/journal.js';
+import { decoderTexte, lireCsv, lireLignes, verifierDestination, planifier as planifierImport, actionsTable, modeleCsv, notice }
+  from '../commun/import.js';
+import { chercherAnnuaire, completerParAnnuaire } from '../commun/annuaire.js';
+import { codeSuivant, trierCampagnes, nombresRattaches, etatCampagne, validerCampagne, actionsActiver, actionsFermer,
+  actionsReprise, controlesCampagnes } from '../commun/campagnes.js';
+import { controlesFiches } from '../commun/controles.js';
+import { zipStocke, csv, structure, libellesReferences, csvTable, lignesReimport, lisezmoi, telechargerFichier, dateFichier }
+  from '../commun/export.js';
+import { requetesAGeocoder, geocoder, appliquerGeocodage, choixAutomatique, sansCoordonnees, PAUSE_MS } from '../commun/geocodage.js';
+import { CHIFFREMENT } from '../commun/config.js';
+import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrementValide, signatureChiffrement, tableChiffree,
+  dechiffrerLignes, lignesLisibles, chiffrerActions, completerCodes, actionsCodesManquants, regrouperMaj, actionsRechiffrement, nouveauxParametres,
+  deriverCle, creerVerificateur, verifierCle, ouvrirAvecPhrase, validerNouvellePhrase, validerChangementPhrase, actionCreerTable, actionsColonnesTable,
+  actionsNouvellePhrase, rangerCle, oublierCle, cleAuDemarrage, suivreCle, definirCle, cryptoDisponible } from '../commun/chiffrement.js';
+import { IMPORT, EXPORT, CAMPAGNES, LIEUX, DESCRIPTIONS_ROLES, CONTROLES_FICHES, TABLES_DONNEES, TABLE_FICHES, ROLES, PORTEES, ACTIONS, COLONNES_ACTION, matriceDroits, droitsCalcules,
+  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair } from './logique.js';
+
+const pref = preferences('Admin');   // dernier onglet ouvert, rôle affiché dans la matrice
+const prefApp = preferences('App');   // case « Voir en tant que », lue par le conteneur app/
+
+const ecrire = (actions, ok) => ecrireGrist(actions, ok, charger);
+
+// --- État ---
+const D = { utilisateurs: [], permissions: [], personnes: [], lectures: {} };
+let ident = { moi: null, statut: 'aucune' };
+let estAdmin = false;
+let onglet = pref.lire('Onglet', 'moi');
+let edition = null;        // { id (null = nouveau), Email, Roles: [], Personne, Actif }
+let roleMatrice = pref.lire('Role', 'Gestionnaire');
+// Chiffrement (SPEC § 5.8) : clé du conteneur (ou gardée pour l'onglet), ligne de la table Chiffrement.
+let cle = null, ligneChiffre = null;
+const cacheChiffre = new Map();
+const lisible = (table, lignes) => lignesLisibles(cle, table, lignes, CHIFFREMENT, cacheChiffre);
+
+const nomPersonne = nomFiche;
+
+// --- Onglet « Mon compte » ---
+const TEXTES_IDENTIFICATION = {
+  moi: ['ok', 'Identification réussie : la colonne <code>Moi</code> n\'est lisible que sur ma ligne.'],
+  aucune: ['ko', 'Aucune ligne de <code>Utilisateurs</code> lisible : mon e-mail n\'y figure pas (ou ma ligne est masquée par les règles d\'accès).'],
+  'sans-regles': ['', 'Toutes les lignes de <code>Utilisateurs</code> sont lisibles et <code>Moi</code> vaut partout « vrai » : les <strong>règles d\'accès ne sont pas encore saisies</strong>. Impossible de savoir qui je suis.'],
+  'sans-moi': ['ko', 'La colonne formule <code>Moi</code> (= <code>True</code>) est absente de <code>Utilisateurs</code>.'],
+  'masque-partout': ['ko', '<code>Moi</code> est masqué sur <strong>toutes</strong> les lignes : mon e-mail de connexion Grist ne correspond à aucune ligne de <code>Utilisateurs</code> (autre adresse ? majuscules ? espace ?). Comparer avec l\'e-mail affiché dans Grist (avatar → Paramètres du profil).'],
+  'moi-non-vrai': ['ko', 'Ma ligne est reconnue, mais <code>Moi</code> n\'y vaut pas « vrai » : la colonne <code>Moi</code> doit être une <strong>colonne formule</strong> <code>True</code>, de type Booléen (Actions de colonne → Effacer et faire une colonne formule).'],
+  indetermine: ['ko', 'Plusieurs lignes lisibles et <code>Moi</code> n\'est lisible sur aucune (ou sur plusieurs) : vérifier la règle de colonne sur <code>Moi</code>.'],
+};
+
+function tableDroits(m) {
+  const cell = n => n === 'Oui' ? '<td class="c oui">✓</td>' : n === 'Limité' ? '<td class="c lim" title="Limité">◐</td>' : '<td class="c non">—</td>';
+  return `<table>
+    <tr><th>Table</th>${ACTIONS.map(a => `<th class="c" title="${a[1]}">${a[0]}</th>`).join('')}</tr>
+    ${TABLES_DONNEES.map(t => `<tr><td>${esc(t)}</td>${ACTIONS.map(a => cell(m[t][a[0]])).join('')}</tr>`).join('')}
+  </table>
+  <p class="muted petit" style="margin:6px 0 0">✓ autorisé · ◐ limité (portée des règles d'accès) · — interdit</p>`;
+}
+
+// Adresse de la page Grist telle que le navigateur la transmet (referrer) : celle du conteneur app/ si le widget y est
+// (même site), sinon la sienne. En pratique réduite au site (SPEC § 6.6).
+function adresseGrist() {
+  try { if (hote()) return window.parent.document.referrer; } catch (e) { /* parent d'un autre site */ }
+  return document.referrer;
+}
+
+// Adresse de la page Application reconstituée par le conteneur (seulement quand l'Administration y est ouverte) :
+// { adresse, detail } ou null hors du conteneur.
+function adressePageApp() {
+  const h = hote();
+  if (!h || !h.adressePage) return null;
+  return { adresse: h.adressePage(), detail: h.diagAdresse ? h.diagAdresse() : '' };
+}
+
+function afficherMoi() {
+  const { moi, statut } = ident;
+  const [classe, texte] = TEXTES_IDENTIFICATION[statut];
+  $('identification').innerHTML = `<div class="alerte ${classe}">${texte}</div>`;
+
+  // Option personnelle (ce navigateur) : liste « Voir en tant que » dans le menu de l'application (admins)
+  const voir = prefApp.lire('VoirEnTantQue', '') === '1';
+  $('option-voir').innerHTML = estAdmin ? `<label class="petit" style="display:flex;gap:6px;align-items:center;margin-top:8px"
+      title="Seul·e un·e propriétaire du document peut voir en tant qu'un autre compte (Grist refuse sinon)">
+      <input type="checkbox" id="voirEnTantQue" ${voir ? 'checked' : ''}> « Voir en tant que » dans le menu de l'application (ce navigateur)</label>`
+    + (voir && adressePageApp() && !adressePageApp().adresse
+      ? '<p class="ko petit" style="margin:4px 0 0">Adresse de l\'application introuvable : la liste ne peut pas s\'afficher (voir Diagnostic).</p>' : '')
+    : '';
+
+  if (moi) {
+    const personne = D.personnes.find(p => p.id === moi.Personne);
+    const roles = liste(moi.Roles);
+    $('compte').innerHTML = `
+      <dt>E-mail</dt><dd>${esc(moi.Email)}</dd>
+      <dt>Rôles</dt><dd>${roles.length ? roles.map(r => `<span class="badge">${esc(r)}</span>`).join('') : '<span class="ko">aucun</span>'}</dd>
+      <dt>Fiche</dt><dd>${personne ? esc(nomPersonne(personne)) : '<span class="muted">aucune</span>'}</dd>
+      <dt>Actif</dt><dd>${moi.Actif ? 'oui' : '<span class="ko">non — aucun droit</span>'}</dd>`;
+    $('droits').innerHTML = tableDroits(matriceDroits(moi.Droits));
+  } else {
+    $('compte').innerHTML = '';
+    $('droits').innerHTML = '<p class="muted">Droits inconnus tant que je ne suis pas identifié·e.</p>';
+  }
+
+  const m = moi ? matriceDroits(moi.Droits) : null;
+  $('lecture').innerHTML = `<table>
+    <tr><th>Table</th><th class="c">Lignes lues</th><th class="c">Lecture prévue</th></tr>
+    ${Object.entries(D.lectures).map(([t, r]) => {
+      const prevu = m && m[t] ? (m[t].L === 'Non' ? 'non' : 'oui') : '';
+      const nb = r.erreur ? `<span class="ko" title="${esc(r.erreur)}">erreur</span>` : r.lignes.length;
+      return `<tr><td>${esc(t)}</td><td class="c">${nb}</td><td class="c">${prevu}</td></tr>`;
+    }).join('')}
+  </table>`;
+
+  // Une ligne par compte (e-mail, Moi brut, nb de droits) + la liste des droits en dessous.
+  const brut = D.utilisateurs.map(u => {
+    const droits = liste(u.Droits);
+    return `<tr class="entete"><td>${esc(u.Email)}</td><td><code>${esc(JSON.stringify(u.Moi))}</code></td><td class="c">${droits.length}</td></tr>
+      <tr class="droits"><td colspan="3">${droits.length ? droits.map(d => esc(d)).join(' · ') : '<em>aucun droit</em>'}</td></tr>`;
+  }).join('');
+  $('diagnostic').innerHTML = `
+    <p style="margin:0">Lignes de <code>Utilisateurs</code> lisibles : <strong>${D.utilisateurs.length}</strong>
+      · identification : <code>${esc(statut)}</code></p>
+    <details><summary>Adresses (« Voir en tant que »)</summary><p class="petit" style="margin:4px 0">
+      Adresse reçue de Grist : <code>${esc(adresseGrist() || '(aucune)')}</code><br>
+      ${adressePageApp() ? `Adresse de l'application : <code>${esc(adressePageApp().adresse || '(introuvable)')}</code><br>
+        Détail : <code>${esc(adressePageApp().detail)}</code>` : 'Adresse de l\'application : visible depuis l\'écran Administration de l\'application.'}</p>
+    </details>
+    <details><summary>Données brutes reçues</summary>
+      <table class="brut"><tr><th>E-mail</th><th>Moi</th><th class="c">Droits</th></tr>${brut}</table>
+    </details>
+    ${journalHtml()}`;
+}
+
+// Journal des refus et des erreurs d'écriture de ce navigateur (commun/journal.js) : ouvert s'il y a des refus.
+function journalHtml() {
+  const j = lireJournal();
+  const refus = j.filter(e => e.type === 'refus').length;
+  const date = q => { const d = new Date(q); return isNaN(d.getTime()) ? '' : d.toLocaleString('fr-FR'); };
+  return `<details ${refus ? 'open' : ''}><summary>Journal des refus et erreurs (ce navigateur) : ${j.length}</summary>
+    ${j.length ? `<table class="brut petit"><tr><th>Quand</th><th>Écran</th><th>Type</th><th>Actions · message de Grist</th></tr>
+      ${j.map(e => `<tr><td>${esc(date(e.quand))}</td><td>${esc(e.ecran)}</td>
+        <td class="${e.type === 'refus' ? 'ko' : ''}">${e.type === 'refus' ? 'refus des règles' : 'erreur'}</td>
+        <td>${esc(e.actions)}<br><span class="muted">${esc(e.message)}</span></td></tr>`).join('')}</table>
+      <p class="petit muted" style="margin:4px 0">Un refus vient des règles d'accès (ou du partage) : vérifier la règle de la table et
+        de la colonne indiquées, et les droits du compte (Mes droits). Les valeurs saisies ne sont jamais gardées.</p>
+      <button id="vider-journal">Vider le journal</button>` : '<p class="petit muted" style="margin:4px 0">Aucun refus ni erreur.</p>'}
+  </details>`;
+}
+
+// --- Onglet « Accès » (comptes d'accès) ---
+function afficherListe() {
+  const q = $('recherche').value.trim().toLowerCase();
+  const lignes = D.utilisateurs
+    .map(u => ({ u, p: D.personnes.find(x => x.id === u.Personne) }))
+    .filter(({ u, p }) => !q || [u.Email, nomPersonne(p), ...liste(u.Roles)].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => String(a.u.Email).localeCompare(String(b.u.Email)));
+  $('liste-utilisateurs').innerHTML = lignes.length ? `<table class="liste">
+    <tr><th>E-mail</th><th>Rôles</th><th>Fiche</th><th class="c">Actif</th></tr>
+    ${lignes.map(({ u, p }) => `<tr data-id="${u.id}" class="${edition && edition.id === u.id ? 'sel' : ''} ${u.Actif ? '' : 'inactif'}">
+      <td>${esc(u.Email)}${u.Moi === true ? ' <span class="badge">moi</span>' : ''}</td>
+      <td>${liste(u.Roles).map(r => `<span class="badge">${esc(r)}</span>`).join('')}</td>
+      <td>${p ? esc(nomPersonne(p)) : '<span class="muted">—</span>'}</td>
+      <td class="c">${u.Actif ? '✓' : '—'}</td></tr>`).join('')}
+  </table>` : '<p class="muted">Aucun compte.</p>';
+}
+
+// Ouvre un compte (null = nouveau). Bloqué seulement si le formulaire en cours a vraiment changé (SPEC § 3.4).
+function ouvrir(id) {
+  if (edition && edition.id !== id && empreinteSaisie(edition) !== edition.orig) {
+    toast('Termine d\'abord la modification en cours (Enregistrer ou Annuler).', true);
+    return;
+  }
+  const u = D.utilisateurs.find(x => x.id === id);
+  edition = u
+    ? { id: u.id, Email: u.Email || '', Roles: liste(u.Roles), Personne: u.Personne || 0, Actif: !!u.Actif }
+    : { id: null, Email: '', Roles: [], Personne: 0, Actif: true };
+  edition.orig = empreinteSaisie(edition);   // état à l'ouverture
+  afficherFormulaire();
+  afficherListe();
+}
+
+function fermer() {
+  edition = null;
+  $('formulaire').hidden = true;
+  afficherListe();
+}
+
+function afficherFormulaire() {
+  const f = edition;
+  if (!f) { $('formulaire').hidden = true; return; }
+  $('formulaire').hidden = false;
+  $('formulaire').innerHTML = `
+    <h2>${f.id ? 'Modifier le compte d\'accès' : 'Nouveau compte d\'accès'}</h2>
+    <div class="champ"><span>Fiche personne</span><div id="f-personne"></div></div>
+    <label class="champ"><span>E-mail du compte Grist — exactement comme Grist le voit, majuscules comprises</span>
+      <input id="f-email" type="text" value="${esc(f.Email)}" autocomplete="off" spellcheck="false"></label>
+    <div class="champ"><span>Rôles</span><div class="cases">
+      ${ROLES.map(r => `<label><input type="checkbox" data-role="${esc(r)}" ${f.Roles.includes(r) ? 'checked' : ''}> ${esc(r)}</label>`).join('')}
+    </div></div>
+    <label class="champ"><input id="f-actif" type="checkbox" ${f.Actif ? 'checked' : ''}> Actif</label>
+    <ul class="erreurs" id="f-erreurs"></ul>
+    <div class="actions">
+      <button id="f-enregistrer" class="primary">Enregistrer</button>
+      <button id="f-annuler">Annuler</button>
+      ${f.id ? '<button id="f-supprimer" class="danger">Supprimer</button>' : ''}
+    </div>
+    <details open><summary>Droits qui en résultent</summary><div id="f-apercu"></div></details>`;
+
+  // Fiche personne : champ avec recherche (commun/choix.js) ; vide = aucune fiche.
+  installerChoix($('f-personne'), {
+    elements: D.personnes, valeur: f.Personne, libelle: nomPersonne, detail: p => p.Email || '',
+    recherche: p => `${nomPersonne(p)} ${p.Email || ''}`, placeholder: 'Rechercher une fiche (nom, e-mail)… — vide = aucune',
+    aChange: id => {
+      f.Personne = id;
+      // Nouveau compte : proposer l'e-mail de la fiche (à vérifier : casse du compte Grist).
+      const p = D.personnes.find(x => x.id === id);
+      if (p && p.Email && !f.Email.trim()) { f.Email = p.Email; $('f-email').value = p.Email; }
+      majFormulaire();
+    },
+  });
+  $('f-email').addEventListener('input', e => { f.Email = e.target.value; majFormulaire(); });
+  $('formulaire').querySelectorAll('[data-role]').forEach(c => c.addEventListener('change', () => {
+    f.Roles = ROLES.filter(r => $('formulaire').querySelector(`[data-role="${r}"]`).checked);
+    majFormulaire();
+  }));
+  $('f-actif').addEventListener('change', e => { f.Actif = e.target.checked; majFormulaire(); });
+  $('f-enregistrer').addEventListener('click', enregistrer);
+  $('f-annuler').addEventListener('click', fermer);
+  if (f.id) boutonConfirmation($('f-supprimer'), 'Confirmer la suppression', supprimer);
+  majFormulaire();
+}
+
+function majFormulaire() {
+  const f = edition;
+  const erreurs = validerUtilisateur(f, D.utilisateurs, f.id);
+  const u = D.utilisateurs.find(x => x.id === f.id);
+  if (u && u.Moi === true && (!f.Roles.includes('Administrateur·trice') || !f.Actif)) {
+    erreurs.push('Attention : c\'est ton compte ; sans rôle administrateur·trice actif, tu perdras l\'accès à cette page (sauf en tant que propriétaire du document).');
+  }
+  $('f-erreurs').innerHTML = erreurs.map(e => `<li>${esc(e)}</li>`).join('');
+  $('f-enregistrer').disabled = validerUtilisateur(f, D.utilisateurs, f.id).length > 0;
+  $('f-apercu').innerHTML = tableDroits(matriceDroits(droitsCalcules(f.Roles, f.Actif, D.permissions)));
+}
+
+async function enregistrer() {
+  const f = edition;
+  if (validerUtilisateur(f, D.utilisateurs, f.id).length) return;
+  const champs = { Email: f.Email.trim(), Roles: ['L', ...f.Roles], Personne: f.Personne || 0, Actif: f.Actif };
+  const action = f.id ? ['UpdateRecord', 'Utilisateurs', f.id, champs] : ['AddRecord', 'Utilisateurs', null, champs];
+  if (await ecrire([action], f.id ? 'Compte enregistré' : 'Compte ajouté')) fermer();
+}
+
+async function supprimer() {
+  if (edition && edition.id && await ecrire([['RemoveRecord', 'Utilisateurs', edition.id]], 'Compte supprimé')) fermer();
+}
+
+// --- Onglet « Permissions » ---
+function afficherMatrice() {
+  if (!ROLES.includes(roleMatrice)) roleMatrice = ROLES[0];
+  $('roles-matrice').innerHTML = ROLES.map(r => {
+    const nb = D.utilisateurs.filter(u => u.Actif && liste(u.Roles).includes(r)).length;
+    return `<button data-role="${esc(r)}" class="${r === roleMatrice ? 'actif' : ''}">${esc(r)} <span class="muted petit">(${nb})</span></button>`;
+  }).join('');
+
+  const { index } = indexPermissions(D.permissions);
+  const lignesRole = index[roleMatrice] || {};
+  const manquantes = TABLES_DONNEES.filter(t => !lignesRole[t]);
+  const cls = n => n === 'Oui' ? 'oui' : n === 'Limité' ? 'lim' : 'non';
+  $('matrice').innerHTML = `
+    ${roleMatrice === 'Administrateur·trice' ? '<div class="alerte">Les administrateur·trices ont tous les droits par la règle d\'accès D3, quelle que soit cette matrice ; elle ne sert qu\'à l\'affichage dans les widgets.</div>' : ''}
+    <table>
+      <tr><th>Table</th>${ACTIONS.map(a => `<th class="c">${a[1]}</th>`).join('')}</tr>
+      ${TABLES_DONNEES.map(t => {
+        const p = lignesRole[t];
+        return `<tr><td>${esc(t)}</td>${ACTIONS.map(([a]) => {
+          if (!p) return '<td class="c muted">—</td>';
+          const n = p[COLONNES_ACTION[a]] || 'Non';
+          const portee = PORTEES[`${t}:${a}`];
+          return `<td class="c"><button class="niveau ${cls(n)}" data-id="${p.id}" data-table="${esc(t)}" data-action="${a}"
+            title="${esc(portee ? 'Limité = ' + portee : 'Pas de portée « Limité » pour cette case')}">${esc(n)}</button></td>`;
+        }).join('')}</tr>`;
+      }).join('')}
+    </table>
+    ${manquantes.length ? `<div class="actions"><button id="creer-manquantes">Créer les lignes manquantes (${manquantes.length})</button></div>` : ''}
+    <p class="muted petit">Un clic fait passer une case à la valeur suivante : Non → Oui → Limité (seulement là où une portée existe) → Non.
+      Enregistrement immédiat ; la colonne <code>Droits</code> des comptes se recalcule.</p>
+    <details><summary>Portées « Limité »</summary><ul class="petit">
+      ${Object.entries(PORTEES).map(([k, v]) => `<li><strong>${esc(k.replace(':', ' — '))}</strong> : ${esc(v)}</li>`).join('')}
+    </ul></details>`;
+
+  $('roles-matrice').querySelectorAll('[data-role]').forEach(b => b.addEventListener('click', () => {
+    roleMatrice = b.dataset.role; pref.ecrire('Role', roleMatrice); afficherMatrice();
+  }));
+  $('matrice').querySelectorAll('button.niveau').forEach(b => b.addEventListener('click', () => {
+    const { id, table, action } = b.dataset;
+    const suivant = niveauSuivant(b.textContent.trim(), table, action);
+    ecrire([['UpdateRecord', 'Permissions', Number(id), { [COLONNES_ACTION[action]]: suivant }]], `${roleMatrice} · ${table} · ${ACTIONS.find(x => x[0] === action)[1]} : ${suivant}`);
+  }));
+  if (manquantes.length) $('creer-manquantes').addEventListener('click', () => ecrire(
+    manquantes.map(t => ['AddRecord', 'Permissions', null, { Role: roleMatrice, Table: t, Lire: 'Non', Creer: 'Non', Modifier: 'Non', Supprimer: 'Non' }]),
+    `${manquantes.length} ligne(s) créée(s)`));
+}
+
+// --- Onglet « Contrôles » ---
+function afficherControles() {
+  if (!placement) afficherPositions();   // placement en cours : seules les actions de la personne redessinent le bloc
+  // Fiches chiffrées et masquées : leurs doublons ne se contrôlent pas (valeurs vides).
+  const fichesControlables = CONTROLES_FICHES.filter(c => cle || !tableChiffree(CHIFFREMENT, c.table));
+  const res = [...controles(D), ...fichesControlables.flatMap(c => controlesFiches(c, (D.fiches || {})[c.table] || [])),
+    ...(CAMPAGNES ? controlesCampagnes(D.camp[CAMPAGNES.table] || [], CAMPAGNES) : []),
+    ...(CHIFFREMENT && D.chiffre ? controlesChiffrement(D.chiffre.etat, D.chiffre.enClair, D.chiffre.echecs, !!cle, D.chiffre.sansCode) : [])];
+  const problemes = res.filter(r => r.lignes.length && r.niveau !== 'info');
+  const nb = problemes.reduce((s, r) => s + r.lignes.length, 0);
+  const b = document.querySelector('[data-onglet="controles"]');
+  b.innerHTML = 'Contrôles' + (nb ? ` <span class="nb">${nb}</span>` : '');
+  const classe = { erreur: 'erreur', alerte: 'alerte-c', info: 'info' };
+  // Rappel de sauvegarde (le widget ne sauvegarde pas : seul le .grist de Grist contient tout).
+  const rappel = `<section class="controle info"><h3>Sauvegarde</h3>
+    <p class="petit" style="margin:0">Avant toute opération importante (import, remplacement de données, changement de règles d'accès),
+      et régulièrement : menu du document Grist → <strong>Télécharger le document (.grist)</strong>, à ranger dans un espace sûr et non public.
+      Le fichier contient tout : données, formules, règles d'accès, pages et widgets. Pour revenir en arrière :
+      <strong>Historique des versions</strong> du document, ou <strong>Dupliquer le document</strong> avant une grosse modification.
+      Pour installer l'application ailleurs à partir du .grist (droits, partage, héritage) : README, « Déplacer ou copier le document ».</p></section>`;
+  $('controles').innerHTML = rappel + (problemes.length ? '' : '<div class="alerte ok">Aucune erreur ni alerte.</div>') +
+    res.filter(r => r.lignes.length).map(r => `<section class="controle ${classe[r.niveau]}">
+      <h3>${esc(r.titre)} <span class="muted">(${r.lignes.length})</span></h3>
+      <ul>${r.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('') +
+    `<details><summary>Contrôles sans problème</summary><ul class="petit">${res.filter(r => !r.lignes.length).map(r => `<li>${esc(r.titre)} : ✓</li>`).join('')}</ul></details>`;
+}
+
+// --- Onglet « Import » (SPEC § 4.5) : lecture → aperçu (rien d'écrit) → intégration confirmée ---
+// Le contenu du fichier ne reste qu'en mémoire (imp), jamais dans le stockage du navigateur.
+let imp = null;   // { source, encodage, separateur, lecture, plan, remarques, colonnesGrist, resultat }
+
+// Lignes actuelles des tables déclarées et colonnes (types) de Grist.
+async function lireDestination() {
+  const [tables, colonnes, ...lues] = await Promise.all([lireTable('_grist_Tables'), lireTable('_grist_Tables_column'),
+    ...IMPORT.tables.map(t => lireTable(t.table))]);
+  const nomTable = Object.fromEntries((tables.lignes || []).map(t => [t.id, t.tableId]));
+  const colonnesGrist = {};
+  for (const c of colonnes.lignes || []) {
+    const t = nomTable[c.parentId];
+    if (t) (colonnesGrist[t] = colonnesGrist[t] || {})[c.colId] = c.type;
+  }
+  // Champs chiffrés : rapprochement et complément se font en clair (lignes déchiffrées) ; brut : pseudonymes déjà pris.
+  const brut = Object.fromEntries(IMPORT.tables.map((t, i) => [t.table, lues[i].lignes || []]));
+  const existant = Object.fromEntries(await Promise.all(IMPORT.tables.map(async t => [t.table, await lisible(t.table, brut[t.table])])));
+  return { colonnesGrist, existant, brut };
+}
+// Tables de l'import qui ont des champs chiffrés : sans la clé, rien ne se rapproche (valeurs masquées) → bloquant.
+const tablesImportChiffrees = () => (CHIFFREMENT ? IMPORT.tables.map(t => t.table).filter(t => tableChiffree(CHIFFREMENT, t)) : []);
+function remarquesChiffrement() {
+  const t = tablesImportChiffrees();
+  return t.length && !cle ? [{ niveau: 'bloquant', message: `Données masquées : révéler d'abord (bouton « Révéler » du menu, ou onglet Chiffrement). `
+    + `Les tables ${t.join(', ')} ont des champs chiffrés, qu'il faut lire en clair pour rapprocher les lignes et chiffrer les nouvelles.` }] : [];
+}
+
+// Compléments facultatifs de la déclaration, en mémoire, avant le plan : Annuaire de l'éducation, puis position des
+// lignes qui n'en ont pas. Service indisponible : alerte, l'import continue sans complément.
+async function completerLecture(lecture) {
+  const attendre = ms => new Promise(r => setTimeout(r, ms));
+  if (IMPORT.annuaire && lecture.lignes.length) {
+    try {
+      const fiches = await chercherAnnuaire(lecture.lignes.map(l => l.v[IMPORT.annuaire.uai]).filter(Boolean),
+        { progres: (i, n) => message(`Annuaire de l'éducation : requête ${i + 1} / ${n}…`) });
+      const r = completerParAnnuaire(lecture.lignes, fiches, IMPORT.annuaire);
+      lecture.lignes = r.lignes;
+      lecture.remarques.push(...r.remarques, { niveau: 'info', message: `Annuaire de l'éducation : ${r.trouves} ligne(s) complétée(s).` });
+    } catch (e) {
+      lecture.remarques.push({ niveau: 'alerte', message: `${(e && e.message) || e} Import sans complément de l'Annuaire.` });
+    }
+  }
+  if (IMPORT.geocodage && lecture.lignes.length) {
+    const requetes = requetesAGeocoder(lecture.lignes, IMPORT.geocodage);
+    const reponses = [];
+    for (const [i, r] of requetes.entries()) {
+      message(`Positions (IGN) : ${i + 1} / ${requetes.length}…`);
+      try { reponses.push({ ...r, res: await geocoder(r.q, { commune: r.commune, limite: 1 }) }); }
+      catch (e) { reponses.push({ ...r, res: null, erreur: 'service de géocodage indisponible' }); }
+      await attendre(PAUSE_MS);
+    }
+    const g = appliquerGeocodage(lecture.lignes, IMPORT.geocodage, reponses);
+    lecture.lignes = g.lignes;
+    lecture.remarques.push(...g.remarques);
+    if (requetes.length) lecture.remarques.push({ niveau: 'info', message: `Positions (IGN) : ${g.places} ligne(s) placée(s).` });
+  }
+  message('');
+}
+
+async function lireImport(texte, source, encodage = '') {
+  const csv = lireCsv(texte);
+  const lecture = lireLignes(csv.lignes, IMPORT);
+  if (!lecture.remarques.some(r => r.niveau === 'bloquant')) await completerLecture(lecture);
+  const { colonnesGrist, existant } = await lireDestination();
+  const plan = planifierImport(lecture.lignes, IMPORT, existant);
+  imp = { source, encodage, separateur: csv.separateur, lecture, plan, colonnesGrist, resultat: null,
+    remarques: [...remarquesChiffrement(), ...verifierDestination(IMPORT, colonnesGrist), ...lecture.remarques, ...plan.remarques] };
+  afficherImport();
+}
+
+function afficherImport() {
+  if (!imp) { $('imp-apercu').hidden = true; return; }
+  const { lecture, plan, remarques } = imp;
+  const bloquants = remarques.filter(r => r.niveau === 'bloquant');
+  const alertes = remarques.filter(r => r.niveau === 'alerte');
+  const infos = remarques.filter(r => r.niveau === 'info');
+  const aEcrire = plan.tables.reduce((n, t) => n + t.ajouts.length + t.majs.length, 0);
+  const sep = { '\t': 'tabulation', ';': '« ; »', ',': '« , »' }[imp.separateur] || imp.separateur;
+  const MAX = 100;
+  $('imp-apercu').hidden = false;
+  const r = imp.resultat;
+  $('imp-apercu').innerHTML = `${r ? `<div class="alerte ${r.ok ? 'ok' : 'ko'}">${esc(r.texte)}</div>` : ''}
+    <h2>${!r ? 'Aperçu — rien n\'est encore écrit' : r.ok ? 'Après intégration : ce que donnerait une relance' : 'Ce qui reste à écrire'}</h2>
+    <p class="petit" style="margin:0 0 6px">${esc(imp.source)}${imp.encodage ? ` · ${esc(imp.encodage)}` : ''} · séparateur ${esc(sep)}
+      · <strong>${lecture.lignes.length}</strong> ligne(s) lue(s)</p>
+    ${lecture.colonnes ? `<p class="petit muted" style="margin:0 0 8px">Colonnes lues : ${Object.keys(lecture.colonnes.index).map(esc).join(', ') || 'aucune'}
+      ${lecture.colonnes.absentes.length ? ` · absentes (facultatives) : ${lecture.colonnes.absentes.map(esc).join(', ')}` : ''}
+      ${lecture.colonnes.ignorees.length ? ` · <strong>ignorées</strong> (non prévues, jamais lues) : ${lecture.colonnes.ignorees.map(esc).join(', ')}` : ''}</p>` : ''}
+    ${bloquants.length ? `<ul>${bloquants.map(r => `<li class="bloquant">${esc(r.message)}</li>`).join('')}</ul>` : ''}
+    <table><tr><th>Table</th><th class="c">Ajouts</th><th class="c">Mises à jour</th><th class="c">Inchangées</th><th class="c">Écarts</th></tr>
+      ${plan.tables.map(t => `<tr><td>${esc(t.table)}</td><td class="c">${t.ajouts.length}</td><td class="c">${t.majs.length}</td>
+        <td class="c">${t.inchanges}</td><td class="c">${t.ecarts.length}</td></tr>`).join('')}</table>
+    ${infos.map(r => `<p class="petit muted" style="margin:6px 0 0">${esc(r.message)}</p>`).join('')}
+    ${alertes.length ? `<details open><summary>Alertes (${alertes.length})</summary><ul class="petit">
+      ${alertes.slice(0, MAX).map(r => `<li class="alerte-i">${r.ligne ? `ligne ${r.ligne} : ` : ''}${esc(r.message)}</li>`).join('')}
+      ${alertes.length > MAX ? `<li>… et ${alertes.length - MAX} autres</li>` : ''}</ul></details>` : ''}
+    ${plan.tables.some(t => t.ecarts.length) ? `<details><summary>Écarts : valeurs déjà saisies dans Grist, gardées</summary><ul class="petit">
+      ${plan.tables.flatMap(t => t.ecarts).slice(0, MAX).map(e => `<li>${esc(e)}</li>`).join('')}</ul></details>` : ''}
+    <div class="actions">
+      <button id="imp-integrer" class="primary ${bloquants.length || !aEcrire ? 'inactif' : ''}"
+        title="${bloquants.length ? 'Corriger d\'abord les points bloquants' : !aEcrire ? 'Rien à écrire' : 'Écrire dans Grist (double clic pour confirmer)'}">Intégrer (${aEcrire} ligne(s))</button>
+      <button id="imp-annuler">Annuler</button>
+    </div>
+    <p class="muted petit" style="margin:6px 0 0">Avant un import important : <em>Télécharger le document (.grist)</em> (sauvegarde).
+      Rien n'est supprimé ; une relance du même fichier n'ajoute rien.</p>`;
+  $('imp-annuler').addEventListener('click', () => { imp = null; $('imp-fichier').value = ''; afficherImport(); });
+  if (!bloquants.length && aEcrire) boutonConfirmation($('imp-integrer'), 'Confirmer l\'intégration', integrerImport);
+}
+
+// Écrit le plan, table par table (un envoi par table), après l'avoir recalculé sur l'état actuel de Grist. Les lignes
+// créées donnent leurs id aux références des tables suivantes. Arrêt au premier refus (détail au journal).
+async function integrerImport() {
+  const chiffrees = tablesImportChiffrees();
+  if (chiffrees.length && !(await cleAJour())) {
+    imp.remarques = [...remarquesChiffrement(), ...imp.remarques.filter(r => !/^Données masquées/.test(r.message))];
+    if (cle) imp.remarques.unshift({ niveau: 'bloquant', message: 'La phrase secrète a changé depuis la révélation : révéler à nouveau.' });
+    afficherImport();
+    toast('Rien n\'a été écrit : données masquées ou phrase changée.', true);
+    return;
+  }
+  const { colonnesGrist, existant, brut } = await lireDestination();
+  const plan = planifierImport(imp.lecture.lignes, IMPORT, existant);
+  const verif = verifierDestination(IMPORT, colonnesGrist);
+  // Pseudonymes déjà pris (tables déclarées dans CHIFFREMENT.codes) : les nouvelles lignes en tirent un libre.
+  const codesPris = Object.fromEntries(Object.entries((CHIFFREMENT && CHIFFREMENT.codes) || {})
+    .map(([t, col]) => [t, new Set((brut[t] || []).map(l => l[col]).filter(Boolean))]));
+  if (verif.some(r => r.niveau === 'bloquant')) {   // le document a changé depuis l'aperçu : rien n'est écrit
+    Object.assign(imp, { plan, colonnesGrist, remarques: [...verif, ...imp.lecture.remarques, ...plan.remarques] });
+    afficherImport();
+    toast('Le document a changé depuis l\'aperçu : rien n\'a été écrit, vérifier l\'aperçu.', true);
+    return;
+  }
+  const idsCrees = {}, faits = [];
+  for (const t of plan.tables) {
+    const prevues = actionsTable(t, colonnesGrist[t.table] || {}, idsCrees);
+    const { clesAjoutees } = prevues;
+    idsCrees[t.table] = new Map();
+    if (!prevues.actions.length) continue;
+    // Chiffrement : pseudonymes des nouvelles lignes, puis champs déclarés chiffrés (même ordre : retValues inchangés).
+    const actions = CHIFFREMENT ? await chiffrerActions(cle, completerCodes(prevues.actions, CHIFFREMENT, codesPris), CHIFFREMENT) : prevues.actions;
+    try {
+      const res = await grist.docApi.applyUserActions(actions);
+      clesAjoutees.forEach((cles, i) => cles.forEach((cle, j) => idsCrees[t.table].set(cle, ((res && res.retValues && res.retValues[i]) || [])[j])));
+      faits.push(`${t.table} : ${t.ajouts.length} ajout(s), ${t.majs.length} mise(s) à jour`);
+    } catch (e) {
+      const entree = journaliser(e, actions);
+      toast(messageSimple(entree.type), true);
+      imp.resultat = { ok: false, texte: `Import arrêté à la table ${t.table} (détail : Mon compte → Diagnostic). `
+        + (faits.length ? 'Déjà écrit : ' + faits.join(' ; ') + '.' : 'Rien n\'a été écrit.') };
+      afficherMoi();   // journal à jour dans Mon compte
+      imp.plan = planifierImport(imp.lecture.lignes, IMPORT, (await lireDestination()).existant);   // ce qui reste à écrire
+      afficherImport();
+      return;
+    }
+  }
+  toast(faits.length ? 'Import intégré.' : 'Rien à écrire.');
+  imp.resultat = { ok: true, texte: faits.length ? 'Import intégré — ' + faits.join(' ; ') + '.' : 'Rien à écrire.' };
+  await charger();
+  // Nouvel aperçu sur l'état écrit : une relance n'ajouterait plus rien.
+  imp.plan = planifierImport(imp.lecture.lignes, IMPORT, (await lireDestination()).existant);
+  imp.remarques = imp.remarques.filter(r => r.niveau === 'bloquant');
+  afficherImport();
+}
+
+function afficherNotice() {
+  $('imp-notice').innerHTML = `<table class="petit"><tr><th>Colonne</th><th>Contenu</th><th>Format</th><th>Dans Grist</th></tr>
+    ${notice(IMPORT).map(l => `<tr><td><code>${esc(l.colonne)}</code>${l.obligatoire ? ' <span class="ko">*</span>' : ''}</td>
+      <td>${esc(l.libelle)}${l.exemple ? ` <span class="muted">(ex. ${esc(l.exemple)})</span>` : ''}</td><td>${esc(l.format)}</td>
+      <td>${esc(l.destination)}</td></tr>`).join('')}</table>
+    <p class="petit muted" style="margin:4px 0 0"><span class="ko">*</span> obligatoire. En-têtes reconnus sans tenir compte des
+      accents, majuscules et espaces ; les autres colonnes sont ignorées. Une valeur illisible n'est pas écrite (signalée).
+      Une ligne existante (même clé) est complétée : une valeur déjà saisie dans Grist n'est jamais remplacée, sauf
+      réglage contraire de la table.</p>`;
+}
+
+// --- Onglet « Campagnes » (SPEC § 5.5) ---
+let campEdition = null;   // { id (null = nouvelle), champs, source (reprise des listes : id ou 0), orig }
+const secondesVersJour = s => (typeof s === 'number' && s ? new Date(s * 1000).toISOString().slice(0, 10) : '');
+const jourVersSecondes = j => (j ? Date.UTC(+j.slice(0, 4), +j.slice(5, 7) - 1, +j.slice(8, 10)) / 1000 : null);
+
+function afficherCampagnes() {
+  if (!CAMPAGNES || !estAdmin) return;
+  const K = CAMPAGNES, campagnes = trierCampagnes(D.camp[K.table] || [], K), n = nombresRattaches(K, D.camp);
+  const dates = !!(K.ouverture || K.cloture);
+  $('campagnes').innerHTML = `${campagnes.length ? `<table class="liste">
+      <tr><th>Campagne</th><th>État</th>${dates ? '<th>Ouverture</th><th>Clôture</th>' : ''}<th class="c">Lignes</th><th></th></tr>
+      ${campagnes.map(c => { const nb = n.get(c.id) || 0, etat = etatCampagne(c, nb, K); return `<tr>
+        <td><strong>${esc(c[K.code])}</strong></td><td>${etat === 'active' ? '<span class="badge">active</span>' : esc(etat)}</td>
+        ${dates ? `<td>${esc(secondesVersJour(K.ouverture && c[K.ouverture]))}</td><td>${esc(secondesVersJour(K.cloture && c[K.cloture]))}</td>` : ''}
+        <td class="c">${nb}</td>
+        <td>${etat === 'active' ? '' : `<button data-activer="${c.id}" title="Rendre cette campagne active (l'autre est désactivée)">Activer</button>`}
+          <button data-modifier="${c.id}">Modifier</button>
+          ${etat === 'en préparation' ? `<button class="danger" data-supprimer="${c.id}" title="Aucune ligne rattachée : suppression possible (double clic)">Supprimer</button>` : ''}</td>
+      </tr>`; }).join('')}</table>` : '<p class="muted">Aucune campagne.</p>'}
+    <div class="actions">
+      <button id="camp-suivante" class="primary">+ Préparer la campagne ${esc(codeSuivant(campagnes.map(c => c[K.code])))}</button>
+      ${campagnes.some(c => c[K.active] === true) ? '<button id="camp-fermer" title="Plus aucune campagne active (double clic)">Fermer la campagne active</button>' : ''}
+    </div>
+    <p class="muted petit" style="margin:6px 0 0">Une seule campagne est active à la fois : c'est celle des saisies et de l'affichage par
+      défaut. Une campagne avec des lignes rattachées ne peut pas être supprimée.</p>`;
+  $('campagnes').querySelectorAll('[data-supprimer]').forEach(b => boutonConfirmation(b, 'Confirmer',
+    () => ecrire([['RemoveRecord', K.table, Number(b.dataset.supprimer)]], 'Campagne supprimée')));
+  if ($('camp-fermer')) boutonConfirmation($('camp-fermer'), 'Confirmer la fermeture', () => ecrire(actionsFermer(D.camp[K.table], K), 'Campagne fermée'));
+  afficherFormulaireCampagne();
+}
+
+function ouvrirCampagne(id) {
+  if (campEdition && campEdition.id !== id && empreinteSaisie(campEdition) !== campEdition.orig) {
+    toast('Termine d\'abord la modification en cours (Enregistrer ou Annuler).', true); return;
+  }
+  const K = CAMPAGNES, campagnes = D.camp[K.table] || [], c = campagnes.find(x => x.id === id);
+  const plusRecente = trierCampagnes(campagnes, K)[0];
+  campEdition = c ? { id, champs: { [K.code]: c[K.code], ...(K.ouverture ? { [K.ouverture]: c[K.ouverture] || null } : {}), ...(K.cloture ? { [K.cloture]: c[K.cloture] || null } : {}) }, source: 0 }
+    : { id: null, champs: { [K.code]: codeSuivant(campagnes.map(x => x[K.code])) }, source: (K.listes || []).length && plusRecente ? plusRecente.id : 0 };
+  campEdition.orig = empreinteSaisie(campEdition);
+  afficherFormulaireCampagne();
+}
+
+function afficherFormulaireCampagne() {
+  const f = campEdition, K = CAMPAGNES;
+  if (!f) { $('camp-formulaire').hidden = true; return; }
+  if ($('camp-formulaire').contains(document.activeElement)) return;   // saisie en cours : ne pas redessiner
+  const autres = trierCampagnes(D.camp[K.table] || [], K).filter(c => c.id !== f.id);
+  $('camp-formulaire').hidden = false;
+  $('camp-formulaire').innerHTML = `<h2>${f.id ? 'Modifier la campagne' : 'Nouvelle campagne'}</h2>
+    <label class="champ"><span>Code</span><input type="text" id="c-code" value="${esc(f.champs[K.code] || '')}"></label>
+    ${K.ouverture ? `<label class="champ"><span>Ouverture</span><input type="date" id="c-ouverture" value="${secondesVersJour(f.champs[K.ouverture])}"></label>` : ''}
+    ${K.cloture ? `<label class="champ"><span>Clôture</span><input type="date" id="c-cloture" value="${secondesVersJour(f.champs[K.cloture])}"></label>` : ''}
+    ${!f.id && (K.listes || []).length ? `<label class="champ"><span>Reprendre les listes (${(K.listes || []).map(l => esc(l.table)).join(', ')}) de</span>
+      <select id="c-source"><option value="0">— rien (listes vides) —</option>
+      ${autres.map(c => `<option value="${c.id}" ${c.id === f.source ? 'selected' : ''}>${esc(c[K.code])}</option>`).join('')}</select></label>` : ''}
+    <ul class="erreurs" id="c-erreurs"></ul>
+    <div class="actions"><button id="c-enregistrer" class="primary">Enregistrer</button><button id="c-annuler">Annuler</button></div>
+    <p class="muted petit" style="margin:6px 0 0">Une nouvelle campagne n'est pas active : l'activer ensuite, quand elle est prête.</p>`;
+  const lire = () => {
+    f.champs[K.code] = $('c-code').value.trim();
+    if (K.ouverture) f.champs[K.ouverture] = jourVersSecondes($('c-ouverture').value);
+    if (K.cloture) f.champs[K.cloture] = jourVersSecondes($('c-cloture').value);
+    if ($('c-source')) f.source = Number($('c-source').value) || 0;
+    $('c-erreurs').innerHTML = validerCampagne(f.champs, D.camp[K.table] || [], f.id, K).map(e => `<li>${esc(e)}</li>`).join('');
+  };
+  $('camp-formulaire').oninput = lire;   // remplacés (et non ajoutés) à chaque affichage du formulaire
+  $('camp-formulaire').onchange = lire;
+  $('c-annuler').addEventListener('click', () => { campEdition = null; afficherFormulaireCampagne(); });
+  $('c-enregistrer').addEventListener('click', enregistrerCampagne);
+}
+
+async function enregistrerCampagne() {
+  const f = campEdition, K = CAMPAGNES;
+  if (validerCampagne(f.champs, D.camp[K.table] || [], f.id, K).length) return;
+  if (f.id) {
+    if (await ecrireGrist([['UpdateRecord', K.table, f.id, f.champs]], 'Campagne enregistrée')) { campEdition = null; await charger(); }
+    return;
+  }
+  // Nouvelle campagne (inactive), puis reprise des listes avec son id.
+  const res = await ecrireGrist([['AddRecord', K.table, null, { ...f.champs, [K.active]: false }]], '');
+  const id = res && res.retValues && res.retValues[0];
+  if (!id) return;
+  const reprise = f.source ? actionsReprise(K, id, f.source, D.camp) : [];
+  if (reprise.length) await ecrireGrist(reprise, '');
+  toast(`Campagne ${f.champs[K.code]} créée${reprise.length ? ` ; listes reprises (${reprise.length} ligne(s))` : ''}.`);
+  campEdition = null;
+  await charger();
+}
+
+// --- Onglet « Export » (SPEC § 4.6) ---
+function afficherExport() {
+  $('exp-contenu').innerHTML = `<p class="petit" style="margin:0 0 6px">L'archive contient :</p><ul class="petit" style="margin:0 0 6px">
+    ${EXPORT.tables.map(t => `<li><code>${esc(t)}.csv</code> : la table, lisible dans un tableur (références par leur libellé,
+      dates JJ/MM/AAAA, virgule décimale)</li>`).join('')}
+    ${EXPORT.reimport && IMPORT ? '<li><code>import.csv</code> : au format de l\'onglet Import, réimportable tel quel (document neuf, restauration)</li>' : ''}
+    <li><code>LISEZMOI.txt</code> : date, volumes, précautions, marche à suivre</li></ul>
+    ${exportChiffre() ? '<p class="petit"><strong>Champs chiffrés : l\'archive les contient en clair.</strong> La phrase est redemandée à chaque export.</p>' : ''}`;
+  $('exp-phrase-bloc').hidden = !exportChiffre();
+}
+// L'export touche-t-il une table à champs chiffrés ? (tables exportées et, pour import.csv, celles de l'import)
+const exportChiffre = () => !!CHIFFREMENT && [...EXPORT.tables, ...(EXPORT.reimport && IMPORT ? IMPORT.tables.map(t => t.table) : [])]
+  .some(t => tableChiffree(CHIFFREMENT, t));
+
+async function exporter() {
+  const ref = t => (t.match(/^Ref(?:List)?:(.+)$/) || [])[1];
+  const [tables, colonnes] = await Promise.all([lireTable('_grist_Tables'), lireTable('_grist_Tables_column')]);
+  if (tables.erreur || colonnes.erreur) { toast('Structure du document illisible : export impossible.', true); return; }
+  const struct = structure(tables.lignes, colonnes.lignes);
+  // Tables exportées, et tables visées par leurs références (libellés), et tables de l'import (fichier réimportable).
+  const noms = new Set([...EXPORT.tables, ...EXPORT.tables.flatMap(t => (struct[t] || []).map(c => ref(c.type)).filter(Boolean)),
+    ...(EXPORT.reimport && IMPORT ? IMPORT.tables.map(t => t.table) : [])]);
+  const lues = Object.fromEntries(await Promise.all([...noms].map(async t => [t, await lireTable(t)])));
+  const refusees = EXPORT.tables.filter(t => lues[t].erreur || !struct[t]);
+  if (refusees.length) { toast(`Tables absentes ou refusées : ${refusees.join(', ')}.`, true); return; }
+  let donnees = Object.fromEntries(Object.entries(lues).map(([t, r]) => [t, r.lignes || []]));
+  // Champs chiffrés : phrase toujours redemandée (même révélé), clé propre à l'export, oubliée ensuite ; une valeur
+  // indéchiffrable annule l'export (jamais d'archive incomplète sans le dire).
+  if (exportChiffre()) {
+    const c = await lireChiffrement();
+    if (c.etat.statut !== 'prete') { toast('Table Chiffrement non prête : export impossible (onglet Chiffrement).', true); return; }
+    const p = $('exp-phrase').value;
+    if (!p.trim()) { toast('Saisir la phrase secrète : l\'archive contiendra les données en clair.', true); $('exp-phrase').focus(); return; }
+    const k = await ouvrirAvecPhrase(p, c.etat.ligne);
+    if (!k) { toast('Phrase incorrecte : export annulé.', true); return; }
+    $('exp-phrase').value = '';
+    const lus = await Promise.all(Object.entries(donnees).map(async ([t, l]) => [t, await dechiffrerLignes(k, t, l, CHIFFREMENT)]));
+    const echecs = lus.reduce((n, [, r]) => n + r.echecs.length, 0);
+    if (echecs) { toast(`${echecs} valeur(s) indéchiffrable(s) : export annulé (onglet Contrôles).`, true); return; }
+    donnees = Object.fromEntries(lus.map(([t, r]) => [t, r.lignes]));
+  }
+  const lib = libellesReferences(struct, donnees);
+  const maintenant = new Date();
+  const fichiers = [
+    { nom: 'LISEZMOI.txt', contenu: lisezmoi({ application: EXPORT.application, date: maintenant,
+      volumes: EXPORT.tables.map(t => [t, donnees[t].length]), reimport: !!(EXPORT.reimport && IMPORT) }) },
+    ...EXPORT.tables.map(t => ({ nom: `${t}.csv`, contenu: csvTable(struct[t], donnees[t], lib) })),
+  ];
+  if (EXPORT.reimport && IMPORT) { const r = lignesReimport(IMPORT, donnees); fichiers.push({ nom: 'import.csv', contenu: csv(r.entetes, r.lignes) }); }
+  telechargerFichier(`${EXPORT.prefixe}-export-${dateFichier(maintenant)}.zip`, zipStocke(fichiers, maintenant), 'application/zip');
+  toast('Export téléchargé : à ranger dans un lieu sûr (données personnelles possibles).');
+}
+
+// --- Contrôles : positions des lieux (n° 13, géocodage IGN) ---
+// placement : { lignes: [{ ids, nom, q, commune, res, choisi, erreur, autre }], faits, total } pendant la recherche.
+let placement = null;
+const lieuxSansPosition = () => (D.lieux || []).filter(l => sansCoordonnees(l[LIEUX.lat], l[LIEUX.lon]));
+
+async function placerLieux() {
+  const attendre = ms => new Promise(r => setTimeout(r, ms));
+  const lieux = lieuxSansPosition();
+  const requetes = requetesAGeocoder(lieux.map(l => ({ n: l.id, v: l })), LIEUX);
+  const nom = id => String((lieux.find(l => l.id === id) || {})[LIEUX.nom] || `#${id}`);
+  const p = placement = { lignes: [], faits: 0, total: requetes.length, sansAdresse: lieux.length - requetes.reduce((n, r) => n + r.lignes.length, 0) };
+  afficherPositions();
+  for (const r of requetes) {
+    if (placement !== p) return;   // fermé pendant la recherche
+    const ligne = { ids: r.lignes, nom: r.lignes.map(nom).join(', '), q: r.q, commune: r.commune, res: null, choisi: false, erreur: '', autre: null };
+    try {
+      const res = await geocoder(r.q, { commune: r.commune, limite: 1 });
+      ligne.res = res[0] || null;
+      ligne.choisi = !!choixAutomatique(res);
+      if (!ligne.res) ligne.erreur = 'introuvable';
+    } catch (e) { ligne.erreur = 'service indisponible'; }
+    p.lignes.push(ligne); p.faits++;
+    afficherPositions();
+    await attendre(PAUSE_MS);
+  }
+}
+
+async function chercherAutre(i) {
+  const l = placement && placement.lignes[i];
+  if (!l || !l.autre) return;
+  if (l.autre.q.trim().length < 2) { l.autre.erreur = 'Taper au moins 2 lettres.'; afficherPositions(); return; }
+  try {
+    l.autre.resultats = await geocoder(l.autre.q, { type: 'municipality', commune: '' });
+    l.autre.erreur = l.autre.resultats.length ? '' : 'Aucune commune trouvée.';
+  } catch (e) { l.autre.erreur = 'Service de recherche indisponible.'; }
+  afficherPositions();
+}
+
+function afficherPositions() {
+  if (!LIEUX || !estAdmin) { $('positions').hidden = true; return; }
+  const n = lieuxSansPosition().length;
+  $('positions').hidden = false;
+  if (!placement) {
+    $('positions').innerHTML = `<h3>Positions — ${esc(LIEUX.table)} <span class="muted">(${n} sans position)</span></h3>
+      ${n ? `<p class="petit" style="margin:0 0 6px">Recherche par le service de géocodage de l'IGN (adresse ou commune) ; seules les
+        positions sûres sont retenues d'office, les autres sont à vérifier.</p><button id="pos-placer">Placer les lieux sans position (${n})</button>`
+        : '<p class="petit muted" style="margin:0">Tous les lieux ont une position.</p>'}`;
+    return;
+  }
+  const p = placement, retenus = p.lignes.filter(l => l.choisi && l.res);
+  $('positions').innerHTML = `<h3>Positions — ${esc(LIEUX.table)} <span class="muted">(${p.faits} / ${p.total} recherchés)</span></h3>
+    ${p.sansAdresse ? `<p class="petit muted" style="margin:0">${p.sansAdresse} lieu(x) sans adresse ni commune : à saisir dans Grist.</p>` : ''}
+    ${p.lignes.map((l, i) => `<div class="lieu"><strong>${esc(l.nom)}</strong> <span class="muted petit">« ${esc(l.q)} »</span><br>
+      ${l.res ? `<label class="petit"><input type="checkbox" data-retenir="${i}" ${l.choisi ? 'checked' : ''}> ${esc(l.res.label)}
+        <span class="muted">(${esc(l.res.precision)}${l.res.communeOk ? '' : ', <strong>autre commune</strong>'}, score ${Math.round(l.res.score * 100)} %)</span></label>`
+        : `<span class="ko petit">${esc(l.erreur)}</span>`}
+      <button class="lien" data-autre="${i}">Autre…</button>
+      ${l.autre ? `<div class="autre"><input data-autre-q="${i}" value="${esc(l.autre.q)}" placeholder="Commune (ex. Orléans)">
+        <button data-chercher="${i}">Chercher</button></div>
+        ${l.autre.erreur ? `<span class="ko petit">${esc(l.autre.erreur)}</span>` : ''}
+        <div class="resultats">${(l.autre.resultats || []).map((r, j) => `<button data-prendre="${i}:${j}">${esc(r.label)}
+          <span class="muted petit">${esc(r.codePostal)}${r.contexte ? ' · ' + esc(r.contexte) : ''}</span></button>`).join('')}</div>` : ''}
+    </div>`).join('')}
+    <div class="actions"><button id="pos-enregistrer" class="primary ${retenus.length ? '' : 'inactif'}"
+      title="${retenus.length ? 'Écrire les positions retenues dans Grist' : 'Aucune position retenue'}">Enregistrer les positions retenues (${retenus.length})</button>
+      <button id="pos-fermer">Fermer</button></div>`;
+}
+
+async function enregistrerPositions() {
+  const retenus = placement.lignes.filter(l => l.choisi && l.res);
+  if (!retenus.length) return;
+  const ids = retenus.flatMap(l => l.ids), pos = retenus.flatMap(l => l.ids.map(() => l.res));
+  if (await ecrire([['BulkUpdateRecord', LIEUX.table, ids, { [LIEUX.lat]: pos.map(r => r.lat), [LIEUX.lon]: pos.map(r => r.lon) }]],
+    `${ids.length} position(s) enregistrée(s)`)) { placement = null; afficherPositions(); }
+}
+
+// --- Onglet « Chiffrement » (SPEC § 5.8, commun/chiffrement.js) ---
+// Table Chiffrement : existence, colonnes et lignes (état), lue à chaque chargement.
+async function lireChiffrement() {
+  const [tables, colonnes, lecture] = await Promise.all([lireTable('_grist_Tables'), lireTable('_grist_Tables_column'), lireTable(TABLE_CHIFFREMENT)]);
+  const t = (tables.lignes || []).find(x => x.tableId === TABLE_CHIFFREMENT);
+  const cols = t ? (colonnes.lignes || []).filter(c => c.parentId === t.id).map(c => c.colId) : [];
+  return { existe: !!t, colonnes: cols, etat: etatChiffrement({ ...lecture, colonnes: cols }, !!t) };
+}
+// Chargement : état de la table, clé (conteneur ou onglet), valeurs en clair et indéchiffrables des tables déclarées.
+async function chargerChiffrement(lectures) {
+  const c = await lireChiffrement();
+  const ligne = c.etat.statut === 'prete' ? c.etat.ligne : null;
+  if (signatureChiffrement(ligne) !== signatureChiffrement(ligneChiffre)) { cacheChiffre.clear(); if (cle && ligne && !(await verifierCle(cle, ligne.Verificateur))) cle = null; }
+  ligneChiffre = ligne;
+  if (!cle && ligne) cle = await cleAuDemarrage(ligne);
+  if (!ligne) cle = null;
+  const enClair = [], echecs = [];
+  D.chiffreBrut = {};
+  for (const t of Object.keys(CHIFFREMENT.champs)) {
+    const lignes = (lectures[t] && lectures[t].lignes) || (await lireTable(t)).lignes || [];
+    D.chiffreBrut[t] = lignes;
+    const r = await dechiffrerLignes(cle, t, lignes, CHIFFREMENT, cacheChiffre);
+    enClair.push(...r.enClair); echecs.push(...r.echecs);
+  }
+  const sansCode = actionsCodesManquants(D.chiffreBrut, CHIFFREMENT).map(a => ({ table: a[1], id: a[2] }));
+  D.chiffre = { ...c, enClair, echecs, sansCode };
+}
+// Saisie en cours dans l'onglet : pas de redessin ni de relecture (les phrases tapées resteraient).
+const chiffrementOccupe = () => [...document.querySelectorAll('#onglet-chiffrement input[type=password]')].some(i => i.value);
+// La clé est-elle toujours celle de la phrase en usage ? (phrase changée ailleurs → arrêt avant d'écrire)
+async function cleAJour() {
+  const c = await lireChiffrement();
+  return !!(cle && c.etat.statut === 'prete' && await verifierCle(cle, c.etat.ligne.Verificateur));
+}
+function appliquerCle(k) {
+  cle = k;
+  cacheChiffre.clear();
+  definirCle(k);   // conteneur et autres écrans
+}
+
+function afficherChiffrement(forcer = false) {
+  if (!D.chiffre || (!forcer && chiffrementOccupe())) return;
+  const { etat, enClair, sansCode } = D.chiffre;
+  const tables = Object.entries(CHIFFREMENT.champs).map(([t, c]) => `<code>${esc(t)}</code> : ${Object.keys(c).map(esc).join(', ')}`).join(' · ');
+  const champsHtml = `<p class="petit muted" style="margin:0 0 8px">Champs chiffrés : ${tables}</p>`;
+  const nouvelle = (id, bouton) => `<label class="champ"><span>Nouvelle phrase (au moins 12 caractères ; plusieurs mots)</span>
+      <input type="password" id="${id}-p1" autocomplete="new-password"></label>
+    <label class="champ"><span>La même, une seconde fois</span><input type="password" id="${id}-p2" autocomplete="new-password"></label>
+    <label class="petit"><input type="checkbox" id="${id}-note"> J'ai noté la phrase dans un lieu sûr : sans elle, les données sont perdues.</label>
+    <ul class="erreurs" id="${id}-err" hidden></ul>
+    <div class="actions"><button id="${id}-ok" class="primary">${bouton}</button></div>`;
+  let html = champsHtml;
+  if (!cryptoDisponible()) html += '<div class="alerte ko">Ce navigateur ne permet pas le chiffrement (WebCrypto) : utiliser un navigateur récent.</div>';
+  else if (etat.statut === 'absente') html += `<p class="petit">La table <code>${TABLE_CHIFFREMENT}</code> (sel, vérificateur : rien de secret) n'existe pas encore.</p>
+    <div class="actions"><button id="chi-table" class="primary">Créer la table</button></div>`;
+  else if (etat.statut === 'erreur') html += `<div class="alerte ko">Table ${TABLE_CHIFFREMENT} illisible (${esc(etat.erreur)}) : règles d'accès (SPEC § 5.8).</div>`;
+  else if (etat.statut === 'incomplete') html += `<div class="alerte ko">Table ${TABLE_CHIFFREMENT} incomplète${etat.manquantes.length ? ` : colonnes manquantes ${etat.manquantes.map(esc).join(', ')}` : ''}.
+    Colonnes attendues : ${COLONNES_CHIFFREMENT.map(c => c.id).join(', ')}.</div>
+    ${etat.manquantes.length ? '<div class="actions"><button id="chi-table" class="primary">Compléter la table</button></div>' : ''}`;
+  else if (etat.statut === 'plusieurs') html += `<div class="alerte ko">${etat.nb} lignes dans la table ${TABLE_CHIFFREMENT} : une seule doit rester. Rien ne se déchiffre tant que ce n'est pas corrigé.</div>`;
+  else if (etat.statut === 'vide') html += `<p class="petit">Aucune phrase secrète. La créer <strong>avant</strong> tout import de données à chiffrer.</p>${nouvelle('chi-cr', 'Créer la phrase')}`;
+  else {
+    const l = etat.ligne, depuis = l.Modifie ? new Date(l.Modifie * 1000).toLocaleDateString('fr-FR', { timeZone: 'UTC' }) : '';
+    html += `<p class="petit" style="margin:0 0 8px">Phrase en usage${depuis ? ` depuis le ${esc(depuis)}` : ''}. Données :
+        <span class="etat-cle ${cle ? 'ouvert' : ''}">${cle ? 'révélées dans cet onglet' : 'masquées'}</span></p>
+      ${cle ? '<div class="actions"><button id="chi-masquer">Masquer</button></div>'
+        : `<label class="champ"><span>Phrase secrète</span><input type="password" id="chi-phrase" autocomplete="off"></label>
+           <ul class="erreurs" id="chi-phrase-err" hidden></ul><div class="actions"><button id="chi-reveler" class="primary">Révéler</button></div>`}
+      ${enClair.length || sansCode.length ? `<div class="alerte" style="margin-top:10px">${[enClair.length ? `${enClair.length} valeur(s) en clair dans des champs chiffrés` : '',
+          sansCode.length ? `${sansCode.length} ligne(s) sans pseudonyme` : ''].filter(Boolean).join(' ; ')} (onglet Contrôles).
+        ${cle ? '<div class="actions"><button id="chi-enclair">Chiffrer et attribuer les pseudonymes</button></div>' : ' Révéler pour les chiffrer.'}</div>` : ''}
+      <details style="margin-top:12px"><summary>Changer la phrase</summary>
+        <p class="petit muted">Tout est relu avec la phrase actuelle et rechiffré avec la nouvelle, en un seul envoi. À faire au
+          départ d'une personne qui connaissait la phrase.</p>
+        <label class="champ"><span>Phrase actuelle</span><input type="password" id="chi-ch-ancienne" autocomplete="off"></label>
+        ${CHIFFREMENT.codes ? '<label class="petit"><input type="checkbox" id="chi-ch-codes" checked> Tirer de nouveaux pseudonymes (conseillé)</label>' : ''}
+        ${nouvelle('chi-ch', 'Changer la phrase')}
+      </details>`;
+  }
+  $('chi-etat').innerHTML = html;
+  if ($('chi-ch-ok')) boutonConfirmation($('chi-ch-ok'), 'Confirmer : tout rechiffrer', changerPhrase);
+}
+function erreursChi(id, err) {
+  const el = $(id);
+  el.hidden = !err.length;
+  el.innerHTML = err.map(e => `<li>${esc(e)}</li>`).join('');
+  return !err.length;
+}
+const viderSaisiesChi = () => document.querySelectorAll('#onglet-chiffrement input[type=password]').forEach(i => { i.value = ''; });
+
+// Création (ou complément d'une table incomplète) : la table seule, puis ses colonnes d'après la relecture.
+async function creerTableChiffrement() {
+  const avant = await lireChiffrement();
+  if (!avant.existe && !(await ecrire([actionCreerTable()]))) return;
+  const suite = actionsColonnesTable((await lireChiffrement()).colonnes);
+  if (suite.length && !(await ecrire(suite))) return;
+  toast(avant.existe ? 'Table Chiffrement complétée' : 'Table Chiffrement créée');
+  afficherChiffrement(true);
+}
+async function creerPhrase() {
+  const p1 = $('chi-cr-p1').value, p2 = $('chi-cr-p2').value;
+  const err = validerNouvellePhrase(p1, p2);
+  if (!$('chi-cr-note').checked) err.push('Cocher « J\'ai noté la phrase… ».');
+  if (!erreursChi('chi-cr-err', err)) return;
+  $('chi-cr-ok').disabled = true;
+  try {
+    const c = await lireChiffrement();
+    if (c.etat.statut !== 'vide') { toast('La table Chiffrement a changé : rien n\'a été écrit.', true); return; }
+    const params = nouveauxParametres(), k = await deriverCle(p1, params);
+    if (!(await ecrire(actionsNouvellePhrase(params, await creerVerificateur(k), c.colonnes), 'Phrase secrète créée'))) return;
+    viderSaisiesChi();
+    appliquerCle(k);
+    const l = (await lireChiffrement()).etat.ligne;
+    if (l) await rangerCle(k, l).catch(() => {});
+    await charger();
+  } finally { if ($('chi-cr-ok')) $('chi-cr-ok').disabled = false; }
+}
+async function revelerIci() {
+  const p = $('chi-phrase').value;
+  if (!p.trim() || !ligneChiffre) return;
+  $('chi-reveler').disabled = true;
+  try {
+    const k = await ouvrirAvecPhrase(p, ligneChiffre);
+    if (!k) { erreursChi('chi-phrase-err', ['Phrase incorrecte.']); return; }
+    viderSaisiesChi();
+    appliquerCle(k);
+    await rangerCle(k, ligneChiffre).catch(() => {});
+    await charger();
+  } finally { if ($('chi-reveler')) $('chi-reveler').disabled = false; }
+}
+async function masquerIci() {
+  await oublierCle(ligneChiffre).catch(() => {});
+  appliquerCle(null);
+  await charger();
+}
+async function chiffrerEnClair() {
+  if (!(await cleAJour())) { toast('La phrase a changé ou les données sont masquées : rien n\'a été écrit.', true); return; }
+  const actions = regrouperMaj([...await chiffrerActions(cle, actionsEnClair(D.chiffreBrut, D.chiffre.enClair), CHIFFREMENT),
+    ...actionsCodesManquants(D.chiffreBrut, CHIFFREMENT)]);
+  if (actions.length) await ecrire(actions, `${D.chiffre.enClair.length} valeur(s) chiffrée(s), ${D.chiffre.sansCode.length} pseudonyme(s) attribué(s)`);
+}
+async function changerPhrase() {
+  const ancienne = $('chi-ch-ancienne').value, p1 = $('chi-ch-p1').value, p2 = $('chi-ch-p2').value;
+  const err = validerChangementPhrase(ancienne, p1, p2);
+  if (!$('chi-ch-note').checked) err.push('Cocher « J\'ai noté la phrase… ».');
+  if (!erreursChi('chi-ch-err', err)) return;
+  const c = await lireChiffrement();
+  if (c.etat.statut !== 'prete') { erreursChi('chi-ch-err', ['Table Chiffrement non prête : rien n\'a été écrit.']); return; }
+  const k1 = await ouvrirAvecPhrase(ancienne, c.etat.ligne);
+  if (!k1) { erreursChi('chi-ch-err', ['Phrase actuelle incorrecte.']); return; }
+  const donnees = Object.fromEntries(await Promise.all(Object.keys(CHIFFREMENT.champs).map(async t => [t, (await lireTable(t)).lignes || []])));
+  const params = nouveauxParametres(), k2 = await deriverCle(p1, params);
+  let actions;
+  try {
+    actions = await actionsRechiffrement(k1, k2, { decl: CHIFFREMENT, donnees, ligne: c.etat.ligne, params,
+      verificateur: await creerVerificateur(k2), colonnes: c.colonnes, nouveauxCodes: !!($('chi-ch-codes') && $('chi-ch-codes').checked) });
+  } catch (e) { erreursChi('chi-ch-err', [(e && e.message) || String(e), 'Rien n\'a été écrit.']); return; }
+  // Relue juste avant l'envoi : changée ailleurs entre-temps → arrêt.
+  if (signatureChiffrement((await lireChiffrement()).etat.ligne) !== signatureChiffrement(c.etat.ligne)) {
+    erreursChi('chi-ch-err', ['La phrase vient d\'être changée ailleurs : rien n\'a été écrit.']); return;
+  }
+  if (!(await ecrireGrist(actions, 'Phrase changée : données rechiffrées'))) return;
+  await oublierCle(c.etat.ligne).catch(() => {});
+  viderSaisiesChi();
+  appliquerCle(k2);
+  const l = (await lireChiffrement()).etat.ligne;
+  if (l) await rangerCle(k2, l).catch(() => {});
+  await charger();
+}
+
+// --- Onglets ---
+function afficherOnglets() {
+  if (!estAdmin && onglet !== 'moi') onglet = 'moi';
+  document.querySelector('header h1').textContent = estAdmin ? 'Administration' : 'Mon compte';   // écran « Mon compte »
+  document.querySelectorAll('#onglets [data-onglet]').forEach(b => {
+    b.hidden = (b.hasAttribute('data-admin') && !estAdmin) || (b.hasAttribute('data-import') && !IMPORT) || (b.hasAttribute('data-export') && !EXPORT)
+      || (b.hasAttribute('data-campagnes') && !CAMPAGNES) || (b.hasAttribute('data-chiffrement') && !CHIFFREMENT);
+    b.classList.toggle('actif', b.dataset.onglet === onglet);
+  });
+  document.querySelectorAll('.onglet').forEach(s => { s.hidden = s.id !== 'onglet-' + onglet; });
+}
+
+// Légende des rôles (sous la liste des comptes et sous la matrice des permissions).
+function afficherLegendeRoles() {
+  const html = Object.keys(DESCRIPTIONS_ROLES).length ? `<p class="petit muted" style="margin:10px 0 0">Rôles</p><dl class="legende petit">
+    ${ROLES.map(r => `<dt>${esc(r)}</dt><dd>${esc(DESCRIPTIONS_ROLES[r] || '')}</dd>`).join('')}</dl>` : '';
+  document.querySelectorAll('.legende-roles').forEach(el => { el.innerHTML = html; });
+}
+
+function afficherTout() {
+  afficherMoi();
+  afficherLegendeRoles();
+  if (estAdmin) {
+    afficherListe();
+    if (edition) {
+      // Compte supprimé entre-temps : fermer ; sinon garder la saisie en cours.
+      if (edition.id && !D.utilisateurs.some(u => u.id === edition.id)) fermer();
+      else if ($('formulaire').hidden || !$('f-email')) afficherFormulaire(); else majFormulaire();
+    }
+    afficherMatrice();
+    afficherControles();
+    afficherCampagnes();
+    if (CHIFFREMENT) afficherChiffrement();
+  }
+  afficherOnglets();
+}
+
+// --- Chargement des données ---
+const charger = sansChevauchement(async () => {
+  const u = await lireTable('Utilisateurs');
+  if (u.erreur) {
+    message('Impossible de lire la table Utilisateurs : ' + u.erreur + ' — vérifie qu\'elle existe (APP § 5, import « droits ») et que le widget a l\'accès complet.', true);
+    $('app').hidden = true;
+    return;
+  }
+  D.utilisateurs = u.lignes;
+  const lectures = {};
+  for (const t of TABLES_DONNEES) lectures[t] = await lireTable(t);
+  lectures.Utilisateurs = u;
+  lectures.Permissions = await lireTable('Permissions');
+  D.lectures = lectures;
+  if (TABLE_FICHES && !lectures[TABLE_FICHES]) lectures[TABLE_FICHES] = await lireTable(TABLE_FICHES);
+  if (CHIFFREMENT) await chargerChiffrement(lectures);
+  D.personnes = TABLE_FICHES ? await lisible(TABLE_FICHES, lectures[TABLE_FICHES].lignes || []) : [];
+  if (LIEUX) D.lieux = (await lireTable(LIEUX.table)).lignes || [];
+  D.fiches = Object.fromEntries(await Promise.all(CONTROLES_FICHES.map(async c =>
+    [c.table, c.table === TABLE_FICHES ? D.personnes : await lisible(c.table, (await lireTable(c.table)).lignes || [])])));
+  if (CAMPAGNES) {
+    const noms = [CAMPAGNES.table, ...(CAMPAGNES.rattachees || []).map(r => r.table), ...(CAMPAGNES.listes || []).map(l => l.table)];
+    const lues = await Promise.all([...new Set(noms)].map(async t => [t, (await lireTable(t)).lignes || []]));
+    D.camp = Object.fromEntries(lues);
+  }
+  D.permissions = lectures.Permissions.lignes || [];
+  ident = identifierMoi(D.utilisateurs);
+  estAdmin = !!(ident.moi && ident.moi.Actif && liste(ident.moi.Roles).includes('Administrateur·trice'));
+  afficherTout();
+  message('');
+  $('app').hidden = false;
+});
+const planifier = regrouper(charger);
+
+// --- Démarrage ---
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  installerBulles();
+  grist.onRecords(planifier);
+
+  $('recharger').addEventListener('click', () => relireSansCache(charger));
+  $('onglets').addEventListener('click', e => {
+    const b = e.target.closest('[data-onglet]');
+    if (!b) return;
+    onglet = b.dataset.onglet; pref.ecrire('Onglet', onglet); afficherOnglets();
+  });
+  $('recherche').addEventListener('input', afficherListe);
+  document.addEventListener('change', e => {
+    if (e.target.id !== 'voirEnTantQue') return;
+    prefApp.ecrire('VoirEnTantQue', e.target.checked ? '1' : '');
+    toast(e.target.checked ? 'Liste « Voir en tant que » ajoutée au menu de l\'application.' : 'Liste « Voir en tant que » retirée du menu.');
+    afficherMoi();
+  });
+  $('ajouter').addEventListener('click', () => ouvrir(null));
+  document.addEventListener('click', e => { if (e.target.id === 'vider-journal') { viderJournal(); afficherMoi(); } });
+  if (LIEUX) {
+    $('positions').addEventListener('click', e => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      if (t.id === 'pos-placer') placerLieux();
+      else if (t.id === 'pos-fermer') { placement = null; afficherPositions(); }
+      else if (t.id === 'pos-enregistrer') enregistrerPositions();
+      else if (t.dataset.autre !== undefined) {
+        const l = placement.lignes[Number(t.dataset.autre)];
+        l.autre = l.autre ? null : { q: l.commune || '', resultats: null, erreur: '' };
+        afficherPositions();
+      } else if (t.dataset.chercher !== undefined) chercherAutre(Number(t.dataset.chercher));
+      else if (t.dataset.prendre) {
+        const [i, j] = t.dataset.prendre.split(':').map(Number), l = placement.lignes[i];
+        l.res = { ...l.autre.resultats[j], communeOk: true };
+        Object.assign(l, { choisi: true, erreur: '', autre: null });
+        afficherPositions();
+      }
+    });
+    $('positions').addEventListener('input', e => {
+      if (e.target.dataset.autreQ !== undefined) placement.lignes[Number(e.target.dataset.autreQ)].autre.q = e.target.value;
+    });
+    $('positions').addEventListener('change', e => {
+      if (e.target.dataset.retenir !== undefined) { placement.lignes[Number(e.target.dataset.retenir)].choisi = e.target.checked; afficherPositions(); }
+    });
+    $('positions').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset.autreQ !== undefined) chercherAutre(Number(e.target.dataset.autreQ)); });
+  }
+  if (CAMPAGNES) {
+    $('campagnes').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.id === 'camp-suivante') ouvrirCampagne(null);
+      else if (b.dataset.modifier) ouvrirCampagne(Number(b.dataset.modifier));
+      else if (b.dataset.activer) ecrire(actionsActiver(D.camp[CAMPAGNES.table], Number(b.dataset.activer), CAMPAGNES), 'Campagne activée');
+    });
+  }
+  if (CHIFFREMENT) {
+    $('chi-etat').addEventListener('click', e => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      if (t.id === 'chi-table') creerTableChiffrement();
+      else if (t.id === 'chi-cr-ok') creerPhrase();
+      else if (t.id === 'chi-reveler') revelerIci();
+      else if (t.id === 'chi-masquer') masquerIci();
+      else if (t.id === 'chi-enclair') chiffrerEnClair();
+    });
+    $('chi-etat').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'chi-phrase') revelerIci(); });
+    // Clé changée par le conteneur (Révéler, Masquer, 5 minutes sans activité) : relire, redessiner.
+    suivreCle(k => { cle = k; cacheChiffre.clear(); charger(); });
+  }
+  if (EXPORT) {
+    afficherExport();
+    $('exp-telecharger').addEventListener('click', () => exporter().catch(e => toast('Export impossible : ' + ((e && e.message) || e), true)));
+  }
+  if (IMPORT) {
+    afficherNotice();
+    $('imp-modele').addEventListener('click', () => telechargerFichier(IMPORT.nomModele || 'modele-import.csv', modeleCsv(IMPORT), 'text/csv;charset=utf-8'));
+    $('imp-fichier').addEventListener('change', async e => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const { texte, encodage } = decoderTexte(new Uint8Array(await f.arrayBuffer()));
+      await lireImport(texte, f.name, encodage);
+    });
+    $('imp-lire-colle').addEventListener('click', () => lireImport($('imp-coller').value, 'texte collé'));
+  }
+  $('liste-utilisateurs').addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-id]');
+    if (tr) ouvrir(Number(tr.dataset.id));
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && edition) fermer(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) planifier(); });
+  // Tables non sélectionnées (Permissions, Personnes…) : relecture toutes les 15 s, hors saisie ; dans le conteneur,
+  // c'est lui qui prévient l'écran affiché.
+  relectureReguliere(charger, () => !!edition || chiffrementOccupe());
+  await charger();
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+﻿Role,Table,Lire,Creer,Modifier,Supprimer
+Administrateur·trice,Personnes,Oui,Oui,Oui,Oui
+Administrateur·trice,Projets,Oui,Oui,Oui,Oui
+Gestionnaire,Personnes,Oui,Oui,Oui,Oui
+Gestionnaire,Projets,Oui,Oui,Oui,Oui
+Contributeur·trice,Personnes,Oui,Non,Non,Non
+Contributeur·trice,Projets,Oui,Oui,Limité,Non
+Lecteur·trice,Personnes,Oui,Non,Non,Non
+Lecteur·trice,Projets,Oui,Non,Non,Non

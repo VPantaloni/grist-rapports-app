@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Installation pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  main { max-width: 860px; margin: 0 auto; padding: 14px 16px 32px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  section { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-top: 14px; }
+  section h2 { font-size: 15px; margin: 0 0 6px; }
+  .resultats td:first-child { width: 70px; font-weight: 600; }
+  .resultats .ok td:first-child { color: var(--accent); }
+  .resultats .echec td:first-child { color: var(--danger); }
+  pre { white-space: pre-wrap; font-size: 12px; background: var(--bg2); padding: 8px; border-radius: 6px; max-height: 260px; overflow: auto; }
+  ul.plan { margin: 4px 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<div id="msg">Chargement de l'API Grist… (si ce message reste affiché : la page doit être ouverte dans Grist, comme widget personnalisé en accès complet)</div>
+<main id="app" hidden>
+  <h1>Installation de l'application dans ce document <small class="muted petit">(version de l'écran : 2026-10-21)</small></h1>
+  <p class="muted petit">Écran réservé aux propriétaires du document (création de tables). Il n'ajoute que ce qui manque ;
+    rien d'existant n'est modifié ni supprimé. Avant tout : <strong>Télécharger le document (.grist)</strong> s'il contient
+    déjà quelque chose. Projet existant : commencer par l'analyse (4).</p>
+
+  <section>
+    <h2>1. Vérifier ce Grist</h2>
+    <p class="petit">Essaie, dans une <strong>table temporaire</strong> supprimée à la fin, chaque mécanisme dont l'installation
+      a besoin (et l'écriture des règles d'accès). À lancer dans un <strong>document d'essai</strong>, puis copier le rapport
+      pour le transmettre.</p>
+    <div class="actions"><button id="verifier" class="primary">Lancer la vérification</button>
+      <button id="copier" hidden>Copier le rapport</button></div>
+    <textarea id="rapport" rows="8" readonly hidden style="width:100%;margin-top:8px;font-size:12px"
+      title="Cliquer pour tout sélectionner, puis ⌘C (ou Ctrl+C)"></textarea>
+    <table class="resultats" id="resultats"></table>
+  </section>
+
+  <section>
+    <h2>2. Installer depuis le dossier <code>installation/</code></h2>
+    <p class="petit">Choisir le dossier <code>installation/</code> de l'application (schéma, données d'exemple, formules).
+      Les fichiers sont lus dans ce navigateur ; rien n'est envoyé ailleurs qu'à ce document.</p>
+    <input type="file" id="dossier" webkitdirectory multiple>
+    <div id="analyse"></div>
+  </section>
+
+  <section>
+    <h2>3. Règles d'accès</h2>
+    <p class="petit">D'après le schéma (dossier choisi au 2) : attribut <code>Profil</code>, règles par défaut D1 à D4, tables
+      d'administration, matrice de chaque table de données, puis les règles déclarées (<code>regles</code> de
+      <code>schema.json</code>). Rien n'est écrit si le document a déjà ses propres règles. Grist recharge l'écran après
+      chaque écriture : l'installation reprend seule.</p>
+    <div id="regles"><p class="muted petit">Choisir d'abord le dossier <code>installation/</code> (2).</p></div>
+  </section>
+
+  <section>
+    <h2>4. Analyser ce document (reprise d'un projet existant)</h2>
+    <p class="petit">Lit seulement la structure du document (tables, colonnes, pages, widgets, règles), jamais les valeurs
+      des cellules, et ne modifie rien. Reconnaît un document fait avec le kit (v1 ou v2), puis prépare un
+      <strong>rapport de reprise</strong> et un <strong>brouillon de <code>schema.json</code></strong> à déposer dans
+      <code>documents-source/</code> de l'application (SPEC § 9, compétence <code>/reprise</code>).</p>
+    <div class="actions"><button id="analyser" class="primary">Analyser ce document</button></div>
+    <div id="reprise"></div>
+  </section>
+</main>
+
+<script type="module">
+import { $, esc, message, toast, boutonConfirmation, preferences, copier } from '../commun/interface.js';
+import { initialiserGrist } from '../commun/grist.js';
+import { columnsToRows } from '../commun/donnees.js';
+import { decoderTexte, lireCsv } from '../commun/import.js';
+import { ordreTables, planStructure, actionsTables, actionsColonnes, actionsAffichage, objetsCsv, colonnesDonnees, reglesAcces, etatRegles,
+  actionsRessources, actionsRegles, actionsRetraitKit, MEMO_REGLES } from '../commun/installation.js';
+import { zipStocke, telechargerFichier, dateFichier } from '../commun/export.js';
+import { rangerFichiers, texteRapport, nomTableEssai, widgetsPersonnalises, reconnaitre, versionSelonSite, brouillonSchema, rapportReprise,
+  LIBELLES_ORIGINE } from './logique.js';
+
+const appliquer = actions => grist.docApi.applyUserActions(actions);
+const lire = async t => columnsToRows(await grist.docApi.fetchTable(t));
+async function lireMeta() {
+  const [tables, colonnes] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
+  return { tables, colonnes };
+}
+const texteErreur = e => String((e && e.message) || e).slice(0, 300);
+
+// --- 1. Banc de vérification ---
+// Grist recharge le widget quand une table est supprimée ou qu'une règle d'accès change (constaté le 2026-10-19) : le
+// banc garde son état dans ce navigateur et reprend tout seul au rechargement. Une étape interrompue par un
+// rechargement est jugée par son contrôle (ce qu'elle devait produire est-il là ?).
+const pref = preferences('Installer');
+const MEMO = 'essai du kit';
+const contexte = location.ancestorOrigins && location.ancestorOrigins[0] ? location.ancestorOrigins[0] : '';
+let rapport = '';
+/** @type {{ T: string, ids: number[], defauts: string[], ressource: number, regle: number, res: any[], suivant: number, enCours: number, fini: boolean } | null} */
+let st = null;
+const sauver = () => pref.ecrire('Banc', JSON.stringify(st));
+function montrerRapport(texte, titre) {
+  rapport = texte;
+  $('rapport').value = titre ? `${titre}\n${texte}` : texte;
+  $('rapport').hidden = false;
+  $('copier').hidden = false;
+}
+function afficherResultats() {
+  $('resultats').innerHTML = st.res.map(x => `<tr class="${x.etat}"><td>${{ ok: 'OK', echec: 'ÉCHEC', saute: '—' }[x.etat]}</td>
+    <td>${esc(x.titre)}${x.detail ? `<br><span class="muted petit">${esc(x.detail)}</span>` : ''}</td></tr>`).join('');
+}
+const metaT = async () => { const m = await lireMeta(); const t = m.tables.find(x => x.tableId === st.T); return { m, t, col: c => t && m.colonnes.find(x => x.parentId === t.id && x.colId === c) }; };
+const ligneEssai = async id => (await lire(st.T)).find(x => x.id === id) || {};
+const restes = async () => {
+  const [m, rs, rg] = await Promise.all([lireMeta(), lire('_grist_ACLResources'), lire('_grist_ACLRules')]);
+  const ressources = rs.filter(r => /^Essai_kit_/.test(r.tableId || '')).map(r => r.id);
+  return { tables: m.tables.filter(t => /^Essai_kit_/.test(t.tableId)).map(t => t.tableId), ressources,
+    regles: rg.filter(r => r.memo === MEMO || ressources.includes(r.resource)).map(r => r.id) };
+};
+const nbRestes = r => r.tables.length + r.ressources.length + r.regles.length;
+
+// Étapes : f fait l'essai (renvoie un détail, ou lève une erreur) ; controle juge l'étape si un rechargement l'a
+// interrompue ; bloquant : en échec, les étapes suivantes jusqu'à « toujours » sont sautées.
+const ETAPES = [
+  { titre: 'Restes d\'essais précédents retirés (tables Essai_kit_…, règles « essai du kit »)',
+    f: async () => {
+      const r = await restes();
+      if (!nbRestes(r)) return 'aucun';
+      await appliquer([...r.regles.map(id => ['RemoveRecord', '_grist_ACLRules', id]), ...r.ressources.map(id => ['RemoveRecord', '_grist_ACLResources', id]),
+        ...r.tables.map(t => ['RemoveTable', t])]);
+      return `${r.tables.length} table(s), ${r.regles.length} règle(s), ${r.ressources.length} ressource(s) retirées`;
+    },
+    controle: async () => { const r = await restes(); if (nbRestes(r)) throw new Error('restes encore présents'); return 'retirés (widget rechargé par Grist)'; } },
+  { titre: 'Lecture des métadonnées (_grist_Tables, _grist_Tables_column)', bloquant: true,
+    f: async () => { const m = await lireMeta(); if (!m.tables.length) throw new Error('aucune table lue'); st.T = nomTableEssai(m.tables.map(t => t.tableId)); return `${m.tables.length} table(s), ${m.colonnes.length} colonne(s)`; } },
+  { titre: 'Table sans page (AddRawTable, nom seul)', bloquant: true,
+    f: async () => {
+      await appliquer([['AddRawTable', st.T]]);
+      const { m, t } = await metaT();
+      if (!t) throw new Error('table absente après création');
+      st.defauts = m.colonnes.filter(c => c.parentId === t.id).map(c => c.colId);
+      return `${st.T} — colonnes par défaut : ${st.defauts.join(', ') || 'aucune'}`;
+    } },
+  { titre: 'Colonnes ajoutées (AddColumn) avec libellé délié, choix, formule, formule d\'initialisation, référence ; colonnes par défaut retirées', bloquant: true,
+    f: async () => {
+      const T = st.T;
+      await appliquer([
+        ['AddColumn', T, 'Nom', { type: 'Text', isFormula: false, label: 'Nom affiché', untieColIdFromLabel: true }],
+        ['AddColumn', T, 'Choix', { type: 'Choice', isFormula: false, widgetOptions: JSON.stringify({ choices: ['A', 'B'] }) }],
+        ['AddColumn', T, 'Courriel', { type: 'Text', isFormula: false, formula: 'user.Email', recalcWhen: 0, recalcDeps: null }],
+        ['AddColumn', T, 'Majuscules', { type: 'Text', isFormula: true, formula: '($Nom or "").upper()' }],
+        ['AddColumn', T, 'Lien', { type: `Ref:${T}`, isFormula: false }],
+        ...st.defauts.filter(c => c !== 'manualSort').map(c => ['RemoveColumn', T, c])]);
+      const { col } = await metaT();
+      const n = col('Nom');
+      if (!n || n.label !== 'Nom affiché') throw new Error(`libellé : ${n ? n.label : 'colonne Nom absente'}`);
+      return ['Nom', 'Choix', 'Courriel', 'Majuscules', 'Lien'].map(c => `${c} ${col(c) ? col(c).type : 'ABSENTE'}`).join(', ');
+    } },
+  { titre: 'Choix enregistrés (widgetOptions)',
+    f: async () => { const { col } = await metaT(); const o = JSON.parse(col('Choix').widgetOptions || '{}'); if (JSON.stringify(o.choices) !== '["A","B"]') throw new Error(`widgetOptions : ${col('Choix').widgetOptions}`); return 'A, B'; } },
+  { titre: 'Ajout groupé (BulkAddRecord) : identifiants renvoyés dans l\'ordre des lignes', bloquant: true,
+    f: async () => {
+      const r = await appliquer([['BulkAddRecord', st.T, [null, null, null], { Nom: ['un', 'deux', 'trois'], Choix: ['A', 'B', 'A'] }]]);
+      st.ids = (r && r.retValues && r.retValues[0]) || [];
+      const lignes = await lire(st.T);
+      const noms = st.ids.map(id => (lignes.find(l => l.id === id) || {}).Nom);
+      if (JSON.stringify(noms) !== '["un","deux","trois"]') throw new Error(`retValues ${JSON.stringify(st.ids)} → ${JSON.stringify(noms)}`);
+      return `retValues ${JSON.stringify(st.ids)}`;
+    } },
+  { titre: 'Colonne formule calculée', f: async () => { const l = await ligneEssai(st.ids[0]); if (l.Majuscules !== 'UN') throw new Error(`Majuscules = ${JSON.stringify(l.Majuscules)}`); } },
+  { titre: 'Formule d\'initialisation (user.Email) remplie à la création',
+    f: async () => { const l = await ligneEssai(st.ids[0]); if (!l.Courriel) throw new Error(`Courriel vide (${JSON.stringify(l.Courriel)})`); return 'valeur présente (non affichée ici)'; } },
+  { titre: 'Colonne affichée d\'une référence (ModifyColumn visibleCol + SetDisplayFormula)',
+    f: async () => {
+      const { col } = await metaT();
+      await appliquer([['ModifyColumn', st.T, 'Lien', { visibleCol: col('Nom').id }], ['SetDisplayFormula', st.T, null, col('Lien').id, '$Lien.Nom'],
+        ['UpdateRecord', st.T, st.ids[0], { Lien: st.ids[1] }]]);
+      const apres = await metaT(), l = apres.col('Lien');
+      if (l.visibleCol !== apres.col('Nom').id) throw new Error(`visibleCol = ${l.visibleCol}`);
+      if (!l.displayCol) throw new Error('displayCol absent : la formule d\'affichage n\'a pas été posée');
+      return `visibleCol ${l.visibleCol}, displayCol ${l.displayCol}`;
+    } },
+  { titre: 'Règles d\'accès : lecture (_grist_ACLResources, _grist_ACLRules)',
+    f: async () => {
+      const [rs, rg] = await Promise.all([lire('_grist_ACLResources'), lire('_grist_ACLRules')]);
+      const decrire = r => `${r.tableId || '∅'}|${r.colIds || '∅'} (${rg.filter(x => x.resource === r.id).length})`;
+      return `${rs.length} ressource(s), ${rg.length} règle(s) : ${rs.map(decrire).join(', ')}`;
+    } },
+  { titre: 'Règles d\'accès : écriture d\'une ressource (la table d\'essai)',
+    f: async () => { const r = await appliquer([['AddRecord', '_grist_ACLResources', null, { tableId: st.T, colIds: '*' }]]); st.ressource = r.retValues[0]; return `ressource ${st.ressource}`; },
+    controle: async () => { const r = (await lire('_grist_ACLResources')).find(x => x.tableId === st.T); if (!r) throw new Error('ressource absente'); st.ressource = r.id; return `ressource ${r.id} (widget rechargé par Grist)`; } },
+  { id: 'regle', titre: 'Règles d\'accès : écriture d\'une règle, formule analysée par Grist',
+    f: async () => {
+      if (!st.ressource) throw new Error('pas de ressource');
+      await appliquer([['AddRecord', '_grist_ACLRules', null, { resource: st.ressource, aclFormula: 'user.Access == OWNER', permissionsText: '+R', rulePos: 1, memo: MEMO }]]);
+      return etape('regle').controle();
+    },
+    controle: async () => {
+      const l = (await lire('_grist_ACLRules')).find(x => x.memo === MEMO && x.aclFormula === 'user.Access == OWNER');
+      if (!l) throw new Error('règle absente après écriture');
+      st.regle = l.id;
+      return `règle ${l.id} ; formule analysée : ${l.aclFormulaParsed ? 'oui' : 'NON'}`;
+    } },
+  { titre: 'Règles d\'accès : ressource des règles par défaut (*, *)',
+    f: async () => {
+      const r = (await lire('_grist_ACLResources')).find(x => x.tableId === '*' && x.colIds === '*');
+      if (r) { st.defaut = r.id; return `présente (n° ${r.id})`; }
+      st.defautCree = true; sauver();
+      const a = await appliquer([['AddRecord', '_grist_ACLResources', null, { tableId: '*', colIds: '*' }]]);
+      st.defaut = a.retValues[0]; return `créée (n° ${st.defaut})`;
+    },
+    controle: async () => { const r = (await lire('_grist_ACLResources')).find(x => x.tableId === '*' && x.colIds === '*'); if (!r) throw new Error('absente'); st.defaut = r.id; return `créée (n° ${r.id}, widget rechargé par Grist)`; } },
+  { id: 'attribut', titre: 'Règles d\'accès : attribut utilisateur (userAttributes) écrit',
+    f: async () => {
+      await appliquer([['AddRecord', '_grist_ACLRules', null, { resource: st.defaut, aclFormula: '', permissionsText: '', rulePos: 1000, memo: MEMO,
+        userAttributes: JSON.stringify({ name: 'EssaiKit', tableId: st.T, charId: 'Email', lookupColId: 'Courriel' }) }]]);
+      return etape('attribut').controle();
+    },
+    controle: async () => {
+      const l = (await lire('_grist_ACLRules')).find(x => x.memo === MEMO && /EssaiKit/.test(x.userAttributes || ''));
+      if (!l) throw new Error('attribut absent après écriture');
+      return `attribut ${l.id} : ${l.userAttributes}`;
+    } },
+  { id: 'regleAttribut', titre: 'Règles d\'accès : règle qui utilise l\'attribut (user.EssaiKit), analysée par Grist',
+    f: async () => {
+      await appliquer([['AddRecord', '_grist_ACLRules', null, { resource: st.ressource, aclFormula: 'user.EssaiKit and user.EssaiKit.Nom != ""',
+        permissionsText: '+R', rulePos: 1001, memo: MEMO }]]);
+      return etape('regleAttribut').controle();
+    },
+    controle: async () => {
+      const l = (await lire('_grist_ACLRules')).find(x => x.memo === MEMO && /EssaiKit/.test(x.aclFormula || ''));
+      if (!l) throw new Error('règle absente après écriture');
+      if (!l.aclFormulaParsed) throw new Error('formule NON analysée par Grist (attribut non reconnu ?)');
+      return `règle ${l.id} ; formule analysée : oui`;
+    } },
+  { id: 'retrait', titre: 'Règles d\'accès : retrait des règles et ressources d\'essai', toujours: true,
+    f: async () => {
+      const r = await restes();
+      const a = [...r.regles.map(id => ['RemoveRecord', '_grist_ACLRules', id]), ...r.ressources.map(id => ['RemoveRecord', '_grist_ACLResources', id])];
+      // Ressource par défaut créée par le banc : retirée si plus rien ne s'y rattache.
+      const rg = await lire('_grist_ACLRules');
+      if (st.defautCree && st.defaut && !rg.some(x => x.resource === st.defaut && !r.regles.includes(x.id))) a.push(['RemoveRecord', '_grist_ACLResources', st.defaut]);
+      if (a.length) await appliquer(a);
+      return etape('retrait').controle();
+    },
+    controle: async () => { const r = await restes(); if (r.regles.length || r.ressources.length) throw new Error('règle ou ressource encore présente'); return 'retirées'; } },
+  { titre: 'API publiques depuis le widget : Annuaire de l\'éducation, géocodage IGN', toujours: true,
+    f: async () => {
+      const a = await fetch('https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records?limit=1');
+      const g = await fetch('https://data.geopf.fr/geocodage/search?q=Orl%C3%A9ans&index=address&type=municipality&limit=1');
+      if (!a.ok || !g.ok) throw new Error(`annuaire HTTP ${a.status}, IGN HTTP ${g.status}`);
+      return 'les deux répondent';
+    } },
+  { id: 'nettoyage', titre: 'Nettoyage : table d\'essai supprimée', toujours: true,
+    f: async () => { if (!st.T || !(await metaT()).t) return 'rien à retirer'; await appliquer([['RemoveTable', st.T]]); return etape('nettoyage').controle(); },
+    controle: async () => { if (st.T && (await metaT()).t) throw new Error(`table ${st.T} encore présente : la supprimer à la main`); return `${st.T || 'table d\'essai'} supprimée`; } },
+];
+
+const etape = id => ETAPES.find(e => e.id === id);
+function terminer(i, r) {
+  st.res.push({ titre: ETAPES[i].titre, ...r });
+  st.suivant = i + 1; st.enCours = -1;
+  sauver(); afficherResultats();
+}
+// Déroule le banc depuis st.suivant ; une étape en cours au chargement (rechargement) est jugée par son contrôle.
+async function derouler() {
+  $('verifier').disabled = true;
+  // Étape interrompue : jugée par son contrôle ; sans contrôle, elle est simplement rejouée (boucle ci-dessous).
+  if (st.enCours >= 0 && st.enCours === st.suivant && ETAPES[st.enCours].controle) {
+    const e = ETAPES[st.enCours];
+    try { terminer(st.enCours, { etat: 'ok', detail: await e.controle() }); }
+    catch (err) { terminer(st.enCours, { etat: 'echec', detail: texteErreur(err) }); }
+  }
+  for (let i = st.suivant; i < ETAPES.length; i = st.suivant) {
+    const e = ETAPES[i];
+    const arret = st.res.find(r => r.etat === 'echec' && ETAPES.find(x => x.titre === r.titre).bloquant);
+    if (arret && !e.toujours) { terminer(i, { etat: 'saute', detail: `non lancé (« ${arret.titre.split(' (')[0]} » en échec)` }); continue; }
+    st.enCours = i; sauver();
+    try { const d = await e.f(); terminer(i, { etat: 'ok', detail: typeof d === 'string' ? d : '' }); }
+    catch (err) { terminer(i, { etat: 'echec', detail: texteErreur(err) }); }
+  }
+  st.fini = true; sauver();
+  montrerRapport(texteRapport(st.res, contexte));
+  $('rapport').scrollIntoView({ block: 'center' });
+  $('verifier').disabled = false;
+}
+async function verifier() {
+  st = { T: '', ids: [], defauts: [], ressource: 0, regle: 0, defaut: 0, defautCree: false, res: [], suivant: 0, enCours: -1, fini: false };
+  sauver(); $('rapport').hidden = true; $('copier').hidden = true; afficherResultats();
+  await derouler();
+}
+
+// --- 2. Installation ---
+let F = null, schema = null, plan = null, csv = {};
+const lireTexte = async f => decoderTexte(new Uint8Array(await f.arrayBuffer())).texte;
+async function analyser() {
+  if (!F.schema) { $('analyse').innerHTML = '<div class="alerte ko">Pas de schema.json : choisir le dossier installation/ de l\'application.</div>'; return; }
+  try { schema = JSON.parse(await lireTexte(F.schema)); } catch (e) { $('analyse').innerHTML = `<div class="alerte ko">schema.json illisible : ${esc(texteErreur(e))}</div>`; return; }
+  csv = {};
+  for (const [t, f] of Object.entries(F.csv)) csv[t] = objetsCsv(lireCsv(await lireTexte(f)).lignes);
+  const meta = await lireMeta();
+  plan = planStructure(schema, meta);
+  const vides = {};
+  for (const t of ordreTables(schema)) vides[t.id] = !plan.existantes.includes(t.id) || !(await lire(t.id)).length;
+  const aImporter = ordreTables(schema).filter(t => csv[t.id] && vides[t.id]);
+  $('analyse').innerHTML = `<h3 class="petit">Ce qui sera fait</h3><ul class="plan">
+    <li>Tables à créer (${plan.tablesACreer.length}) : ${plan.tablesACreer.map(t => `<code>${esc(t.id)}</code>`).join(', ') || 'aucune'}</li>
+    <li>Colonnes à ajouter (${plan.colonnesAAjouter.length}) : ${plan.colonnesAAjouter.map(x => `<code>${esc(x.table)}.${esc(x.colonne.id)}</code>`).join(', ') || 'aucune'}</li>
+    <li>Données d'exemple (tables vides seulement) : ${aImporter.map(t => `<code>${esc(t.id)}</code> ${csv[t.id].length}`).join(', ') || 'aucune'}</li>
+    ${plan.existantes.length ? `<li class="muted">Tables déjà là (gardées telles quelles) : ${plan.existantes.map(esc).join(', ')}</li>` : ''}</ul>
+    ${plan.differences.length ? `<div class="alerte">Différences (non modifiées) :<ul class="plan">${plan.differences.map(d => `<li>${esc(d)}</li>`).join('')}</ul></div>` : ''}
+    ${F.ignores.length ? `<p class="muted petit">Fichiers ignorés : ${F.ignores.map(esc).join(', ')}</p>` : ''}
+    <div class="actions"><button id="structure" class="primary">Créer la structure</button>
+      <button id="donnees">Importer les données d'exemple</button></div>
+    <pre id="journal" hidden></pre>`;
+  boutonConfirmation($('structure'), 'Confirmer la création', creerStructure);
+  boutonConfirmation($('donnees'), 'Confirmer l\'import', importerDonnees);
+  await analyserRegles();
+}
+
+// --- 3. Règles d'accès (deux envois, chacun recharge le widget : état gardé dans le navigateur, reprise seule) ---
+// ri = { phase: 'ressources' | 'regles' | 'controle' | 'fini', regles: RegleAcces[], erreur?: string }
+let ri = null;
+const sauverRegles = () => pref.ecrire('Regles', JSON.stringify(ri));
+async function analyserRegles() {
+  const regles = reglesAcces(schema);
+  const [rs, rg, meta] = await Promise.all([lire('_grist_ACLResources'), lire('_grist_ACLRules'), lireMeta()]);
+  const etat = etatRegles(rs, rg);
+  const tables = new Set(meta.tables.map(t => t.tableId));
+  const manquantes = [...new Set(regles.map(r => r.ressource.tableId).filter(t => t !== '*' && !tables.has(t)))];
+  const liste = `<details><summary>Les ${regles.length} règles, dans l'ordre</summary><table class="petit">${regles.map(r =>
+    `<tr><td><code>${esc(r.ressource.tableId === '*' ? 'défaut' : r.ressource.tableId + (r.ressource.colIds !== '*' ? '.' + r.ressource.colIds : ''))}</code></td>
+      <td>${esc(r.libelle)}<br><code>${esc(r.condition || (r.attribut ? '' : 'tout le monde'))}</code></td><td><code>${esc(r.droits)}</code></td></tr>`).join('')}</table></details>`;
+  let html = liste;
+  if (manquantes.length) html = `<div class="alerte ko">Tables absentes du document : ${manquantes.map(esc).join(', ')}. Créer la structure d'abord (2).</div>` + liste;
+  else if (etat.statut === 'kit') html = `<div class="alerte ok">Règles déjà installées par cet écran (${etat.n}). À vérifier : menu du document → Règles d'accès.</div>` + liste
+    + '<div class="actions"><button id="reecrire-regles" title="Retire les règles marquées « kit grist-app-generator », puis écrit celles ci-dessus (schéma changé, correction)">Réécrire les règles du kit</button></div>';
+  else if (etat.statut === 'autres') html = `<div class="alerte ko">Le document a déjà ${etat.n} règle(s) saisie(s) par ailleurs : rien ne sera écrit. Les compléter à la main avec installation/regles-acces.md.</div>` + liste;
+  else html += '<div class="actions"><button id="ecrire-regles" class="primary">Écrire les règles d\'accès</button></div>';
+  $('regles').innerHTML = html;
+  if ($('ecrire-regles')) boutonConfirmation($('ecrire-regles'), 'Confirmer l\'écriture des règles', () => { ri = { phase: 'ressources', regles }; sauverRegles(); poursuivreRegles(); });
+  if ($('reecrire-regles')) boutonConfirmation($('reecrire-regles'), 'Confirmer : retirer et réécrire', () => { ri = { phase: 'retrait', regles }; sauverRegles(); poursuivreRegles(); });
+}
+async function poursuivreRegles() {
+  try {
+    if (ri.phase === 'retrait') {
+      const a = actionsRetraitKit(await lire('_grist_ACLRules'));
+      ri.phase = 'ressources'; sauverRegles();
+      if (a.length) await appliquer(a);   // recharge le widget : la suite reprend au chargement
+    }
+    if (ri.phase === 'ressources') {
+      const a = actionsRessources(ri.regles, await lire('_grist_ACLResources'));
+      ri.phase = 'regles'; sauverRegles();
+      if (a.length) await appliquer(a);   // recharge le widget : la suite reprend au chargement
+    }
+    if (ri.phase === 'regles') {
+      const deja = (await lire('_grist_ACLRules')).filter(r => r.memo === MEMO_REGLES).length;
+      ri.phase = 'controle'; sauverRegles();
+      if (!deja) await appliquer(actionsRegles(ri.regles, await lire('_grist_ACLResources')));
+    }
+    if (ri.phase === 'controle') {
+      const n = (await lire('_grist_ACLRules')).filter(r => r.memo === MEMO_REGLES).length;
+      ri.phase = 'fini';
+      ri.resultat = n === ri.regles.length
+        ? `<div class="alerte ok">${n} règles d'accès écrites. À faire maintenant : ajouter sa ligne dans Utilisateurs (e-mail exact, Administrateur·trice, Actif), puis vérifier dans Administration → Mon compte « Identification réussie », et « Voir en tant que » pour chaque rôle (installation/regles-acces.md § 8).</div>`
+        : `<div class="alerte ko">${n} règle(s) trouvée(s) sur ${ri.regles.length} attendues : vérifier menu du document → Règles d'accès.</div>`;
+      sauverRegles();   // gardé : un dernier rechargement par Grist effacerait l'écran
+      $('regles').innerHTML = ri.resultat;
+    }
+  } catch (e) {
+    ri.phase = 'fini';
+    ri.resultat = `<div class="alerte ko">Écriture refusée : ${esc(texteErreur(e))}. Rien de plus n'a été tenté ; vérifier menu du document → Règles d'accès.</div>`;
+    sauverRegles();
+    $('regles').innerHTML = ri.resultat;
+  }
+}
+const journal = t => { const j = $('journal'); j.hidden = false; j.textContent += t + '\n'; };
+async function creerStructure() {
+  try {
+    const formules = Object.fromEntries(await Promise.all(Object.entries(F.formules).map(async ([n, f]) => [n, await lireTexte(f)])));
+    const p = planStructure(schema, await lireMeta());
+    const creees = p.tablesACreer.map(t => t.id), tables = actionsTables(p);
+    if (tables.length) { await appliquer(tables); journal(`Tables créées : ${creees.join(', ')}.`); }
+    const colonnes = actionsColonnes(schema, await lireMeta(), formules, creees);
+    if (colonnes.length) { await appliquer(colonnes); journal(`Colonnes : ${colonnes.filter(a => a[0] === 'AddColumn').length} ajoutée(s), ${colonnes.filter(a => a[0] === 'RemoveColumn').length} par défaut retirée(s).`); }
+    const affichage = actionsAffichage(schema, await lireMeta());
+    if (affichage.length) { await appliquer(affichage); journal(`Colonnes affichées des références : ${affichage.length / 2}.`); }
+    toast('Structure créée');
+    await analyserRegles();   // le volet des règles voit maintenant les tables
+  } catch (e) { journal('ÉCHEC : ' + texteErreur(e)); toast('Création refusée (détail dans le journal)', true); }
+}
+async function importerDonnees() {
+  const cibles = {};
+  for (const t of ordreTables(schema)) {
+    try {
+      const deja = await lire(t.id);
+      if (deja.length || !csv[t.id] || !csv[t.id].length) { cibles[t.id] = deja; continue; }
+      const r = colonnesDonnees(t, csv[t.id], schema, cibles);
+      await appliquer([['BulkAddRecord', t.id, Array(r.n).fill(null), r.colonnes]]);
+      cibles[t.id] = await lire(t.id);   // relue : ses colonnes formules (affichées par les références) sont calculées
+      journal(`${t.id} : ${r.n} ligne(s)${r.anomalies.length ? ` ; ${r.anomalies.length} référence(s) introuvable(s) : ${r.anomalies.slice(0, 5).join(' ; ')}` : ''}`);
+    } catch (e) { journal(`${t.id} : ÉCHEC ${texteErreur(e)}`); }
+  }
+  await analyserRegles();
+  journal('Tables visibles dans Grist : « Données sources » (bas du panneau de gauche) ; elles n\'ont pas de page.');
+  journal('Ensuite : ajouter sa ligne dans Utilisateurs (e-mail exact, Administrateur·trice, Actif) ; règles d\'accès avec '
+    + 'installation/regles-acces.md ; pages (Application : widget app/, table Navigation, accès complet) ; README § 6.');
+}
+
+// --- 4. Analyse d'un document existant (lecture seule) ---
+let analyse = null;
+async function analyserDocument() {
+  const [base, vues, sections, pages, ressources, regles] = await Promise.all([lireMeta(), lire('_grist_Views'), lire('_grist_Views_section'),
+    lire('_grist_Pages'), lire('_grist_ACLResources'), lire('_grist_ACLRules')]);
+  const meta = { ...base, vues, sections, pages, ressources, regles };
+  const document = await grist.docApi.getDocName().catch(() => '');
+  const date = dateFichier();
+  const widgets = widgetsPersonnalises(meta);
+  analyse = { document, date, widgets, origine: reconnaitre(meta, widgets), regles: etatRegles(ressources, regles),
+    brouillon: brouillonSchema(meta, { date, document }), nbPages: pages.length, version: '' };
+  afficherAnalyse();
+}
+function afficherAnalyse() {
+  const a = analyse, o = a.origine, b = a.brouillon;
+  const classe = { rien: '', partiel: '', kit: 'ok', v2: 'ok' }[o.statut];
+  $('reprise').innerHTML = `<div class="alerte ${classe}"><strong>${esc(LIBELLES_ORIGINE[o.statut])}</strong>${a.version ? ` — site des widgets : ${esc(a.version)}` : ''}
+      <ul class="plan">${(o.indices.length ? o.indices : ['aucun indice du kit']).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>
+    ${o.statut === 'kit' && o.origines.length ? `<p class="petit">Pour trancher entre v1 et v2 : le site du conteneur (${o.origines.map(esc).join(', ')})
+      a-t-il un dossier <code>commun/</code> (v2 seulement) ? Le test demande à ce site son icône <code>commun/favicon.svg</code>, rien d'autre.</p>
+      <div class="actions"><button id="tester-site">Tester le site des widgets</button></div>` : ''}
+    <ul class="plan">
+      <li>Tables : ${b.schema.tables.length} ; widgets personnalisés : ${a.widgets.length} ; pages : ${a.nbPages}</li>
+      <li>Règles d'accès : ${esc({ vierge: 'aucune', kit: `${a.regles.n} écrites par cet écran`, autres: `${a.regles.n} saisies par ailleurs` }[a.regles.statut])}</li>
+      <li>Points à reprendre dans le brouillon : ${b.alertes.length} ; formules longues (fichiers .py) : ${Object.keys(b.formules).length}</li>
+    </ul>
+    <div class="actions"><button id="telecharger-reprise" class="primary">Télécharger (.zip)</button>
+      <button id="copier-reprise">Copier le rapport</button></div>
+    <p class="muted petit">Le .zip contient <code>analyse-document.md</code> (rapport), <code>schema.json</code> (brouillon) et
+      <code>formules/</code>. Formules et listes de choix y sont recopiées telles quelles : relire avant de partager.</p>`;
+  if ($('tester-site')) $('tester-site').addEventListener('click', () => testerSites().catch(e => toast(texteErreur(e), true)));
+  $('telecharger-reprise').addEventListener('click', () => {
+    const rapport = rapportReprise(a);
+    const fichiers = [{ nom: 'analyse-document.md', contenu: rapport }, { nom: 'schema.json', contenu: JSON.stringify(b.schema, null, 2) + '\n' },
+      ...Object.entries(b.formules).map(([nom, contenu]) => ({ nom: `formules/${nom}`, contenu }))];
+    telechargerFichier(`reprise-${a.date}.zip`, zipStocke(fichiers), 'application/zip');
+  });
+  $('copier-reprise').addEventListener('click', async () => { const ok = await copier(rapportReprise(a)); toast(ok ? 'Rapport copié' : 'Copie refusée par le navigateur : utiliser le .zip', !ok); });
+}
+// Icône commun/favicon.svg de chaque site : chargée = site v2 (pas de lecture de contenu : une image suffit).
+function sonder(origine) {
+  return new Promise(ok => {
+    const img = new Image(), fin = r => { clearTimeout(t); ok(r); };
+    const t = setTimeout(() => fin(false), 8000);
+    img.onload = () => fin(true); img.onerror = () => fin(false);
+    img.src = `${origine}/commun/favicon.svg?sonde=${Date.now()}`;
+  });
+}
+async function testerSites() {
+  const r = {};
+  for (const o of analyse.origine.origines) r[o] = await sonder(o);
+  const v = versionSelonSite(r);
+  analyse.version = { v2: 'v2 (dossier commun/ présent)', v1: 'v1 (pas de dossier commun/, ou site injoignable)', 'mélange': 'v1 et v2 selon le site' }[v] || '';
+  afficherAnalyse();
+}
+
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  message('');
+  $('app').hidden = false;
+  $('verifier').addEventListener('click', () => verifier().catch(e => toast(texteErreur(e), true)));
+  $('rapport').addEventListener('focus', e => e.target.select());
+  // Règles d'accès en cours d'écriture (Grist a rechargé le widget) : reprise.
+  try { ri = JSON.parse(pref.lire('Regles', 'null')); } catch (e) { ri = null; }
+  if (ri && ri.phase && ri.phase !== 'fini') { $('regles').innerHTML = '<p class="petit">Reprise de l\'écriture des règles après le rechargement par Grist…</p>'; poursuivreRegles(); }
+  else if (ri && ri.resultat) $('regles').innerHTML = ri.resultat;
+  // Banc en cours (Grist a rechargé le widget) : reprise ; banc fini : dernier rapport.
+  try { st = JSON.parse(pref.lire('Banc', 'null')); } catch (e) { st = null; }
+  if (st && st.res) {
+    afficherResultats();
+    if (!st.fini) { message('Reprise de la vérification après le rechargement du widget par Grist…'); derouler().then(() => message('')).catch(e => toast(texteErreur(e), true)); }
+    else montrerRapport(texteRapport(st.res, contexte), 'Dernier rapport :');
+  }
+  $('copier').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(rapport); toast('Rapport copié'); return; } catch (e) { /* presse-papiers refusé dans le cadre */ }
+    $('rapport').focus(); $('rapport').select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    toast(ok ? 'Rapport copié' : 'Copie refusée par le navigateur : le texte est sélectionné, faire ⌘C (ou Ctrl+C)', !ok);
+  });
+  $('analyser').addEventListener('click', () => analyserDocument().catch(e => toast(texteErreur(e), true)));
+  $('dossier').addEventListener('change', e => { F = rangerFichiers([...e.target.files]); analyser().catch(x => toast(texteErreur(x), true)); });
+}
+</script>
+</body>
+</html>

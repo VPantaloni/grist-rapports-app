@@ -1,0 +1,4 @@
+﻿Libelle,Widget,Ordre,Roles,Visible
+Personnes,personnes,10,,true
+Projets,projets,20,,true
+Administration,admin,90,Administrateur·trice,true

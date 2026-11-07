@@ -1,0 +1,25 @@
+# Liste blanche : tout est ignoré, sauf ce qui est autorisé ci-dessous (SPEC § 2).
+# Publiés : site/ (servi par Vercel), installation/ (CSV, formules, modèle .grist, fiche des règles d'accès) et les
+# fichiers de la racine. Restent locaux : CLAUDE.md, specifications/, recette/, scripts/, tests/, documents-source/,
+# gabarits/, catalogue/.
+*
+!.gitignore
+!README.md
+!LICENSE
+# Version du kit d'où vient l'application (outils/mettre-a-jour.sh du kit).
+!KIT_VERSION
+# Vercel : sert site/ (vercel.json : Output Directory et barre finale des adresses, sans réglage dans l'interface).
+!vercel.json
+# Site (Vercel, Output Directory = site) : tous les écrans, modules communs, captures de la page Découvrir.
+# Un dossier n'est suivi que si son contenu l'est aussi : « !site/** » autorise tout ce qu'il contient.
+!site/
+!site/**
+# Installation dans Grist : données d'exemple, formules, modèle .grist, fiche des règles d'accès.
+!installation/
+!installation/**
+
+# Jamais publiés, même sous site/ ou installation/
+.DS_Store
+*.local.*
+# Nouvelle version d'un fichier proposée par la mise à jour du kit (à fusionner à la main, puis supprimer).
+*.kit-nouveau

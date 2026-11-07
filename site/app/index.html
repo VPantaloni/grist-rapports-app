@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Application pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  /* Menu de l'application */
+  #menu { display: flex; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg2);
+    overflow-x: auto; flex: none; scrollbar-width: thin; }
+  #menu button, #menu a.accueil { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; border: none;
+    background: none; white-space: nowrap; font-size: 13px; color: var(--fg); text-decoration: none; }
+  #menu button:hover, #menu a.accueil:hover { background: var(--bg); }
+  #menu .separateur { width: 1px; margin: 4px 4px; background: var(--border); flex: none; }
+  #menu select.voir { margin-left: auto; font-size: 12px; background-color: var(--bg); padding: 2px 26px 2px 6px; max-width: 260px; }
+  #menu button.courant { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  #menu svg.ic { vertical-align: 0; }
+  body.sans-menu #menu { display: none !important; }   /* plein écran demandé par un écran (SPEC § 6.2) */
+  @media (max-width: 760px) { #menu button span, #menu a.accueil span { display: none; } #menu button, #menu a.accueil { padding: 6px 9px; } }
+
+  /* Écrans : un cadre par widget, créé à la première ouverture puis gardé */
+  #ecrans { flex: 1; min-height: 0; position: relative; }
+  #ecrans iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+  #ecrans .vide { padding: 16px; }
+  /* Aucun écran : pas connecté·e, compte inconnu ou inactif */
+  .connexion { max-width: 540px; margin: 48px auto; padding: 20px 22px; border: 1px solid var(--border); border-radius: 10px;
+    text-align: center; line-height: 1.5; }
+  .connexion p { margin: 0 0 16px; }
+  .connexion .bouton { display: inline-block; padding: 9px 18px; border-radius: 6px; background: var(--accent);
+    color: var(--accent-fg); text-decoration: none; font-weight: 600; }
+  .connexion .bouton:hover, .connexion .bouton:focus-visible { filter: brightness(1.08); outline: none; }
+
+  /* Chiffrement (SPEC § 5.8) : bouton Révéler / Masquer et fenêtre de la phrase */
+  #menu button.cadenas { margin-left: auto; border: 1px solid var(--border); }
+  #menu button.cadenas.ouvert { border-color: var(--warn); background: var(--warn-bg); }
+  #menu button.cadenas + select.voir { margin-left: 8px; }
+  dialog#phrase { border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; max-width: 420px; width: calc(100% - 32px);
+    background: var(--bg); color: var(--fg); }
+  dialog#phrase::backdrop { background: rgba(0, 0, 0, .35); }
+  dialog#phrase h2 { font-size: 16px; margin: 0 0 8px; }
+  dialog#phrase p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  dialog#phrase input { width: 100%; box-sizing: border-box; }
+</style>
+</head>
+<body class="plein-ecran">
+<div id="msg" hidden></div>
+<nav id="menu" aria-label="Navigation de l'application" hidden></nav>
+<div id="ecrans"><p class="vide">Chargement…</p></div>
+<dialog id="phrase" aria-labelledby="phrase-titre">
+  <form method="dialog" id="phrase-form">
+    <h2 id="phrase-titre">Révéler les données chiffrées</h2>
+    <p>Saisis la phrase secrète de l'application. Les données restent révélées dans cet onglet, jusqu'à 5 minutes sans
+      activité ou jusqu'à « Masquer ».</p>
+    <input type="password" id="phrase-saisie" autocomplete="off" spellcheck="false" aria-label="Phrase secrète">
+    <ul class="erreurs" id="phrase-erreur" hidden></ul>
+    <div class="actions"><button type="submit" class="primary" id="phrase-ok">Révéler</button>
+      <button type="button" id="phrase-annuler">Annuler</button></div>
+  </form>
+</dialog>
+
+<script type="module">
+import { PREFIXE, CHIFFREMENT } from '../commun/config.js';
+import { columnsToRows, liste } from '../commun/donnees.js';
+import { $, esc, installerBulles, preferences, toast } from '../commun/interface.js';
+import { initialiserGrist, lireTable, avecDelai, origineGrist, basculerPleinEcranNavigateur } from '../commun/grist.js';
+import { classerErreur } from '../commun/journal.js';
+import { ECRANS, MENU_DEFAUT, TABLES_STABLES, ANCIENS_NOMS_RELAIS, compteMenu, menuVisible, ajouterMonCompte, adressePageGrist, adresseDocument,
+  sectionDuConteneur, lienVoirEnTantQue, adresseEcran, lienConnexion, pagesDuSite, lienAccueil } from './logique.js';
+import { creerRelais } from './relais.js';
+import { TABLE_CHIFFREMENT, DUREE_MS, ETAT_CLE, ligneChiffrementValide, signatureChiffrement, ouvrirAvecPhrase, rangerCle,
+  reprendreCle, oublierCle, nettoyerCles, cryptoDisponible } from '../commun/chiffrement.js';
+
+const pref = preferences('App');
+
+// Icônes Lucide (https://lucide.dev, licence ISC), copiées en SVG.
+// À ADAPTER : une icône par écran (même clé que ECRANS) : sur lucide.dev, « Copy SVG », puis garder seulement le
+// contenu de la balise <svg>.
+const ICONES = {
+  personnes: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  projets: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  compte: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',   // user-round
+  admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+
+// --- Relais de l'API Grist pour les écrans hébergés (relais.js, SPEC § 6.2) ---
+const { hote, prevenir, oublier, viderCache } = creerRelais({
+  api: () => grist,
+  dansMenu: cle => entrees.some(e => e.cle === cle),
+  ouvrir: cle => ouvrir(cle),
+  cleDe: fenetre => Object.keys(cadres).find(k => cadres[k].contentWindow === fenetre) || '',
+  adresse: () => ({ page: adressePage, diag: diagAdresse }),
+  tablesStables: TABLES_STABLES,
+  pleinEcran: (cle, actif) => pleinEcran(cle, actif),
+});
+window.appHote = hote;
+for (const nom of ANCIENS_NOMS_RELAIS) window[nom] = hote;   // anciens écrans (reprise d'une application v1)
+
+// --- Menu et écrans ---
+const cadres = {};   // clé → iframe (créée à la première ouverture, puis gardée)
+let entrees = [], courant = '';
+
+// Page d'accueil du site (racine Vercel) : ouverte à la place de Grist (fenêtre principale).
+const ACCUEIL = location.origin + '/';
+let accueil = ACCUEIL;   // avec le document d'où l'on vient, une fois calculé (calculerAdressePage)
+// Icône Lucide « house » (https://lucide.dev, licence ISC)
+const IC_ACCUEIL = '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
+
+// « Voir en tant que » : option personnelle (case de l'Administration), adresse reconstituée, comptes mémorisés en vue admin.
+// La case est écrite par admin/ sous la même clé (preferences('App'), clé 'VoirEnTantQue').
+const CLE_VOIR = PREFIXE + 'AppVoirEnTantQue';
+// À ADAPTER : adresse de la page Application, utilisée si le calcul échoue ('' = pas de liste « Voir en tant que »).
+// Le dépôt est public : n'y mettre qu'une adresse déjà publiée (page d'accueil). README § 5.
+const ADRESSE_SECOURS = '';
+let adressePage = '', diagAdresse = '';
+function listeVoirEnTantQue() {
+  if (pref.lire('VoirEnTantQue', '') !== '1' || !adressePage) return '';
+  let comptes = [];
+  try { comptes = JSON.parse(pref.lire('Comptes', '[]')); } catch (e) { comptes = []; }
+  if (!Array.isArray(comptes)) comptes = [];
+  return `<select class="voir" id="voirEnTantQue" title="Voir l'application en tant que… (propriétaires du document ; ${esc(adressePage)})">
+      <option value="">Voir en tant que…</option><option value="__moi__">moi (vue normale)</option>
+      ${comptes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>`;
+}
+async function calculerAdressePage() {
+  const etapes = [];
+  let baseUrl = '', sections = [];
+  try {
+    const jeton = await avecDelai(grist.docApi.getAccessToken({ readOnly: true }), 8000);
+    baseUrl = (jeton && jeton.baseUrl) || '';
+    etapes.push('jeton : ' + (baseUrl || 'sans baseUrl'));
+  } catch (e) { etapes.push('jeton : erreur (' + ((e && e.message) || e) + ')'); }
+  try {
+    sections = columnsToRows(await avecDelai(grist.docApi.fetchTable('_grist_Views_section'), 8000));
+    const avecApp = sections.filter(s => sectionDuConteneur(s, location.origin + '/app'));
+    const avecSite = sections.filter(s => JSON.stringify(s).includes(location.host));
+    etapes.push(`sections : ${sections.length}, avec le site : ${avecSite.length}, avec …/app : ${avecApp.length}`
+      + (avecApp[0] ? ` (vue ${avecApp[0].parentId})` : '')
+      + (!avecApp.length && avecSite[0] ? ` ; exemple : ${JSON.stringify(avecSite[0]).slice(0, 300)}` : ''));
+  } catch (e) { etapes.push('sections : erreur (' + ((e && e.message) || e) + ')'); }
+  let nomDoc = '';
+  try { nomDoc = await avecDelai(grist.docApi.getDocName(), 8000); } catch (e) { nomDoc = ''; }
+  const calcule = adressePageGrist(baseUrl, sections, location.origin + '/app', '/o/docs', nomDoc);
+  adressePage = calcule || ADRESSE_SECOURS;
+  // Bouton Accueil : la page d'accueil reçoit ce document et ses pages (n° 3).
+  const dossiers = ['app', ...new Set(Object.values(ECRANS).map(e => e.dossier))];
+  const pages = pagesDuSite(sections, location.origin, dossiers);
+  accueil = lienAccueil(ACCUEIL, adresseDocument(baseUrl, '/o/docs', nomDoc), pages);
+  etapes.push('accueil : ' + (accueil === ACCUEIL ? 'démonstration (document introuvable)'
+    : 'ce document, pages ' + (Object.entries(pages).map(([k, v]) => `${k} p/${v}`).join(', ') || 'aucune')));
+  diagAdresse = (calcule ? 'calculée' : ADRESSE_SECOURS ? 'secours' : 'introuvable') + ' — ' + etapes.join(' ; ');
+}
+
+function afficherMenu() {
+  $('menu').hidden = false;   // toujours visible : le bouton Accueil reste utile sans écran
+  $('menu').innerHTML = `<a class="accueil" href="${esc(accueil)}" target="_top" title="Page d'accueil de l'application">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC_ACCUEIL}</svg><span>Accueil</span></a>`
+    + (entrees.length ? '<span class="separateur" aria-hidden="true"></span>' : '')
+    + entrees.map(e => `<button data-ecran="${esc(e.cle)}" class="${e.cle === courant ? 'courant' : ''}"
+      ${e.cle === courant ? 'aria-current="page"' : ''} title="${esc(e.libelle)}">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[e.cle] || ''}</svg><span>${esc(e.libelle)}</span></button>`).join('')
+    + boutonCadenas()
+    + listeVoirEnTantQue();
+}
+
+// --- Chiffrement (SPEC § 5.8) : le conteneur tient la clé et la donne aux écrans (état partagé ETAT_CLE) ---
+// Révélée pour l'onglet jusqu'à 5 minutes sans activité (clic ou frappe, ici ou dans un écran) ou « Masquer » ; gardée
+// pour l'onglet (IndexedDB) seulement pour survivre à un rechargement. La phrase n'est jamais gardée.
+// Icônes Lucide « lock » et « lock-open » (https://lucide.dev, licence ISC)
+const IC_FERME = '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+const IC_OUVERT = '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>';
+let ligneChiffre = null, cleActive = null, derniereActivite = 0, dernierProlongement = 0;
+function boutonCadenas() {
+  if (!CHIFFREMENT || !ligneChiffre || !entrees.length) return '';
+  return cleActive
+    ? `<button class="cadenas ouvert" id="cadenas" title="Données révélées dans cet onglet : cliquer pour les masquer (automatique après 5 minutes sans activité)">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC_OUVERT}</svg><span>Masquer</span></button>`
+    : `<button class="cadenas" id="cadenas" title="Saisir la phrase secrète pour révéler les données chiffrées">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC_FERME}</svg><span>Révéler</span></button>`;
+}
+// Clé donnée aux écrans (pas au conteneur lui-même : source = window).
+function appliquerCle(cle) {
+  cleActive = cle;
+  derniereActivite = dernierProlongement = Date.now();
+  hote.ecrireEtat(ETAT_CLE, cle, window);
+  afficherMenu();
+}
+async function masquer(raison = '') {
+  if (!cleActive) return;
+  appliquerCle(null);
+  try { await oublierCle(ligneChiffre); } catch (e) { /* stockage indisponible */ }
+  if (raison) toast(raison);
+}
+// Ligne Chiffrement relue (menu, retour sur l'onglet) : phrase changée ailleurs → masqué ; au premier passage, clé
+// gardée pour l'onglet reprise (rechargement de la page).
+async function chargerChiffrement() {
+  if (!CHIFFREMENT || !cryptoDisponible()) return;
+  const r = await lireTable(TABLE_CHIFFREMENT);
+  const ligne = ligneChiffrementValide(r.lignes);
+  if (cleActive && signatureChiffrement(ligne) !== signatureChiffrement(ligneChiffre)) await masquer('Phrase secrète changée : données masquées.');
+  ligneChiffre = ligne;
+  if (!cleActive && ligne) {
+    try { await nettoyerCles(); const g = await reprendreCle(ligne); if (g) appliquerCle(g.cle); } catch (e) { /* stockage indisponible */ }
+  }
+}
+function ouvrirPhrase() {
+  $('phrase-saisie').value = '';
+  $('phrase-erreur').hidden = true;
+  $('phrase').showModal();
+  $('phrase-saisie').focus();
+}
+async function validerPhrase() {
+  const phrase = $('phrase-saisie').value;
+  if (!phrase.trim()) return;
+  $('phrase-ok').disabled = true; $('phrase-ok').textContent = 'Vérification…';
+  try {
+    await chargerChiffrement();
+    const cle = ligneChiffre ? await ouvrirAvecPhrase(phrase, ligneChiffre) : null;
+    if (!cle) { $('phrase-erreur').innerHTML = '<li>Phrase incorrecte.</li>'; $('phrase-erreur').hidden = false; $('phrase-saisie').select(); return; }
+    $('phrase-saisie').value = '';
+    $('phrase').close();
+    appliquerCle(cle);
+    try { await rangerCle(cle, ligneChiffre); } catch (e) { /* stockage indisponible : clé en mémoire seulement */ }
+  } catch (e) {
+    $('phrase-erreur').innerHTML = `<li>${esc((e && e.message) || e)}</li>`; $('phrase-erreur').hidden = false;
+  } finally { $('phrase-ok').disabled = false; $('phrase-ok').textContent = 'Révéler'; }
+}
+// Activité (ici ou dans un écran) : l'échéance repart ; la clé gardée est prolongée au plus toutes les 15 s.
+function activite() {
+  if (!cleActive) return;
+  derniereActivite = Date.now();
+  if (derniereActivite - dernierProlongement > 15000 && ligneChiffre) {
+    dernierProlongement = derniereActivite;
+    reprendreCle(ligneChiffre, undefined, true).catch(() => {});
+  }
+}
+function suivreActivite(doc) {
+  for (const t of ['pointerdown', 'keydown']) doc.addEventListener(t, activite, { capture: true, passive: true });
+}
+
+function ouvrir(cle) {
+  if (!entrees.some(e => e.cle === cle)) return;
+  if (!cadres[cle]) {
+    const f = document.createElement('iframe');
+    f.title = entrees.find(e => e.cle === cle).libelle;
+    f.allow = 'clipboard-write; fullscreen';   // boutons « Copier » et plein écran des écrans (SPEC § 6.2)
+    f.src = adresseEcran(location.origin, cle);
+    f.addEventListener('load', () => { try { suivreActivite(f.contentDocument); } catch (e) { /* autre site */ } });
+    $('ecrans').appendChild(f);
+    cadres[cle] = f;
+  } else {
+    viderCache();                          // revenir sur un écran : relire ses données depuis Grist
+    prevenir(cadres[cle].contentWindow);
+  }
+  for (const [k, f] of Object.entries(cadres)) f.hidden = k !== cle;
+  courant = cle;
+  pref.ecrire('Ecran', cle);
+  afficherMenu();
+  appliquerPleinEcran();
+}
+
+// Plein écran demandé par un écran (SPEC § 6.2) : menu masqué tant que cet écran est affiché ; plein écran du navigateur
+// tenté (refusé si le cadre de Grist ne l'autorise pas : le menu masqué reste). Sortie du plein écran du navigateur
+// (Échap, F11) : le menu reste masqué jusqu'à ce que l'écran quitte son plein écran.
+const pleins = new Set();
+const appliquerPleinEcran = () => document.body.classList.toggle('sans-menu', pleins.has(courant));
+async function pleinEcran(cle, actif) {
+  if (actif) pleins.add(cle); else pleins.delete(cle);
+  appliquerPleinEcran();
+  if (!actif) { await basculerPleinEcranNavigateur(document, false); return 'conteneur'; }
+  return cle === courant && (await basculerPleinEcranNavigateur(document, true)) === 'navigateur' ? 'navigateur' : 'conteneur';
+}
+
+// Menu lu dans la table Navigation (selon les rôles) ; écrans devenus invisibles fermés.
+async function chargerMenu() {
+  const [nav, util, perm] = await Promise.all([lireTable('Navigation'), lireTable('Utilisateurs'), lireTable('Permissions')]);
+  const lignes = nav.lignes || [], utilisateurs = util.lignes || [];
+  // Permissions refusée = visiteur non connecté (partage public, SPEC § 5.7) ; table absente = installation en cours.
+  const compte = compteMenu(utilisateurs, !!perm.erreur && classerErreur(perm.erreur) === 'refus');
+  // Vue admin (ou règles pas encore saisies) : mémoriser les comptes actifs pour la liste « Voir en tant que »
+  // (vu en tant qu'un autre compte, seule la ligne de ce compte est lisible).
+  if (compte.tous || (compte.moi && liste(compte.moi.Roles).includes('Administrateur·trice'))) {
+    const emails = utilisateurs.filter(u => u.Actif === true && typeof u.Email === 'string').map(u => u.Email).sort();
+    pref.ecrire('Comptes', JSON.stringify(emails));
+  }
+  // Sans compte d'accès : seulement les écrans ouverts à toute personne connectée (ROLE_CONNECTE, ex. « ma fiche »).
+  entrees = compte.aucun ? (compte.raison === 'inconnu' ? menuVisible(lignes, null, false, true) : [])
+    : ajouterMonCompte(menuVisible(lignes.length ? lignes : MENU_DEFAUT, compte.moi, compte.tous));
+  if (entrees.length) await chargerChiffrement(); else await masquer();
+  for (const cle of Object.keys(cadres)) {
+    if (!entrees.some(e => e.cle === cle)) { oublier(cadres[cle].contentWindow); cadres[cle].remove(); delete cadres[cle]; }
+  }
+  if (!entrees.length) {
+    const connexion = esc(lienConnexion(origineGrist() || 'https://grist.numerique.gouv.fr', adressePage ? adressePage + '?style=singlePage' : '/'));
+    $('ecrans').innerHTML = compte.raison === 'inactif'
+      ? '<p class="vide">Aucun écran disponible : ton compte d\'accès est inactif. Contacte l\'administration de l\'application.</p>'
+      : compte.raison === 'anonyme'
+      ? `<div class="connexion"><p><strong>Connecte-toi à Grist</strong> pour utiliser l'application.</p>
+          <a class="bouton" href="${connexion}" target="_top">Se connecter</a></div>`
+      : `<div class="connexion"><p><strong>Aucun écran disponible.</strong> Tu n'es pas connecté·e à Grist, ou ton compte
+          n'est pas encore déclaré dans l'application (e-mail exact, majuscules comprises).</p>
+          <a class="bouton" href="${connexion}" target="_top">Se connecter ou changer de compte</a></div>`;
+  } else $('ecrans').querySelectorAll('.vide, .connexion').forEach(el => el.remove());   // « Chargement… », message
+  if (!entrees.some(e => e.cle === courant)) {
+    const voulu = pref.lire('Ecran', '');
+    const premier = entrees.some(e => e.cle === voulu) ? voulu : (entrees[0] || {}).cle;
+    if (premier) ouvrir(premier); else afficherMenu();
+  } else afficherMenu();
+}
+
+// --- Démarrage ---
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  // Table de la page modifiée : l'écran affiché relit ; les autres relisent quand on y revient (ouvrir).
+  grist.onRecords(() => { viderCache(); if (courant && cadres[courant]) prevenir(cadres[courant].contentWindow); });
+  installerBulles();
+  $('menu').addEventListener('click', e => {
+    const b = e.target.closest('[data-ecran]');
+    if (b) ouvrir(b.dataset.ecran);
+    if (e.target.closest('#cadenas')) { if (cleActive) masquer(); else ouvrirPhrase(); }
+  });
+  // Chiffrement : fenêtre de la phrase, activité, échéance, clé définie par un écran (Administration → Chiffrement).
+  $('phrase-form').addEventListener('submit', e => { e.preventDefault(); validerPhrase(); });
+  $('phrase-annuler').addEventListener('click', () => $('phrase').close());
+  suivreActivite(document);
+  setInterval(() => { if (cleActive && Date.now() - derniereActivite > DUREE_MS) masquer('Données masquées après 5 minutes sans activité.'); }, 10000);
+  hote.suivreEtat(window, ETAT_CLE, async cle => {
+    cleActive = cle;
+    derniereActivite = dernierProlongement = Date.now();
+    if (cle) { await chargerChiffrement(); try { if (ligneChiffre) await rangerCle(cle, ligneChiffre); } catch (e) { /* stockage indisponible */ } }
+    else { try { await oublierCle(ligneChiffre); } catch (e) { /* stockage indisponible */ } }
+    afficherMenu();
+  });
+  // « Voir en tant que » : recharger toute la page Grist (fenêtre principale) avec ou sans aclAsUser_
+  $('menu').addEventListener('change', e => {
+    if (e.target.id !== 'voirEnTantQue' || !e.target.value) return;
+    const a = document.createElement('a');
+    a.href = lienVoirEnTantQue(adressePage, e.target.value === '__moi__' ? '' : e.target.value);
+    a.target = '_top';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  // Case cochée ou décochée dans l'Administration (autre cadre du même site) : menu à jour
+  window.addEventListener('storage', e => { if (e.key === CLE_VOIR) afficherMenu(); });
+  afficherMenu();   // menu (bouton Accueil) tout de suite : jamais de page blanche, même si Grist tarde
+  // Adresse de la page et lien d'accueil : en arrière-plan (chaque appel limité à 8 s), menu mis à jour ensuite.
+  calculerAdressePage().then(afficherMenu);
+  // Une seule relecture régulière pour tous les écrans (SPEC § 3.5) : toutes les 15 s, onglet visible, l'écran affiché
+  // relit (tables stables gardées) ; les écrans masqués relisent quand on y revient.
+  const relireEcranAffiche = () => {
+    viderCache({ saufStables: true });
+    if (courant && cadres[courant]) prevenir(cadres[courant].contentWindow);
+  };
+  setInterval(() => { if (!document.hidden) relireEcranAffiche(); }, 15000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    chargerMenu();
+    relireEcranAffiche();
+  });
+  await chargerMenu();
+}
+</script>
+</body>
+</html>

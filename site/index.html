@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — application Grist</title>
+<link rel="icon" type="image/svg+xml" href="commun/favicon.svg">
+<link rel="stylesheet" href="commun/style.css">
+<style>
+  body { padding: 28px 16px; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.7em; margin: 0 0 4px; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 1.05em; margin: 28px 0 10px; }
+  p { color: var(--muted); margin: 0 0 16px; }
+  svg.ic { width: 22px; height: 22px; vertical-align: 0; }
+
+  /* Pages de l'application */
+  .pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .page { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--border); border-radius: 10px;
+    color: var(--fg); text-decoration: none; background: var(--bg); transition: border-color .15s, background .15s; }
+  .page:hover, .page:focus-visible { border-color: var(--accent); background: var(--sel); outline: none; }
+  .page .ic-bloc { color: var(--accent); background: var(--sel); border-radius: 8px; padding: 8px; display: flex; }
+  .page strong { display: block; font-size: 1.02em; }
+  .page small { color: var(--muted); font-size: .88em; line-height: 1.4; display: block; margin-top: 2px; }
+  .page.admin .ic-bloc { color: var(--muted); background: var(--bg2); }
+  .note { font-size: .88em; }
+
+  /* Bouton principal */
+  .ouvrir { display: flex; gap: 14px; align-items: center; padding: 18px 20px; margin-top: 8px; border-radius: 12px;
+    background: var(--accent); color: var(--accent-fg); text-decoration: none; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    transition: filter .15s, transform .15s; }
+  .ouvrir:hover, .ouvrir:focus-visible { filter: brightness(1.06); transform: translateY(-1px); outline: none; }
+  .ouvrir svg.ic { width: 30px; height: 30px; }
+  .ouvrir strong { display: block; font-size: 1.25em; }
+  .ouvrir small { display: block; opacity: .9; margin-top: 2px; }
+  /* Effet au chargement (à chaque fois) : apparition glissée, puis un reflet lumineux traverse le bouton.
+     « backwards » (et non « both ») : une fois l'effet fini, le survol peut de nouveau déplacer le bouton. */
+  .ouvrir { position: relative; overflow: hidden; animation: apparaitre .5s ease-out backwards; }
+  .ouvrir::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; pointer-events: none;
+    background: linear-gradient(110deg, transparent, rgba(255,255,255,.45), transparent); transform: skewX(-20deg);
+    animation: reflet 1s ease-in-out .6s both; }
+  @keyframes apparaitre { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes reflet { from { left: -60%; } to { left: 130%; } }
+  /* Réglage « réduire les animations » de l'ordinateur : aucun effet. */
+  @media (prefers-reduced-motion: reduce) {
+    .ouvrir, .ouvrir:hover { animation: none; transform: none; transition: none; }
+    .ouvrir::after { display: none; }
+  }
+
+  h2 small.doux { font-weight: normal; color: var(--muted); font-size: .85em; }
+  .bas { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .grist { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; padding: 8px 14px; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--fg); text-decoration: none; }
+  .grist:hover, .grist:focus-visible { border-color: var(--accent); background: var(--sel); outline: none; }
+  .grist svg.ic { width: 18px; height: 18px; color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Rapports d'inspection</h1>
+  <p>[À ADAPTER : une phrase qui dit à quoi sert l'application.]</p>
+
+  <a class="ouvrir" id="ouvrir-app">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+    <span><strong>Ouvrir l'application</strong><small>[À ADAPTER : écrans principaux] — sur une seule page</small></span>
+  </a>
+  <p class="note" style="margin-top:12px">L'application s'ouvre sans l'interface de Grist, avec un menu pour passer d'un écran à l'autre.
+    Il faut être <strong>connecté·e à Grist</strong> et disposer d'un compte dans l'application :
+    ce que chacun·e peut voir ou modifier dépend de son rôle.
+    <!-- À ADAPTER : page Découvrir (SPEC § 6.5, facultative) ; garder ce lien seulement si decouvrir/ existe. -->
+    <a href="decouvrir/" target="_blank" rel="noopener">Découvrir l'application</a> (nouvel onglet).</p>
+
+  <h2>Pages individuelles <small class="doux">(administration, dépannage — nouvel onglet)</small></h2>
+  <div class="pages" id="pages"></div>
+
+  <p class="bas">
+    <small id="source" style="display:block;margin-bottom:6px" hidden>Liens vers le document Grist d'où vous venez.</small>
+    <a class="grist" id="document-grist" target="_blank" rel="noopener">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+      <span>Ouvrir le document dans Grist <small style="color:var(--muted)">(interface complète, nouvel onglet)</small></span>
+    </a>
+  </p>
+
+</main>
+
+
+<script type="module">
+import { $, esc } from './commun/interface.js';
+import { lienEpure, lireDocumentAccueil } from './accueil.js';
+
+// Icônes Lucide (https://lucide.dev, licence ISC), copiées en SVG.
+const ICONES = {
+  personnes: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  projets: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+
+// ===== À ADAPTER (APP § 9) =====
+// Le dépôt est public : n'écrire ici que l'adresse d'un document dont la publication est décidée
+// (l'accès reste protégé par les règles d'accès de Grist).
+// Document Grist (interface complète : données, pages, règles d'accès).
+const DOCUMENT = 'https://grist.numerique.gouv.fr/o/docs/IDENTIFIANT/grist-rapports-app';
+// Page « Application » (widget app/ : menu + tous les écrans) dans le document Grist.
+const APPLICATION = 'https://grist.numerique.gouv.fr/o/docs/IDENTIFIANT/grist-rapports-app/p/1';
+// Pages individuelles (une par écran ; clé = dossier de l'écran sous site/, et icône de ICONES).
+const PAGES = [
+  { cle: 'personnes', nom: 'Personnes', desc: 'Annuaire des personnes.',
+    url: 'https://grist.numerique.gouv.fr/o/docs/IDENTIFIANT/grist-rapports-app/p/2' },
+  { cle: 'projets', nom: 'Projets', desc: 'Liste des projets, fiche, responsables.',
+    url: 'https://grist.numerique.gouv.fr/o/docs/IDENTIFIANT/grist-rapports-app/p/3' },
+  { cle: 'admin', nom: 'Administration', desc: 'Mon compte et mes droits ; comptes, rôles et permissions (admins).',
+    url: 'https://grist.numerique.gouv.fr/o/docs/IDENTIFIANT/grist-rapports-app/p/4' },
+];
+// Sites Grist dont la page d'accueil accepte le document transmis par le bouton Accueil de l'application.
+const SITES_GRIST = ['grist.numerique.gouv.fr'];
+// ===== fin des réglages =====
+
+// Document transmis par l'application (bouton Accueil) : il remplace la démonstration ; page absente = lien retiré.
+const transmis = lireDocumentAccueil(location.hash, SITES_GRIST, ['app', ...PAGES.map(p => p.cle)]);
+let document_ = DOCUMENT, application = APPLICATION, pages = PAGES;
+if (transmis) {
+  document_ = transmis.document;
+  application = transmis.pages.app || transmis.document;   // page Application introuvable : le document
+  pages = PAGES.filter(p => transmis.pages[p.cle]).map(p => ({ ...p, url: transmis.pages[p.cle] }));
+}
+$('source').hidden = !transmis;
+
+
+// Tant que les adresses ne sont pas renseignées, pas de liens morts : un message à la place.
+if (!transmis && DOCUMENT.includes('IDENTIFIANT')) {
+  document.querySelector('main').insertAdjacentHTML('beforeend',
+    '<p class="note"><strong>Application en cours d\'installation</strong> : le document Grist n\'est pas encore publié.</p>');
+  // style.display (et non hidden) : les classes .ouvrir, .pages et .grist imposent leur propre display.
+  document.querySelectorAll('#ouvrir-app, #ouvrir-app + .note, h2, #pages, #document-grist')
+    .forEach(el => { el.style.display = 'none'; });
+} else {
+  $('ouvrir-app').href = lienEpure(application);   // même onglet, mode épuré
+  $('document-grist').href = new URL(document_).href;   // interface complète de Grist
+
+  if (!pages.length) document.querySelectorAll('h2, #pages').forEach(el => { el.style.display = 'none'; });
+  $('pages').innerHTML = pages.map(p => `
+    <a class="page ${p.cle === 'admin' ? 'admin' : ''}" href="${esc(lienEpure(p.url))}" target="_blank" rel="noopener">
+      <span class="ic-bloc"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[p.cle]}</svg></span>
+      <span><strong>${esc(p.nom)}</strong><small>${esc(p.desc)}</small></span>
+    </a>`).join('');
+}
+
+</script>
+</body>
+</html>
