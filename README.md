@@ -29,7 +29,10 @@ Page d'accueil : https://grist-rapports-app.vercel.app/
 |---|---|---|
 | Application | `https://grist-rapports-app.vercel.app/app/` | Menu et écrans (page unique) |
 | Administration | `https://grist-rapports-app.vercel.app/admin/` | Mon compte ; comptes, rôles, permissions, contrôles (admins) |
-| [Écran] | `https://grist-rapports-app.vercel.app/[dossier]/` | [ …] |
+| Plan d'inspection | `https://grist-rapports-app.vercel.app/plan/` | Visites à faire par CMi (IA-IPR), suivi des visites et des validations ; « Mes visites » avec les contacts des établissements (CMi) |
+| Rapports | `https://grist-rapports-app.vercel.app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
+| Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types, grille MD, paramètres |
+| Annuaire | `https://grist-rapports-app.vercel.app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
 
 ## 2. Installation rapide (modèle .grist)
 
@@ -74,6 +77,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Code_postal` | Texte | Code postal |
 | `Commune` | Texte | Commune |
 | `Mel` | Texte | ce.<uai>@ac-orleans-tours.fr |
+| `Telephone` | Texte | standard de l'établissement (Annuaire de l'éducation) |
 | `Departement` | Texte | Département |
 | `Bassin` | Texte | Bassin |
 | `Lat` | Numérique | Latitude |
@@ -194,6 +198,26 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Image` | Texte | image PNG (data URL) |
 | `Modifie_le` | Date | Modifiée le |
 
+#### `Visites` — plan d'inspection : une visite à faire, attribuée à un·e CMi par un·e IA-IPR ; reliée au rapport rédigé
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Professeur` | Référence → Professeurs | lien vers l'année en cours (peut se perdre au changement d'année) |
+| `Prof_nom` | Texte | recopié (ou saisi si absent de Professeurs) |
+| `Prof_prenom` | Texte | Prénom |
+| `UAI` | Texte | UAI |
+| `Etab_nom` | Texte | recopié |
+| `Statut_plan` | Texte | « AGREG 50 % », « CAPES 100 % »… tel que dans le plan |
+| `CMi` | Référence → Personnes | portée « Limité » des CMi (ses visites) |
+| `Mois_debut` | Date | 1er jour du mois de début de la période de visite |
+| `Mois_fin` | Date | 1er jour du mois de fin de la période de visite |
+| `Visite_inspe` | Date | Visite INSPE |
+| `Date_prevue` | Date | fixée par le ou la CMi |
+| `Notes` | Texte | Notes |
+| `Rapport` | Référence → Rapports | rapport rédigé pour cette visite (relié à sa création) |
+| `Annee` | Texte (formule) | Année scolaire |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit
 
 | Colonne | Type | Rôle |
@@ -266,7 +290,17 @@ renseigner pour son document.
 
 ## 9. Utilisation
 
-[Un paragraphe par écran.]
+**Plan d'inspection** (`plan/`, table `Visites`). Les IA-IPR remplissent le plan : une visite par professeur·e, avec
+le ou la CMi, la période (mois de début et de fin), la date de visite INSPE et le statut tel que dans le plan
+(« AGREG 50 % »…). « Importer un plan » lit un copier-coller du tableur des collègues (NOM, Prénom, statut,
+établissement, ville, période de visite, Visite INSPE, UAI) : chaque professeur·e est retrouvé·e par l'UAI et le nom,
+les doublons et visites déjà au plan sont écartés. L'onglet **Suivi** compte les visites par état (en retard, à caler,
+calée, rapport à rédiger, en cours, en relecture, validé, transmis), donne un bilan par CMi et signale les rapports
+rédigés hors plan (« Ajouter au plan »). Les CMi ne voient que **leurs** visites (« Mes visites ») : contacts de
+l'établissement (e-mail `ce.<UAI>@ac-orleans-tours.fr`, téléphone), date à caler, notes, puis « Rédiger le rapport »,
+qui ouvre l'écran Rapports déjà rempli et relie le rapport à la visite.
+
+**Rapports**, **Modèles & phrases**, **Annuaire** : voir l'aide (?) de chaque écran.
 
 ## 10. Dépannage
 

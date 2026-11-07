@@ -150,6 +150,10 @@ Prêtes à copier, une ligne par table de données (générées depuis `installa
 | [ ] | `Signatures` | `user.Profil and "Signatures:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
 | [ ] | `Signatures` | `user.Profil and "Signatures:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
 | [ ] | `Signatures` | `user.Profil and "Signatures:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Visites` | `user.Profil and "Visites:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Visites` | `user.Profil and "Visites:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Visites` | `user.Profil and "Visites:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Visites` | `user.Profil and "Visites:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
 <!-- /schema:matrice -->
 
 - [ ] **Enregistrer.**

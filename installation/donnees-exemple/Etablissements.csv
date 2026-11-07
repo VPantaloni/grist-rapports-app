@@ -1,11 +1,11 @@
-﻿UAI,Nom,Sigle,Secteur,Adresse,Code_postal,Commune,Mel,Departement,Bassin,Lat,Lon
-0450939B,Collège Alain Fournier,CLG,Public,25 avenue de la Bolière,45100,Orléans,ce.0450939B@ac-orleans-tours.fr,Loiret,45,47.83242535,1.93046023
-0360525A,Collège Alain Fournier,CLG,Public,1 rue Ferdinand de Lesseps,36600,Valençay,ce.0360525A@ac-orleans-tours.fr,Indre,36,47.16470213,1.56337977
-0180592W,Collège Albert Camus,CLG,Public,Rue d'Héry,18108,Vierzon,ce.0180592W@ac-orleans-tours.fr,Cher,18,47.21320145,2.06905003
-0370793L,Collège Albert Camus,CLG,Public,18 rue Renault,37250,Montbazon,ce.0370793L@ac-orleans-tours.fr,Indre-et-Loire,37,47.2848092,0.707050569
-0450008P,Collège Albert Camus,CLG,Public,Rue du Port à Belleau,45250,Briare,ce.0450008P@ac-orleans-tours.fr,Loiret,45,47.65244423,2.731140228
-0280658N,Collège Albert Camus,CLG,Public,7 avenue du Général Leclerc,28105,Dreux,ce.0280658N@ac-orleans-tours.fr,Eure-et-Loir,28,48.74037006,1.373229852
-0280866P,Collège Albert Sidoisne,CLG,Public,16 rue des Ecoles,28800,Bonneval,ce.0280866P@ac-orleans-tours.fr,Eure-et-Loir,28,48.1845627,1.389949609
-0370010K,Collège Alcuin,CLG,Public,16 rue du Collège,37320,Cormery,ce.0370010K@ac-orleans-tours.fr,Indre-et-Loire,37,47.26410725,0.833370454
-0450061X,Collège Alfred de Musset,CLG,Public,Route du Pont,45310,Patay,ce.0450061X@ac-orleans-tours.fr,Loiret,45,48.05220892,1.695070531
-0459999Z,Collège privé Sainte-Hypatie (fictif),CLG,Privé,1 rue des Exemples,45000,Orléans,,Loiret,45,,
+﻿UAI,Nom,Sigle,Secteur,Adresse,Code_postal,Commune,Mel,Telephone,Departement,Bassin,Lat,Lon
+0450939B,Collège Alain Fournier,CLG,Public,25 avenue de la Bolière,45100,Orléans,ce.0450939B@ac-orleans-tours.fr,02 00 00 00 01,Loiret,45,47.83242535,1.93046023
+0360525A,Collège Alain Fournier,CLG,Public,1 rue Ferdinand de Lesseps,36600,Valençay,ce.0360525A@ac-orleans-tours.fr,02 00 00 00 02,Indre,36,47.16470213,1.56337977
+0180592W,Collège Albert Camus,CLG,Public,Rue d'Héry,18108,Vierzon,ce.0180592W@ac-orleans-tours.fr,02 00 00 00 03,Cher,18,47.21320145,2.06905003
+0370793L,Collège Albert Camus,CLG,Public,18 rue Renault,37250,Montbazon,ce.0370793L@ac-orleans-tours.fr,02 00 00 00 04,Indre-et-Loire,37,47.2848092,0.707050569
+0450008P,Collège Albert Camus,CLG,Public,Rue du Port à Belleau,45250,Briare,ce.0450008P@ac-orleans-tours.fr,02 00 00 00 05,Loiret,45,47.65244423,2.731140228
+0280658N,Collège Albert Camus,CLG,Public,7 avenue du Général Leclerc,28105,Dreux,ce.0280658N@ac-orleans-tours.fr,02 00 00 00 06,Eure-et-Loir,28,48.74037006,1.373229852
+0280866P,Collège Albert Sidoisne,CLG,Public,16 rue des Ecoles,28800,Bonneval,ce.0280866P@ac-orleans-tours.fr,02 00 00 00 07,Eure-et-Loir,28,48.1845627,1.389949609
+0370010K,Collège Alcuin,CLG,Public,16 rue du Collège,37320,Cormery,ce.0370010K@ac-orleans-tours.fr,02 00 00 00 08,Indre-et-Loire,37,47.26410725,0.833370454
+0450061X,Collège Alfred de Musset,CLG,Public,Route du Pont,45310,Patay,ce.0450061X@ac-orleans-tours.fr,02 00 00 00 09,Loiret,45,48.05220892,1.695070531
+0459999Z,Collège privé Sainte-Hypatie (fictif),CLG,Privé,1 rue des Exemples,45000,Orléans,,02 00 00 00 10,Loiret,45,,

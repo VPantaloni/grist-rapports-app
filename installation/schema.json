@@ -123,6 +123,12 @@
           "role": "ce.<uai>@ac-orleans-tours.fr"
         },
         {
+          "id": "Telephone",
+          "libelle": "Téléphone",
+          "type": "Text",
+          "role": "standard de l'établissement (Annuaire de l'éducation)"
+        },
+        {
           "id": "Departement",
           "libelle": "Département",
           "type": "Text"
@@ -662,6 +668,102 @@
       ]
     },
     {
+      "id": "Visites",
+      "role": "plan d'inspection : une visite à faire, attribuée à un·e CMi par un·e IA-IPR ; reliée au rapport rédigé",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Professeur",
+          "libelle": "Professeur·e",
+          "type": "Ref:Professeurs",
+          "role": "lien vers l'année en cours (peut se perdre au changement d'année)"
+        },
+        {
+          "id": "Prof_nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "recopié (ou saisi si absent de Professeurs)"
+        },
+        {
+          "id": "Prof_prenom",
+          "libelle": "Prénom",
+          "type": "Text"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_nom",
+          "libelle": "Établissement",
+          "type": "Text",
+          "role": "recopié"
+        },
+        {
+          "id": "Statut_plan",
+          "libelle": "Statut (plan)",
+          "type": "Text",
+          "role": "« AGREG 50 % », « CAPES 100 % »… tel que dans le plan"
+        },
+        {
+          "id": "CMi",
+          "libelle": "CMi",
+          "type": "Ref:Personnes",
+          "obligatoire": true,
+          "role": "portée « Limité » des CMi (ses visites)"
+        },
+        {
+          "id": "Mois_debut",
+          "libelle": "Mois de début",
+          "type": "Date",
+          "role": "1er jour du mois de début de la période de visite"
+        },
+        {
+          "id": "Mois_fin",
+          "libelle": "Mois de fin",
+          "type": "Date",
+          "role": "1er jour du mois de fin de la période de visite"
+        },
+        {
+          "id": "Visite_inspe",
+          "libelle": "Visite INSPE",
+          "type": "Date"
+        },
+        {
+          "id": "Date_prevue",
+          "libelle": "Date calée",
+          "type": "Date",
+          "role": "fixée par le ou la CMi"
+        },
+        {
+          "id": "Notes",
+          "libelle": "Notes",
+          "type": "Text"
+        },
+        {
+          "id": "Rapport",
+          "libelle": "Rapport",
+          "type": "Ref:Rapports",
+          "role": "rapport rédigé pour cette visite (relié à sa création)"
+        },
+        {
+          "id": "Annee",
+          "libelle": "Année scolaire",
+          "type": "Text",
+          "formule": "(lambda d: \"\" if not d else (f\"{d.year}-{d.year+1}\" if d.month >= 8 else f\"{d.year-1}-{d.year}\"))($Mois_debut or $Date_prevue)"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Prof_nom} {$Prof_prenom} – {$UAI} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
       "id": "Utilisateurs",
       "role": "comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit",
       "administration": true,
@@ -740,7 +842,8 @@
             "Competences_MD",
             "Parametres",
             "Rapports",
-            "Signatures"
+            "Signatures",
+            "Visites"
           ]
         },
         {
@@ -800,6 +903,7 @@
           "libelle": "Écran",
           "type": "Choice",
           "choix": [
+            "plan",
             "rapports",
             "modeles",
             "annuaire",
@@ -833,6 +937,76 @@
   ],
   "$regles": "Règles d'accès propres à l'application (portées « Limité », « ma fiche », campagnes), écrites après les règles générées (matrice T1-T4 de chaque table) par l'écran installer/ ; colonne : règle de colonne. Droits : lettres de Grist (+R, +U, +C, +D, -R…).",
   "regles": [
+    {
+      "table": "Visites",
+      "colonne": "Visite_inspe",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Visite_inspe : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Mois_fin",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Mois_fin : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Mois_debut",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Mois_debut : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "CMi",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.CMi : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Statut_plan",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Statut_plan : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Etab_nom",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Etab_nom : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "UAI",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.UAI : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Prof_prenom",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Prof_prenom : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Prof_nom",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Prof_nom : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Professeur",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Professeur : seul·es les IA-IPR remplissent le plan"
+    },
     {
       "table": "Rapports",
       "colonne": "Signature_cmi",
@@ -940,6 +1114,18 @@
       "condition": "user.Profil and \"Signatures:S:Limité\" in user.Profil.Droits and rec.Email == user.Email",
       "droits": "+D",
       "libelle": "Signatures : supprimer la sienne (Limité)"
+    },
+    {
+      "table": "Visites",
+      "condition": "user.Profil and \"Visites:L:Limité\" in user.Profil.Droits and rec.CMi == user.Profil.Personne",
+      "droits": "+R",
+      "libelle": "Visites : lire ses visites (Limité)"
+    },
+    {
+      "table": "Visites",
+      "condition": "user.Profil and \"Visites:M:Limité\" in user.Profil.Droits and rec.CMi == user.Profil.Personne and newRec.CMi == user.Profil.Personne",
+      "droits": "+U",
+      "libelle": "Visites : caler la date de ses visites (Limité)"
     }
   ]
 }

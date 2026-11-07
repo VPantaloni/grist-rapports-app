@@ -129,22 +129,23 @@
 import { liste, nomFiche } from '../commun/donnees.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
-import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
+  demandeConteneur } from '../commun/grist.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
   redigeParIpr, peutValiderSeul, niveauxMd, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
-  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature } from './logique.js';
+  ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
 const pref = preferences('Rapports');
 
 // --- État ---
-const D = { rapports: [], types: [], rubriques: [], phrases: [], personnes: [], profs: [], etabs: [], params: {}, competences: [], signatures: [] };
+const D = { rapports: [], types: [], rubriques: [], phrases: [], personnes: [], profs: [], etabs: [], params: {}, competences: [], signatures: [], visites: [] };
 let moi = null, droits = droitsTable(null, TABLE);
 let sel = Number(pref.lire('Sel', '0')) || 0;
-let creation = null;     // { q, uai, prof, typeCode, date, heure, classe, effectif, theme, valideur, auteur }
+let creation = null;     // { q, uai, prof, typeCode, date, heure, classe, effectif, theme, valideur, auteur, visite }
 let onglet = 'redaction';
 let rubriqueActive = '', competenceFiltre = '', champActif = null;
 let brouillon = null;    // saisie en cours du rapport affiché : { id, champs }, envoyée ≈ 1 s après la dernière frappe
@@ -322,6 +323,9 @@ async function creer() {
   const res = await ecrireRapport([['AddRecord', TABLE, null, champs]], 'Rapport créé');
   if (!res) return;
   const id = res.retValues && res.retValues[0];
+  // Plan d'inspection : relier la visite (demandée depuis le plan, sinon celle prévue pour ce·tte professeur·e).
+  const v = id ? visiteAssociee(D.visites, { visite: c.visite, prof: p.id, auteur }) : null;
+  if (v) await ecrire([['UpdateRecord', 'Visites', v.id, { Rapport: id, ...(v.Date_prevue ? {} : { Date_prevue: champs.Date_visite }) }]], 'Visite du plan reliée');
   creation = null; onglet = 'redaction';
   if (id) choisir(id);
   afficherListe(); afficherFiche();
@@ -646,7 +650,7 @@ const change = detecteurChangement();
 const occupe = () => !!brouillon || envoiEnCours || !!creation || $('dlg-signature').open
   || (document.activeElement && $('fiche').contains(document.activeElement) && /TEXTAREA|INPUT|IFRAME/.test(document.activeElement.tagName));
 const charger = sansChevauchement(async () => {
-  const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs'];
+  const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs', 'Visites'];
   const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
   const T = Object.fromEntries(noms.map((n, i) => [n, lus[i]]));
   if (CHIFFREMENT && !cleLue) { cleLue = true; cle = await cleAuDemarrage(ligneChiffrementValide(lus[noms.length].lignes)); }
@@ -658,17 +662,37 @@ const charger = sansChevauchement(async () => {
   D.types = [...(T.Types_rapport.lignes || [])].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
   D.rubriques = T.Rubriques.lignes || []; D.phrases = T.Phrases.lignes || []; D.personnes = T.Personnes.lignes || [];
   D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.competences = T.Competences_MD.lignes || [];
-  D.signatures = T.Signatures.lignes || [];
+  D.signatures = T.Signatures.lignes || []; D.visites = T.Visites.lignes || [];   // Visites : table du plan (absente = aucune)
   D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
   moi = identifierMoi(T.Utilisateurs.lignes).moi;
   droits = droitsTable(moi, TABLE);
   if (sel && !D.rapports.some(x => x.id === sel)) choisir(0);
-  if (!change([T.Rapports.lignes, T.Phrases.lignes, T.Rubriques.lignes, T.Personnes.lignes, T.Signatures.lignes, sel, !!cle, moi && moi.Droits]) && !$('app').hidden) return;
+  const demande = demandeConteneur();   // venue du Plan d'inspection, prise une seule fois
+  if (!change([T.Rapports.lignes, T.Phrases.lignes, T.Rubriques.lignes, T.Personnes.lignes, T.Signatures.lignes, sel, !!cle, moi && moi.Droits]) && !$('app').hidden) { traiterDemande(demande); return; }
   message('');
   $('app').hidden = false;
   afficherListe();
   if (!occupe()) afficherFiche();
+  traiterDemande(demande);
 });
+// Demande d'un autre écran (Plan d'inspection) : { rapport } l'ouvre ; { visite } prépare le rapport de cette visite.
+async function traiterDemande(d) {
+  if (!d) return;
+  if (d.rapport && D.rapports.some(r => r.id === d.rapport)) {
+    await envoyer(); creation = null; onglet = 'redaction'; choisir(d.rapport); afficherListe(); afficherFiche(); return;
+  }
+  const v = d.visite && D.visites.find(x => x.id === d.visite);
+  if (!v) return;
+  if (v.Rapport) { traiterDemande({ rapport: v.Rapport }); return; }
+  if (!peutCreer(droits, moi)) { toast('Création de rapport impossible : ton compte n\'a pas ce droit.', true); return; }
+  await envoyer();
+  const prof = D.profs.find(x => x.id === v.Professeur);
+  const a = personne(v.CMi) || personne(moiPers());
+  creation = { q: prof ? '' : [v.Prof_nom, v.Prof_prenom].filter(Boolean).join(' '), uai: prof ? '' : v.UAI || '', prof: prof ? prof.id : 0,
+    typeCode: typePropose(prof), date: dateIso(v.Date_prevue) || new Date().toISOString().slice(0, 10), heure: '', classe: '', effectif: '',
+    theme: '', valideur: (a && (a.Fonction === 'IA-IPR' ? a.id : a.Referent)) || 0, auteur: a ? a.id : 0, visite: v.id };
+  afficherFiche();
+}
 const planifier = regrouper(charger);
 
 // --- Démarrage ---

@@ -8,6 +8,7 @@ import { compteConnecte } from '../commun/droits.js';
 // l'icône est dans ICONES de index.html (même clé). Exemple : Personnes, Projets, Administration.
 /** @type {Record<string, { dossier: string, libelle: string }>} */
 export const ECRANS = {
+  plan: { dossier: 'plan', libelle: "Plan d'inspection" },
   rapports: { dossier: 'rapports', libelle: 'Rapports' },
   modeles: { dossier: 'modeles', libelle: 'Modèles & phrases' },
   annuaire: { dossier: 'annuaire', libelle: 'Annuaire' },

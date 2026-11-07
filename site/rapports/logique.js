@@ -269,3 +269,12 @@ export function descripteurs(texte, niveaux) {
   }
   return d;
 }
+
+// Plan d'inspection : visite du plan à relier à un rapport qui vient d'être créé. Celle demandée (« Rédiger le rapport »
+// depuis le plan), sinon la première visite sans rapport du même auteur·e pour ce ou cette professeur·e.
+/** @param {Ligne[]} visites @param {{ visite?: number, prof: number, auteur: number }} x @returns {Ligne | null} */
+export function visiteAssociee(visites, x) {
+  const v = x.visite ? visites.find(y => y.id === x.visite) : null;
+  if (v) return v.Rapport ? null : v;
+  return visites.find(y => !y.Rapport && y.Professeur && y.Professeur === x.prof && y.CMi === x.auteur) || null;
+}

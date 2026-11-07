@@ -1,16 +1,16 @@
 // @ts-check
 // Annuaire de l'éducation (data.education.gouv.fr, jeu « fr-en-annuaire-education », Licence Ouverte 2.0) : fiche d'un
-// établissement d'après son UAI (nom, nature, commune, département, e-mail, position). Repris de grist-labo-widget.
+// établissement d'après son UAI (nom, nature, commune, département, e-mail, téléphone, position). Repris de grist-labo-widget.
 // Sert à l'import (déclaration `annuaire`, SPEC § 4.5). Parties pures testées (tests/annuaire.test.js).
 // Seuls des UAI (codes publics d'établissements) sont envoyés à l'API ; aucune donnée de personne.
 import { nombre } from './donnees.js';
 
 export const ANNUAIRE_URL = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records';
 const CHAMPS_API = 'identifiant_de_l_etablissement,nom_etablissement,libelle_nature,nom_commune,code_postal,code_departement,'
-  + 'libelle_departement,mail,latitude,longitude';
+  + 'libelle_departement,mail,telephone,latitude,longitude';
 
 /** @typedef {{ uai: string, nom: string, nature: string, commune: string, codePostal: string, departement: string,
- *   libelleDepartement: string, email: string, lat: number | null, lon: number | null }} FicheAnnuaire */
+ *   libelleDepartement: string, email: string, telephone: string, lat: number | null, lon: number | null }} FicheAnnuaire */
 
 // UAI : 7 chiffres et une lettre (« 0451442h » → « 0451442H »).
 /** @param {any} s */
@@ -37,7 +37,7 @@ export function ficheAnnuaire(r) {
     uai: normUai(r.identifiant_de_l_etablissement), nom: String(r.nom_etablissement || '').replace(/\s+/g, ' ').trim(),
     nature: String(r.libelle_nature || ''), commune: String(r.nom_commune || ''), codePostal: String(r.code_postal || ''),
     departement: String(r.code_departement || '').trim().toUpperCase().replace(/^0+(?=.)/, ''),
-    libelleDepartement: String(r.libelle_departement || ''), email: String(r.mail || ''),
+    libelleDepartement: String(r.libelle_departement || ''), email: String(r.mail || ''), telephone: String(r.telephone || ''),
     lat: nombre(r.latitude), lon: nombre(r.longitude),
   };
 }

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Plan d'inspection pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  #app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .barre { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .barre h1 { font-size: 17px; margin: 0 8px 0 0; }
+  .onglets { display: flex; gap: 2px; }
+  .onglets button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 10px; }
+  .onglets button.actif { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .barre .espace { flex: 1; }
+  #aide { border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+    text-decoration: none; color: var(--fg); background: var(--bg2); border: 1px solid var(--border); }
+  #aide:hover { border-color: var(--accent); color: var(--accent); }
+  #contenu { flex: 1; overflow-y: auto; padding: 12px; }
+  .compteurs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .compteurs button { display: flex; flex-direction: column; align-items: flex-start; min-width: 92px; padding: 4px 10px; border-left: 4px solid var(--border); }
+  .compteurs button b { font-size: 20px; line-height: 1.1; }
+  .compteurs button span { font-size: 12px; color: var(--muted); }
+  .compteurs button.actif { background: var(--sel); border-color: var(--accent); }
+  .outils { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 10px 0 8px; }
+  .outils input[type=search] { flex: 1; min-width: 180px; }
+  table.plan { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.plan th { text-align: left; position: sticky; top: -12px; background: var(--bg); z-index: 1; }
+  table.plan td, table.plan th { padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.plan tr.cliquable:hover td { background: var(--bg2); cursor: pointer; }
+  .det { display: block; font-size: 12px; color: var(--muted); }
+  .pastille { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; white-space: nowrap; border: 1px solid var(--border); background: var(--bg2); }
+  .e-retard { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+  .e-a_caler { background: var(--bg2); }
+  .e-calee { border-color: var(--info); color: var(--info); }
+  .e-a_rediger, .e-redaction, .e-reprendre { background: var(--warn-bg); border-color: var(--warn); }
+  .e-relecture { border-color: var(--info); background: var(--sel); }
+  .e-valide { border-color: #16a34a; color: #16a34a; }
+  .e-transmis { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+  .compteurs .c-retard { border-left-color: var(--danger); } .compteurs .c-a_caler { border-left-color: var(--muted); }
+  .compteurs .c-calee, .compteurs .c-relecture { border-left-color: var(--info); }
+  .compteurs .c-a_rediger, .compteurs .c-redaction, .compteurs .c-reprendre { border-left-color: var(--warn); }
+  .compteurs .c-valide { border-left-color: #16a34a; } .compteurs .c-transmis { border-left-color: var(--accent); }
+  details.bloc { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; }
+  details.bloc summary { font-weight: 600; cursor: pointer; }
+  table.bilan { font-size: 13px; margin-top: 6px; } table.bilan td, table.bilan th { padding: 3px 10px 3px 0; text-align: right; }
+  table.bilan td:first-child, table.bilan th:first-child { text-align: left; }
+  .groupe-titre { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; }
+  .groupe-titre.retard { color: var(--danger); }
+  .cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .carte { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .carte.retard { border-color: var(--danger); }
+  .carte h3 { font-size: 15px; margin: 0; display: flex; gap: 6px; align-items: baseline; justify-content: space-between; }
+  .carte .contact { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+  .carte .contact a { display: inline-flex; gap: 5px; align-items: center; }
+  .carte .ligne { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  .carte textarea { min-height: 38px; font-size: 13px; }
+  svg.ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  dialog { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); max-width: 760px; width: calc(100% - 24px); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog h2 { margin: 0 0 10px; font-size: 17px; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
+  .suggestions { border: 1px solid var(--border); border-radius: 4px; max-height: 180px; overflow-y: auto; margin-top: 2px; }
+  .suggestions div { padding: 4px 8px; cursor: pointer; font-size: 13px; } .suggestions div:hover { background: var(--sel); }
+  #imp-texte { width: 100%; min-height: 120px; font: 12px monospace; }
+  table.apercu { font-size: 12px; width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.apercu td, table.apercu th { padding: 3px 5px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  table.apercu tr.ignoree td { color: var(--muted); } table.apercu tr.ignoree td:nth-child(2) { text-decoration: line-through; }
+  .al { color: var(--warn); }
+  @media (max-width: 640px) { body.plein-ecran { overflow: auto; height: auto; } table.plan .large { display: none; }
+    table.plan, table.bilan { display: block; overflow-x: auto; } .compteurs button { min-width: 0; flex: 1 1 28%; } }
+</style>
+</head>
+<body class="plein-ecran">
+<div id="msg">Chargement…</div>
+<div id="app" hidden>
+  <div class="barre">
+    <h1>Plan d'inspection</h1>
+    <div class="onglets" id="onglets"></div>
+    <span class="espace"></span>
+    <label class="petit">Année <select id="annee"></select></label>
+    <button id="recharger" title="Relire les tables">↻</button>
+    <a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide : mode d'emploi du plan d'inspection">?</a>
+  </div>
+  <main id="contenu"></main>
+</div>
+
+<dialog id="dlg-visite"><form method="dialog" id="f-visite"></form></dialog>
+<dialog id="dlg-import">
+  <h2>Importer un plan (copier-coller du tableur)</h2>
+  <p class="petit muted">Dans le tableur, sélectionner les lignes (avec la ligne d'en-tête si possible : NOM, Prénom, statut, établissement, ville, période de visite, Visite INSPE, UAI), copier, puis coller ci-dessous. Chaque professeur·e est retrouvé·e par l'UAI et le nom.</p>
+  <div class="grille">
+    <label class="champ"><span>CMi de ce lot</span><select id="imp-cmi"></select></label>
+    <label class="champ"><span>Année scolaire</span><select id="imp-annee"></select></label>
+  </div>
+  <textarea id="imp-texte" placeholder="Coller ici les lignes du tableur…"></textarea>
+  <div id="imp-apercu"></div>
+  <div class="actions"><button id="imp-analyser">Analyser</button><button id="imp-ok" class="primary" disabled>Enregistrer</button><button id="imp-annuler">Fermer</button></div>
+</dialog>
+
+<script type="module">
+import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { identifierMoi, droitsTable } from '../commun/droits.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
+  hoteEcran } from '../commun/grist.js';
+import { norm, nomFiche } from '../commun/donnees.js';
+import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
+  filtrer, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
+  valider, lireTableauColle, preparerImport } from './logique.js';
+
+const pref = preferences('Plan');
+const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [] };
+let moi = null, droits = droitsTable(null, TABLE), droitsRapports = droitsTable(null, 'Rapports');
+let onglet = pref.lire('Onglet', ''), filtre = { cmi: Number(pref.lire('Cmi', '0')) || 0, etat: '', q: '' };
+let rentree = Number(pref.lire('Annee', '0')) || rentreeDe(aujourdhui());
+let saisie = null;      // visite en cours de saisie dans la fenêtre (IA-IPR)
+let lotImport = null;   // résultat de l'analyse du collage
+const IC = {
+  mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  tel: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  ecole: '<path d="M14 22v-4a2 2 0 1 0-4 0v4"/><path d="m18 10 3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10"/><path d="M18 5v17"/><path d="m4 6 7.106-3.553a2 2 0 0 1 1.788 0L20 6"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/>',
+};
+const ic = k => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
+const personne = id => D.personnes.find(p => p.id === id);
+const etabDe = uai => D.etabs.find(e => String(e.UAI || '').toUpperCase() === String(uai || '').toUpperCase());
+const cmis = () => D.personnes.filter(p => p.Fonction === 'CMi' || D.visites.some(v => v.CMi === p.id))
+  .sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
+const pastille = e => `<span class="pastille e-${e.cle}">${esc(e.libelle)}</span>`;
+const visitesAnnee = () => D.visites.filter(v => rentreeDe(v.Mois_debut || v.Date_prevue) === rentree || (!v.Mois_debut && !v.Date_prevue));
+const nomProf = v => [v.Prof_nom, v.Prof_prenom].filter(Boolean).join(' ');
+
+// --- Ouverture de l'écran Rapports (conteneur) ---
+function ouvrirRapports(demande) {
+  const h = hoteEcran('rapports');
+  if (!h || !h.ouvrirEcran) { toast('Ouvrir l\'écran Rapports depuis le menu de l\'application.', true); return; }
+  h.ouvrirEcran('rapports', demande);
+}
+
+// --- Affichage ---
+function afficher() {
+  const o = onglets(droits, moi, D.visites);
+  if (!o.includes(onglet)) onglet = o[0];
+  $('onglets').innerHTML = o.length > 1 ? o.map(k => `<button data-onglet="${k}" class="${k === onglet ? 'actif' : ''}">${k === 'suivi' ? 'Suivi' : 'Mes visites'}</button>`).join('') : '';
+  const annees = [...new Set([rentreeDe(aujourdhui()), rentree, ...D.visites.map(v => rentreeDe(v.Mois_debut || v.Date_prevue)).filter(Boolean)])].sort();
+  $('annee').innerHTML = annees.map(a => `<option value="${a}" ${a === rentree ? 'selected' : ''}>${libelleAnnee(a)}</option>`).join('');
+  if (onglet === 'suivi') afficherSuivi(); else afficherMes();
+}
+
+function afficherSuivi() {
+  const auj = aujourdhui();
+  const toutes = enrichir(visitesAnnee(), D.rapports, auj);
+  const n = compter(toutes);
+  const lignes = filtrer(toutes, filtre);
+  const hp = rapportsHorsPlan(D.rapports, D.visites, rentree);
+  const bilan = bilanParCmi(toutes, hp, D.personnes);
+  const plan = peutPlanifier(droits);
+  const faites = toutes.filter(l => l.e.faite).length;
+  $('contenu').innerHTML = `
+    <div class="compteurs">
+      <button data-etat="" class="${!filtre.etat ? 'actif' : ''}"><b>${toutes.length}</b><span>visites au plan</span></button>
+      <button data-etat="faites" class="${filtre.etat === 'faites' ? 'actif' : ''}"><b>${faites}</b><span>effectuées</span></button>
+      ${ETATS.map(e => `<button data-etat="${e.cle}" class="c-${e.cle} ${filtre.etat === e.cle ? 'actif' : ''}"><b>${n[e.cle]}</b><span>${esc(e.libelle.toLowerCase())}</span></button>`).join('')}
+    </div>
+    <details class="bloc" ${pref.lire('Bilan', '1') === '1' ? 'open' : ''} id="bilan"><summary>Bilan par CMi (${esc(libelleAnnee(rentree))})</summary>
+      ${bilan.length ? `<table class="bilan"><tr><th>CMi</th><th>Prévues</th><th>Effectuées</th><th>En retard</th><th>En relecture</th><th>Validées ou transmises</th><th>Hors plan</th></tr>
+        ${bilan.map(b => `<tr><td><button class="lien" data-cmi="${b.id}">${esc(b.nom)}</button></td><td>${b.prevues}</td><td>${b.faites}</td>
+          <td class="${b.retard ? 'ko' : ''}">${b.retard}</td><td>${b.relecture}</td><td>${b.validees}</td><td class="${b.horsPlan ? 'ko' : ''}">${b.horsPlan}</td></tr>`).join('')}</table>`
+        : '<p class="vide">Aucune visite pour cette année.</p>'}
+    </details>
+    <div class="outils">
+      <select id="f-cmi"><option value="0">Tous les CMi</option>${cmis().map(p => `<option value="${p.id}" ${p.id === filtre.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select>
+      <input type="search" id="f-q" placeholder="Rechercher (nom, établissement, UAI, statut)…" value="${esc(filtre.q)}">
+      ${plan ? '<button id="nouvelle" class="primary">+ Visite</button><button id="importer">Importer un plan</button>' : ''}
+    </div>
+    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th>État</th></tr></thead><tbody>
+      ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(v.Statut_plan || '')}${v.Professeur ? '' : ' · hors fichier'}</span></td>
+        <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}</span></td>
+        <td>${esc(nomFiche(personne(v.CMi)) || '—')}</td><td>${esc(periode(v))}</td><td class="large">${esc(dateFr(v.Visite_inspe))}</td>
+        <td>${esc(dateFr(v.Date_prevue)) || '<span class="muted">—</span>'}</td>
+        <td>${pastille(e)}${r ? `<span class="det">${r.Valideur ? 'IA-IPR : ' + esc(nomFiche(personne(r.Valideur))) : ''}</span>` : ''}</td></tr>`).join('')}
+      </tbody></table>` : `<p class="vide">${toutes.length ? 'Aucune visite ne correspond aux filtres.' : 'Le plan de cette année est vide.' + (plan ? ' « + Visite » ou « Importer un plan » pour commencer.' : '')}</p>`}
+    ${hp.length ? `<details class="bloc" open style="margin-top:14px"><summary class="ko">Rapports hors plan (${hp.length}) : visite oubliée au plan ?</summary>
+      <table class="plan">${hp.map(r => `<tr><td><strong>${esc([r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '))}</strong><span class="det">${esc(r.Etab_nom || '')}</span></td>
+        <td>${esc(nomFiche(personne(r.Auteur)))}</td><td>visite du ${esc(dateFr(r.Date_visite))}</td><td>${esc(r.Statut || '')}</td>
+        <td>${plan ? `<button data-ajouter="${r.id}">Ajouter au plan</button>` : ''}</td></tr>`).join('')}</table></details>` : ''}`;
+}
+
+function carte({ v, r, e }) {
+  const etab = etabDe(v.UAI), c = contacts(etab, v.UAI);
+  const m = !r && peutModifier(droits, moi, v);
+  const rediger = !r && (droitsRapports.C === 'Oui' || droitsRapports.C === 'Limité');
+  return `<div class="carte ${e.cle === 'retard' ? 'retard' : ''}" data-id="${v.id}">
+    <h3><span>${esc(nomProf(v))}</span>${pastille(e)}</h3>
+    <div class="petit muted">${esc(v.Statut_plan || '')}${v.Statut_plan ? ' · ' : ''}période ${esc(periode(v) || '—')}${v.Visite_inspe ? ` · INSPE le ${esc(dateFr(v.Visite_inspe))}` : ''}</div>
+    <div class="contact"><span>${ic('ecole')} <strong>${esc(v.Etab_nom || (etab && etab.Nom) || '')}</strong>&nbsp;${esc((etab && etab.Commune) || '')} <span class="muted">${esc(v.UAI || '')}</span></span>
+      ${etab && etab.Adresse ? `<span class="muted">${esc(etab.Adresse)}, ${esc(etab.Code_postal || '')} ${esc(etab.Commune || '')}</span>` : ''}
+      ${c.mel ? `<a href="mailto:${esc(c.mel)}">${ic('mail')} ${esc(c.mel)}</a>` : ''}
+      ${c.tel ? `<a href="tel:${esc(c.telLien)}">${ic('tel')} ${esc(c.tel)}</a>` : ''}</div>
+    <div class="ligne"><span>Date calée</span>${m ? `<input type="date" data-date="${v.id}" value="${esc(dateIso(v.Date_prevue))}">` : `<strong>${esc(dateFr(v.Date_prevue)) || '—'}</strong>`}</div>
+    ${m ? `<textarea data-notes="${v.id}" placeholder="Notes (créneau, salle, contact pris…)">${esc(v.Notes || '')}</textarea>` : v.Notes ? `<div class="petit">${esc(v.Notes)}</div>` : ''}
+    <div class="actions">${r ? `<button data-rapport="${r.id}">Ouvrir le rapport</button>` : rediger ? `<button class="primary" data-rediger="${v.id}">Rédiger le rapport</button>` : ''}</div>
+  </div>`;
+}
+
+function afficherMes() {
+  const auj = aujourdhui();
+  const miennes = enrichir(visitesAnnee().filter(v => moi && v.CMi === moi.Personne), D.rapports, auj);
+  const g = grouperMesVisites(miennes);
+  $('contenu').innerHTML = !moi || !moi.Personne
+    ? '<p class="vide">Ton compte n\'est pas relié à une fiche de l\'annuaire : demande à un·e administrateur·trice (Administration → Accès).</p>'
+    : g.length ? g.map(x => `<h2 class="groupe-titre ${x.cle === 'retard' ? 'retard' : ''}">${esc(x.titre)} (${x.lignes.length})</h2><div class="cartes">${x.lignes.map(carte).join('')}</div>`).join('')
+      : `<p class="vide">Aucune visite au plan pour toi en ${esc(libelleAnnee(rentree))}.</p>`;
+}
+
+// --- Saisie d'une visite (IA-IPR) ---
+function ouvrirSaisie(v) {
+  saisie = v ? { ...v } : { id: null, Professeur: 0, Prof_nom: '', Prof_prenom: '', UAI: '', Etab_nom: '', Statut_plan: '', CMi: filtre.cmi || 0,
+    Mois_debut: null, Mois_fin: null, Visite_inspe: null, Date_prevue: null, Notes: '', Rapport: 0 };
+  afficherSaisie();
+  if (!$('dlg-visite').open) $('dlg-visite').showModal();
+}
+function afficherSaisie() {
+  const f = saisie, mois = moisScolaires(f.Mois_debut ? rentreeDe(f.Mois_debut) : rentree);
+  const optMois = sel => `<option value="">—</option>${mois.map(m => `<option value="${m.s}" ${m.s === sel ? 'selected' : ''}>${esc(m.lib)}</option>`).join('')}`;
+  const r = D.rapports.find(x => x.id === f.Rapport);
+  $('f-visite').innerHTML = `<h2>${f.id ? 'Visite du plan' : 'Nouvelle visite'}</h2>
+    <label class="champ"><span>Professeur·e (nom, établissement ou UAI)</span>
+      <input type="text" id="v-q" autocomplete="off" value="${esc(f.Professeur ? `${nomProf(f)} – ${f.UAI}` : '')}" placeholder="Rechercher dans le fichier des professeur·es…">
+      <div class="suggestions" id="v-sugg" hidden></div></label>
+    <div class="grille">
+      <label class="champ"><span>Nom</span><input type="text" id="v-Prof_nom" value="${esc(f.Prof_nom)}" ${f.Professeur ? 'readonly' : ''}></label>
+      <label class="champ"><span>Prénom</span><input type="text" id="v-Prof_prenom" value="${esc(f.Prof_prenom)}" ${f.Professeur ? 'readonly' : ''}></label>
+      <label class="champ"><span>UAI</span><input type="text" id="v-UAI" value="${esc(f.UAI)}" ${f.Professeur ? 'readonly' : ''}></label>
+      <label class="champ"><span>Statut (plan)</span><input type="text" id="v-Statut_plan" value="${esc(f.Statut_plan)}" placeholder="AGREG 50%, CAPES 100%…"></label>
+      <label class="champ"><span>CMi</span><select id="v-CMi"><option value="0">—</option>${cmis().map(p => `<option value="${p.id}" ${p.id === f.CMi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
+      <label class="champ"><span>Mois de début</span><select id="v-Mois_debut">${optMois(f.Mois_debut)}</select></label>
+      <label class="champ"><span>Mois de fin</span><select id="v-Mois_fin">${optMois(f.Mois_fin)}</select></label>
+      <label class="champ"><span>Visite INSPE</span><input type="date" id="v-Visite_inspe" value="${esc(dateIso(f.Visite_inspe))}"></label>
+      <label class="champ"><span>Date calée</span><input type="date" id="v-Date_prevue" value="${esc(dateIso(f.Date_prevue))}"></label>
+    </div>
+    <label class="champ"><span>Notes</span><textarea id="v-Notes">${esc(f.Notes || '')}</textarea></label>
+    ${r ? `<p class="petit">Rapport relié : ${esc(r.Statut || '')} (visite du ${esc(dateFr(r.Date_visite))}). <button type="button" class="lien" data-rapport="${r.id}">Ouvrir</button></p>` : ''}
+    <ul class="erreurs" id="v-erreurs"></ul>
+    <div class="actions"><button type="button" id="v-ok" class="primary">Enregistrer</button><button type="button" id="v-annuler">Annuler</button>
+      ${f.id ? '<button type="button" id="v-suppr" class="danger" title="Supprimer cette visite du plan (double clic)">Supprimer</button>' : ''}</div>`;
+  const lire = () => {
+    for (const c of ['Prof_nom', 'Prof_prenom', 'UAI', 'Statut_plan', 'Notes']) f[c] = $('v-' + c).value.trim();
+    f.UAI = f.UAI.toUpperCase();
+    f.CMi = Number($('v-CMi').value) || 0;
+    f.Mois_debut = Number($('v-Mois_debut').value) || null; f.Mois_fin = Number($('v-Mois_fin').value) || null;
+    if (f.Mois_debut && !f.Mois_fin) f.Mois_fin = f.Mois_debut;
+    f.Visite_inspe = isoVersGrist($('v-Visite_inspe').value); f.Date_prevue = isoVersGrist($('v-Date_prevue').value);
+  };
+  $('v-q').addEventListener('input', () => {
+    const mots = norm($('v-q').value).split(/\s+/).filter(Boolean);
+    if (!mots.length) { $('v-sugg').hidden = true; return; }
+    const t = D.profs.filter(p => { const e = etabDe(p.UAI) || {}; return mots.every(m => norm([p.Nom, p.Prenom, p.UAI, e.Nom, e.Commune].join(' ')).includes(m)); }).slice(0, 12);
+    $('v-sugg').innerHTML = t.length ? t.map(p => `<div data-prof="${p.id}"><strong>${esc(p.Nom)} ${esc(p.Prenom)}</strong> · ${esc((etabDe(p.UAI) || {}).Nom || '')} ${esc((etabDe(p.UAI) || {}).Commune || '')} <span class="muted">${esc(p.UAI)} · ${esc(p.Grade || '')}${p.Type_nomination === 'STG' ? ' · stagiaire' : ''}</span></div>`).join('')
+      : '<div class="muted">Aucun·e professeur·e : saisir nom, prénom et UAI à la main.</div>';
+    $('v-sugg').hidden = false;
+  });
+  $('v-sugg').addEventListener('click', ev => {
+    const d = ev.target.closest('[data-prof]');
+    if (!d) return;
+    lire();
+    const p = D.profs.find(x => x.id === Number(d.dataset.prof));
+    Object.assign(f, { Professeur: p.id, Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '', UAI: p.UAI || '', Etab_nom: (etabDe(p.UAI) || {}).Nom || '' });
+    afficherSaisie();
+  });
+  $('v-q').addEventListener('change', () => { if (!$('v-q').value.trim() && f.Professeur) { lire(); f.Professeur = 0; afficherSaisie(); } });
+  $('v-annuler').addEventListener('click', () => { saisie = null; $('dlg-visite').close(); });
+  if ($('v-suppr')) boutonConfirmation($('v-suppr'), 'Confirmer la suppression', async () => {
+    if (await ecrire([['RemoveRecord', TABLE, f.id]], 'Visite retirée du plan', charger)) { saisie = null; $('dlg-visite').close(); }
+  });
+  $('v-ok').addEventListener('click', async () => {
+    lire();
+    if (!f.Etab_nom || !f.Professeur) f.Etab_nom = (etabDe(f.UAI) || {}).Nom || f.Etab_nom;
+    const err = valider(f);
+    $('v-erreurs').innerHTML = err.map(e => `<li>${esc(e)}</li>`).join('');
+    if (err.length) return;
+    const champs = Object.fromEntries(['Professeur', 'Prof_nom', 'Prof_prenom', 'UAI', 'Etab_nom', 'Statut_plan', 'CMi', 'Mois_debut', 'Mois_fin',
+      'Visite_inspe', 'Date_prevue', 'Notes'].map(k => [k, f[k] ?? null]));
+    const ok = f.id ? await ecrire([['UpdateRecord', TABLE, f.id, champs]], 'Visite enregistrée', charger)
+      : await ecrire([['AddRecord', TABLE, null, { ...champs, Rapport: f.Rapport || 0 }]], 'Visite ajoutée au plan', charger);
+    if (ok) { saisie = null; $('dlg-visite').close(); }
+  });
+}
+
+// --- Import collé (IA-IPR) ---
+function ouvrirImport() {
+  const annees = [rentree - 1, rentree, rentree + 1];
+  $('imp-annee').innerHTML = annees.map(a => `<option value="${a}" ${a === rentree ? 'selected' : ''}>${libelleAnnee(a)}</option>`).join('');
+  $('imp-cmi').innerHTML = `<option value="0">— choisir —</option>${cmis().map(p => `<option value="${p.id}" ${p.id === filtre.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}`;
+  $('imp-apercu').innerHTML = ''; $('imp-ok').disabled = true; lotImport = null;
+  $('dlg-import').showModal();
+}
+function analyserImport() {
+  const cmi = Number($('imp-cmi').value) || 0;
+  if (!cmi) { toast('Choisir d\'abord le ou la CMi de ce lot.', true); return; }
+  const lignes = lireTableauColle($('imp-texte').value);
+  if (!lignes.length) { $('imp-apercu').innerHTML = '<p class="vide">Rien à lire : coller les lignes du tableur.</p>'; return; }
+  lotImport = preparerImport(lignes, D, cmi, Number($('imp-annee').value));
+  const n = lotImport.filter(x => x.champs).length;
+  $('imp-apercu').innerHTML = `<p class="petit">${n} visite(s) à ajouter pour <strong>${esc(nomFiche(personne(cmi)))}</strong>${lotImport.length - n ? `, ${lotImport.length - n} ignorée(s)` : ''}.</p>
+    <table class="apercu"><tr><th>#</th><th>Professeur·e</th><th>Établissement</th><th>Période</th><th>INSPE</th><th>Remarques</th></tr>
+    ${lotImport.map(x => { const c = x.champs || {}; return `<tr class="${x.ignoree ? 'ignoree' : ''}"><td>${esc(x.n)}</td>
+      <td>${x.prof ? '✔ ' : ''}${esc(x.libelle)}</td><td>${esc(c.Etab_nom || '')} <span class="muted">${esc(c.UAI || '')}</span></td>
+      <td>${esc(x.champs ? periode(c) : '')}</td><td>${esc(dateFr(c.Visite_inspe))}</td>
+      <td>${x.ignoree ? `<span class="muted">${esc(x.ignoree)}</span>` : x.alertes.map(a => `<span class="al">${esc(a)}</span>`).join('<br>')}</td></tr>`; }).join('')}</table>`;
+  $('imp-ok').disabled = !n;
+  $('imp-ok').textContent = `Enregistrer ${n} visite${n > 1 ? 's' : ''}`;
+}
+async function enregistrerImport() {
+  const a = (lotImport || []).filter(x => x.champs).map(x => ['AddRecord', TABLE, null, x.champs]);
+  if (!a.length) return;
+  if (await ecrire(a, `${a.length} visite(s) ajoutée(s) au plan`, charger)) { lotImport = null; $('dlg-import').close(); }
+}
+
+// --- Chargement ---
+const change = detecteurChangement();
+const occupe = () => !!saisie || $('dlg-import').open || (document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName) && $('contenu').contains(document.activeElement));
+const charger = sansChevauchement(async () => {
+  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs'];
+  const T = Object.fromEntries(noms.map((n, i) => [n, null]));
+  const lus = await Promise.all(noms.map(lireTable));
+  noms.forEach((n, i) => { T[n] = lus[i]; });
+  if (T.Visites.erreur) {
+    message(`Impossible de lire la table Visites : ${T.Visites.erreur} — elle n'existe pas encore (Installer → Créer la structure), ou tes droits ne permettent pas de la lire.`, true);
+    $('app').hidden = true; return;
+  }
+  D.visites = T.Visites.lignes; D.rapports = T.Rapports.lignes || []; D.personnes = T.Personnes.lignes || [];
+  D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || [];
+  moi = identifierMoi(T.Utilisateurs.lignes || []).moi;
+  droits = droitsTable(moi, TABLE); droitsRapports = droitsTable(moi, 'Rapports');
+  if (!change([T.Visites.lignes, T.Rapports.lignes, T.Personnes.lignes, moi && moi.Droits, rentree, onglet]) && !$('app').hidden) return;
+  message(''); $('app').hidden = false;
+  if (!occupe()) afficher();
+});
+
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  grist.onRecords(regrouper(charger));
+  installerBulles();
+  $('recharger').addEventListener('click', () => relireSansCache(charger));
+  $('annee').addEventListener('change', () => { rentree = Number($('annee').value); pref.ecrire('Annee', String(rentree)); afficher(); });
+  $('onglets').addEventListener('click', e => { const b = e.target.closest('[data-onglet]'); if (b) { onglet = b.dataset.onglet; pref.ecrire('Onglet', onglet); afficher(); } });
+  $('contenu').addEventListener('click', async e => {
+    const t = e.target;
+    const et = t.closest('[data-etat]');
+    if (et) { filtre.etat = filtre.etat === et.dataset.etat ? '' : et.dataset.etat; afficher(); return; }
+    const c = t.closest('[data-cmi]');
+    if (c) { filtre.cmi = Number(c.dataset.cmi); pref.ecrire('Cmi', String(filtre.cmi)); afficher(); return; }
+    if (t.closest('#nouvelle')) { ouvrirSaisie(null); return; }
+    if (t.closest('#importer')) { ouvrirImport(); return; }
+    const aj = t.closest('[data-ajouter]');
+    if (aj) { const r = D.rapports.find(x => x.id === Number(aj.dataset.ajouter)); if (r) ouvrirSaisie({ id: null, ...visiteDepuisRapport(r) }); return; }
+    const ra = t.closest('[data-rapport]');
+    if (ra) { ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); return; }
+    const re = t.closest('[data-rediger]');
+    if (re) { ouvrirRapports({ visite: Number(re.dataset.rediger) }); return; }
+    const tr = t.closest('tr.cliquable[data-id]');
+    if (tr) { const v = D.visites.find(x => x.id === Number(tr.dataset.id)); if (v && peutModifier(droits, moi, v) === 'tout') ouvrirSaisie(v); return; }
+  });
+  $('contenu').addEventListener('change', async e => {
+    const t = e.target;
+    if (t.id === 'f-cmi') { filtre.cmi = Number(t.value) || 0; pref.ecrire('Cmi', String(filtre.cmi)); afficher(); return; }
+    if (t.dataset.date) await ecrire([['UpdateRecord', TABLE, Number(t.dataset.date), { Date_prevue: isoVersGrist(t.value) }]], t.value ? 'Date calée' : 'Date retirée', charger);
+    if (t.dataset.notes) await ecrire([['UpdateRecord', TABLE, Number(t.dataset.notes), { Notes: t.value.trim() }]], 'Notes enregistrées', charger);
+  });
+  $('contenu').addEventListener('input', e => { if (e.target.id === 'f-q') { filtre.q = e.target.value; const p = e.target.selectionStart; afficher(); $('f-q').focus(); $('f-q').setSelectionRange(p, p); } });
+  $('contenu').addEventListener('toggle', e => { if (e.target.id === 'bilan') pref.ecrire('Bilan', e.target.open ? '1' : '0'); }, true);
+  $('f-visite').addEventListener('click', e => { const ra = e.target.closest('[data-rapport]'); if (ra) { $('dlg-visite').close(); saisie = null; ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); } });
+  $('dlg-visite').addEventListener('close', () => { saisie = null; });
+  $('imp-analyser').addEventListener('click', analyserImport);
+  $('imp-ok').addEventListener('click', enregistrerImport);
+  $('imp-annuler').addEventListener('click', () => $('dlg-import').close());
+  relectureReguliere(charger, occupe);
+  await charger();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Aide du plan d'inspection</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 6px; color: var(--accent); }
+  ol, ul { padding-left: 22px; } li { margin-bottom: 4px; }
+  .etapes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .etapes span { padding: 2px 10px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
+  pre { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-size: 12px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Plan d'inspection — mode d'emploi</h1>
+  <p class="muted">Qui inspecter, quand, et où en sont les rapports.</p>
+
+  <h2>Les états d'une visite</h2>
+  <div class="etapes"><span>À caler</span>→<span>Calée</span>→<span>Rapport à rédiger</span>→<span>Rapport en cours</span>→<span>En relecture</span>→<span>Validé</span>→<span>Transmis</span></div>
+  <ul>
+    <li><strong>En retard</strong> : la période est passée et aucune date n'est calée.</li>
+    <li><strong>Rapport à rédiger</strong> : la date calée est passée, le rapport n'est pas commencé.</li>
+    <li>Ensuite, l'état suit celui du rapport relié (brouillon, à reprendre, soumis, validé, transmis).</li>
+  </ul>
+
+  <h2>IA-IPR : remplir le plan</h2>
+  <ul>
+    <li><strong>+ Visite</strong> : chercher le ou la professeur·e (nom, établissement ou UAI), choisir le ou la CMi, la période (mois de début et de fin), la visite INSPE si besoin. Seul·es les IA-IPR remplissent ces champs.</li>
+    <li><strong>Importer un plan</strong> : dans le tableur, sélectionner les lignes (avec l'en-tête), copier, coller dans la fenêtre, choisir le ou la CMi du lot, puis <em>Analyser</em>. Colonnes lues :
+      <pre>NOM  Prénom  statut  établissement  ville  période de visite  Visite INSPE  UAI</pre>
+      La période « Nov-Déc », « Déc-Fév », « Nov-Janv » donne le mois de début et de fin ; les professeur·es sont retrouvé·es par l'UAI et le nom. Les lignes déjà au plan ou en double sont écartées. Vérifier les remarques, puis <em>Enregistrer</em>.</li>
+    <li>Cliquer sur une ligne du tableau pour la modifier ou la supprimer.</li>
+  </ul>
+
+  <h2>IA-IPR : suivre</h2>
+  <ul>
+    <li>Les <strong>compteurs</strong> en haut filtrent le tableau (clic ; second clic pour tout revoir).</li>
+    <li><strong>Bilan par CMi</strong> : visites prévues, effectuées, en retard, en relecture, validées ou transmises, et rapports <strong>hors plan</strong>. Cliquer sur un nom filtre le tableau.</li>
+    <li><strong>Rapports hors plan</strong> : rapport écrit sans visite au plan (souvent un oubli). <em>Ajouter au plan</em> crée la visite déjà reliée au rapport.</li>
+    <li>Le menu <strong>Année</strong> change d'année scolaire.</li>
+  </ul>
+
+  <h2>CMi : mes visites</h2>
+  <ul>
+    <li>Seules <strong>vos</strong> visites apparaissent : en retard d'abord, puis mois par mois.</li>
+    <li>Chaque carte donne les <strong>contacts de l'établissement</strong> : e-mail (<code>ce.UAI@ac-orleans-tours.fr</code>) et téléphone, cliquables.</li>
+    <li><strong>Date calée</strong> : la saisir dès qu'elle est fixée ; les notes servent de pense-bête (créneau, salle…). Vous ne pouvez modifier que ces deux champs.</li>
+    <li><strong>Rédiger le rapport</strong> ouvre l'écran Rapports avec le ou la professeur·e et la date déjà remplis ; le rapport est relié à la visite. Un rapport créé directement dans l'écran Rapports est relié tout seul à votre visite prévue pour cette personne.</li>
+  </ul>
+
+  <h2>Rien ne marche ?</h2>
+  <ul>
+    <li>« Impossible de lire la table Visites » : la table n'existe pas encore (écran Installer → <em>Créer la structure</em>, puis règles d'accès).</li>
+    <li>Pas de bouton « + Visite » : votre rôle ne permet pas de remplir le plan (IA-IPR et administrateur·trices seulement).</li>
+    <li>Téléphone absent : relancer l'import des établissements (Administration → Import), qui le lit dans l'Annuaire de l'éducation.</li>
+  </ul>
+</main>
+</body>
+</html>

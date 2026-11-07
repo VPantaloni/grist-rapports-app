@@ -7,7 +7,7 @@ import { PREFIXE } from '../commun/config.js';
 // ===== À ADAPTER (APP § 4 et § 8) =====
 // Tables de données présentes dans la matrice Permissions (pas Utilisateurs, Permissions, Navigation).
 export const TABLES_DONNEES = ['Personnes', 'Etablissements', 'Professeurs', 'Types_rapport', 'Rubriques', 'Phrases',
-  'Competences_MD', 'Parametres', 'Rapports', 'Signatures'];
+  'Competences_MD', 'Parametres', 'Rapports', 'Signatures', 'Visites'];
 // Table des fiches vers laquelle pointe Utilisateurs.Personne ('' si l'application n'en a pas).
 export const TABLE_FICHES = 'Personnes';
 // Rôles qui exigent une fiche (leurs droits « Limité » portent sur « mes » lignes).
@@ -47,6 +47,7 @@ export const MATRICE_DEFAUT = (() => {
     Parametres: [[O, N, O, N], [O, N, N, N]],
     Rapports: [[O, O, O, N], [O, L, L, L]],
     Signatures: [[L, L, L, L], [L, L, L, L]],
+    Visites: [[O, O, O, O], [L, N, L, N]],
   };
   return {
     'Administrateur·trice': Object.fromEntries(Object.keys(m).map(t => [t, [O, O, O, O]])),
@@ -83,6 +84,8 @@ export const PORTEES = {
   'Signatures:C': 'sa signature',
   'Signatures:M': 'sa signature',
   'Signatures:S': 'sa signature',
+  'Visites:L': 'ses visites du plan',
+  'Visites:M': 'ses visites : date calée et notes seulement',
 };
 // Onglet Import (SPEC § 4.5, commun/import.js) : deux fichiers possibles. Le fichier académique des professeur·es (une
 // ligne par affectation, colonnes de l'établissement comprises) remplit Etablissements puis Professeurs ; le fichier
@@ -113,15 +116,16 @@ export const IMPORT = {
     etabdepartement: { type: 'texte', synonymes: ['etab_departement', 'Libellé du département ou de la collectivité'], libelle: 'département' },
     etabbassin: { type: 'texte', synonymes: ['etab_bassin'], libelle: 'bassin' },
     mel: { type: 'email', libelle: 'e-mail de l\'établissement (Annuaire de l\'éducation)' },
+    telephone: { type: 'texte', libelle: 'téléphone de l\'établissement (Annuaire de l\'éducation)' },
     lat: { type: 'decimal', min: -90, max: 90, synonymes: ['Latitude WGS84'], libelle: 'latitude' },
     lon: { type: 'decimal', min: -180, max: 180, synonymes: ['Longitude WGS84'], libelle: 'longitude' },
     sigle: { type: 'texte', synonymes: ['Sigle de l\'UAI'], libelle: 'sigle (CLG, LYC…), fichier des établissements', exemple: 'CLG' },
   },
-  annuaire: { uai: 'uai', priorite: 'annuaire', colonnes: { etabnom: 'nom', etabville: 'commune', etabcodepostal: 'codePostal', etabdepartement: 'libelleDepartement', mel: 'email', lat: 'lat', lon: 'lon' } },
+  annuaire: { uai: 'uai', priorite: 'annuaire', colonnes: { etabnom: 'nom', etabville: 'commune', etabcodepostal: 'codePostal', etabdepartement: 'libelleDepartement', mel: 'email', telephone: 'telephone', lat: 'lat', lon: 'lon' } },
   tables: [
     // Établissements : rapprochés par UAI ; le fichier (complété par l'Annuaire de l'éducation) fait référence.
     { table: 'Etablissements', cle: ['UAI'], fusion: 'remplacer', champs: { UAI: 'uai', Nom: 'etabnom', Sigle: 'sigle', Secteur: 'etabsecteur', Adresse: 'etabadresse', Code_postal: 'etabcodepostal',
-      Commune: 'etabville', Mel: 'mel', Departement: 'etabdepartement', Bassin: 'etabbassin', Lat: 'lat', Lon: 'lon' } },
+      Commune: 'etabville', Mel: 'mel', Telephone: 'telephone', Departement: 'etabdepartement', Bassin: 'etabbassin', Lat: 'lat', Lon: 'lon' } },
     // Professeur·es : une ligne par affectation (nom + prénom + UAI) ; le fichier de l'année fait référence.
     { table: 'Professeurs', cle: ['Nom', 'Prenom', 'UAI'], fusion: 'remplacer', champs: { Civilite: 'civilite', Nom: 'nom', Prenom: 'prenom',
       Statut: 'statut', Grade: 'grade', Echelon: 'echelon', Type_nomination: 'typenomination', Discipline: 'discipline',
