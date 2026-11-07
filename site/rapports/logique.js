@@ -181,10 +181,18 @@ export function peutRediger(droits, moi, r) {
   if (droits.M === 'Oui') return r.Statut !== 'Transmis' || estAdmin(moi);
   return droits.M === 'Limité' && !!personne(moi) && r.Auteur === personne(moi) && STATUTS_REDACTION.includes(r.Statut);
 }
-// Signer et soumettre : l'auteur·e, en brouillon ou à reprendre.
-/** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
-export const peutSoumettre = (droits, moi, r) => droits.M !== 'Non' && !!personne(moi) && r.Auteur === personne(moi)
-  && STATUTS_REDACTION.includes(r.Statut);
+// Rapport rédigé par un·e IA-IPR seul·e (auteur·e de fonction IA-IPR) : pas de CMi, pas de relecture ; l'auteur·e
+// signe et valide directement (APP § 11, 2026-11-07).
+/** @param {Ligne} r @param {Ligne[]} personnes */
+export const redigeParIpr = (r, personnes) => { const a = personnes.find(x => x.id === r.Auteur); return !!a && a.Fonction === 'IA-IPR'; };
+// Signer et soumettre : l'auteur·e CMi, en brouillon ou à reprendre.
+/** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r @param {boolean} [parIpr] */
+export const peutSoumettre = (droits, moi, r, parIpr = false) => !parIpr && droits.M !== 'Non' && !!personne(moi)
+  && r.Auteur === personne(moi) && STATUTS_REDACTION.includes(r.Statut);
+// Signer et valider directement : rapport rédigé par un·e IA-IPR, par son auteur·e, avant validation.
+/** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r @param {boolean} parIpr */
+export const peutValiderSeul = (droits, moi, r, parIpr) => parIpr && droits.M === 'Oui' && estIpr(moi) && !!personne(moi)
+  && r.Auteur === personne(moi) && STATUTS_REDACTION.includes(r.Statut);
 // Relire (commenter), renvoyer, signer et valider : IA-IPR (ou admin), rapport soumis.
 /** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
 export const peutRelire = (droits, moi, r) => droits.M === 'Oui' && (estAdmin(moi) || (estIpr(moi) && !!personne(moi)))

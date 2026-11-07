@@ -131,7 +131,7 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
-  rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
+  redigeParIpr, peutValiderSeul, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
@@ -258,8 +258,8 @@ function afficherCreation() {
         <label class="champ"><span>Effectif</span><input type="text" id="c-effectif" value="${esc(c.effectif)}" inputmode="numeric"></label>
         ${!moiPers() || estAdmin(moi) ? `<label class="champ"><span>Auteur·e (CMi)</span><select id="c-auteur"><option value="">—</option>
           ${cmi.map(x => `<option value="${x.id}" ${x.id === c.auteur ? 'selected' : ''}>${esc(nomFiche(x))}${x.Fonction === 'IA-IPR' ? ' (IA-IPR)' : ''}</option>`).join('')}</select></label>` : ''}
-        <label class="champ"><span>IA-IPR</span><select id="c-valideur"><option value="">—</option>
-          ${ipr.map(x => `<option value="${x.id}" ${x.id === c.valideur ? 'selected' : ''}>${esc(nomFiche(x))}</option>`).join('')}</select></label>
+        ${(personne(c.auteur || moiPers()) || {}).Fonction === 'IA-IPR' ? `<label class="champ"><span>IA-IPR</span><div>${esc(nomPers(c.auteur || moiPers()))} <span class="muted">(rédigé seul·e : pas de relecture)</span></div><input type="hidden" id="c-valideur" value="${c.auteur || moiPers()}"></label>` : `<label class="champ"><span>IA-IPR</span><select id="c-valideur"><option value="">—</option>
+          ${ipr.map(x => `<option value="${x.id}" ${x.id === c.valideur ? 'selected' : ''}>${esc(nomFiche(x))}</option>`).join('')}</select></label>`}
         <label class="champ large"><span>Thème de la séance</span><input type="text" id="c-theme" value="${esc(c.theme)}"></label>
       </div>
       ${!D.types.length ? '<div class="alerte ko">La table <strong>Types_rapport</strong> est vide (et sans doute aussi Rubriques et Phrases) : écran Installer → « Importer les données d\'exemple », qui ne remplit que les tables vides.</div>' : ''}
@@ -289,7 +289,7 @@ function afficherCreation() {
   };
   $('c-type').addEventListener('change', () => { lire(); afficherCreation(); });
   $('c-auteur') && $('c-auteur').addEventListener('change', () => {
-    lire(); const a = personne(c.auteur); if (a && a.Referent) c.valideur = a.Referent; afficherCreation();
+    lire(); const a = personne(c.auteur); if (a) c.valideur = a.Fonction === 'IA-IPR' ? a.id : a.Referent || c.valideur; afficherCreation();
   });
   $('c-autre').addEventListener('click', () => { c.prof = 0; afficherCreation(); });
   $('c-creer').addEventListener('click', async () => { lire(); await creer(); });
@@ -314,7 +314,7 @@ async function creer() {
     Effectif: c.effectif.trim() ? Number(c.effectif) : null, Theme: c.theme.trim(),
     Contenu: JSON.stringify(contenuInitial(rub, { civilite: p.Civilite, nom: p.Nom, prenom: p.Prenom })),
     Structure: JSON.stringify(structureDe(rub)), Positionnement: '', Commentaires: '', Statut: 'Brouillon',
-    Auteur: auteur, Valideur: c.valideur || 0,
+    Auteur: auteur, Valideur: (personne(auteur) || {}).Fonction === 'IA-IPR' ? auteur : c.valideur || 0,
     Historique: ajouterHistorique('[]', initialesMoi() || (moi && moi.Email) || '', 'créé' + (pstgHorsListe(t.Code, p) ? ' ; PSTG hors liste' : '')),
   };
   const res = await ecrireRapport([['AddRecord', TABLE, null, champs]], 'Rapport créé');
@@ -341,7 +341,8 @@ function afficherFiche() {
   }
   const t = typeDe(r);
   const redige = peutRediger(droits, moi, r) && !masque();
-  const relit = peutRelire(droits, moi, r) && !masque();
+  const parIpr = redigeParIpr(r, D.personnes);
+  const relit = !parIpr && peutRelire(droits, moi, r) && !masque();
   const structure = lireStructure(r.Structure);
   const contenu = lireObjet(r.Contenu), comm = lireObjet(r.Commentaires);
   const consigne = code => (D.rubriques.find(x => x.Code === code) || {}).Consigne || '';
@@ -360,7 +361,7 @@ function afficherFiche() {
     <div class="bloc"><h2>En-tête</h2><div class="grille">
       <label class="champ"><span>Statut</span><div>${esc(r.Prof_statut) || '—'}</div></label>
       <label class="champ"><span>UAI</span><div>${esc(r.UAI)}</div></label>
-      <label class="champ"><span>CMi</span><div>${esc(nomPers(r.Auteur)) || '—'}</div></label>
+      ${parIpr ? '' : `<label class="champ"><span>CMi</span><div>${esc(nomPers(r.Auteur)) || '—'}</div></label>`}
       <label class="champ"><span>IA-IPR</span><div>${esc(nomPers(r.Valideur)) || '—'}</div></label>
       <label class="champ"><span>Date de la visite</span>${redige ? `<input type="date" data-champ="Date_visite" value="${esc(dateIso(r.Date_visite))}">` : `<div>${esc(dateFr(r.Date_visite))}</div>`}</label>
       ${ch('Heure', 'Heure', r.Heure)}${ch('Classe', 'Classe', r.Classe)}${ch('Effectif', 'Effectif', r.Effectif, 'inputmode="numeric"')}
@@ -381,7 +382,7 @@ function afficherFiche() {
           : comm[x.code] ? `<div class="commentaire"><strong>IA-IPR :</strong> ${esc(comm[x.code])}</div>` : ''}
       </div>`).join('')}</div>
     <div class="bloc signature"><h2>Signatures</h2><div class="grille">
-      <div><span class="muted">${esc((personne(r.Auteur) || {}).Titre_signature || 'CMi')}</span><br>${r.Signature_cmi ? `<img src="${esc(r.Signature_cmi)}" alt="Signature CMi">` : '<span class="muted">non signé</span>'}</div>
+      ${parIpr ? '' : `<div><span class="muted">${esc((personne(r.Auteur) || {}).Titre_signature || 'CMi')}</span><br>${r.Signature_cmi ? `<img src="${esc(r.Signature_cmi)}" alt="Signature CMi">` : '<span class="muted">non signé</span>'}</div>`}
       <div><span class="muted">${esc((personne(r.Valideur) || {}).Titre_signature || 'IA-IPR')}</span><br>${r.Signature_ipr ? `<img src="${esc(r.Signature_ipr)}" alt="Signature IA-IPR">` : '<span class="muted">non signé</span>'}</div>
     </div></div>
     <div class="barre">${boutons(r)}<span class="etat" id="etat-saisie">${redige ? 'Enregistrement automatique' : 'Lecture seule'}</span></div>`;
@@ -408,8 +409,10 @@ function corpsHistorique(r) {
 function boutons(r) {
   const b = [];
   const inactif = masque() ? ` class="inactif" title="${esc(TIP_MASQUE)}"` : '';
-  if (peutSoumettre(droits, moi, r)) b.push(`<button id="b-soumettre" class="primary${masque() ? ' inactif' : ''}" title="Poser ma signature et envoyer le rapport à l'IA-IPR pour relecture">Signer et soumettre</button>`);
-  if (peutRelire(droits, moi, r)) {
+  const parIpr = redigeParIpr(r, D.personnes);
+  if (peutValiderSeul(droits, moi, r, parIpr)) b.push(`<button id="b-valider" class="primary${masque() ? ' inactif' : ''}" title="Rapport rédigé seul·e : poser ma signature et valider (pas de relecture)">Signer et valider</button>`);
+  if (peutSoumettre(droits, moi, r, parIpr)) b.push(`<button id="b-soumettre" class="primary${masque() ? ' inactif' : ''}" title="Poser ma signature et envoyer le rapport à l'IA-IPR pour relecture">Signer et soumettre</button>`);
+  if (!parIpr && peutRelire(droits, moi, r)) {
     b.push(`<button id="b-valider" class="primary${masque() ? ' inactif' : ''}" title="Poser ma signature et valider le rapport">Signer et valider</button>`);
     b.push(`<button id="b-renvoyer"${inactif} title="Renvoyer au ou à la CMi avec les commentaires (double clic)">Renvoyer à reprendre</button>`);
   }
@@ -577,7 +580,8 @@ function contexte(r) {
   const t = typeDe(r), a = personne(r.Auteur) || {}, v = personne(r.Valideur) || {};
   return { titreDocument: t.Titre || 'RAPPORT DE VISITE', entete: String(D.params.entete || 'Inspection pédagogique régionale').split('\n'),
     discipline: D.params.discipline || '', cmi: nomPers(r.Auteur), titreCmi: a.Titre_signature || 'Le ou la chargé·e de mission',
-    ipr: nomPers(r.Valideur), titreIpr: v.Titre_signature || 'L\'IA-IPR', nomFichier: nomFichierPdf(r, a.Initiales || '') };
+    ipr: nomPers(r.Valideur), titreIpr: v.Titre_signature || 'L\'IA-IPR', nomFichier: nomFichierPdf(r, a.Initiales || ''),
+    sansCmi: redigeParIpr(r, D.personnes) };
 }
 function ouvrirOnglet(html, nom) {
   let w = null;

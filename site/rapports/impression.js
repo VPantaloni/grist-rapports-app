@@ -25,6 +25,7 @@ const puces = t => `<ul>${String(t || '').split('\n').map(x => x.replace(/^\s*[-
  * @property {string} ipr                nom de l'IA-IPR
  * @property {string} titreIpr           « L'IA-IPR »
  * @property {string} nomFichier         titre de la page = nom proposé pour le PDF
+ * @property {boolean} [sansCmi]         rapport rédigé par un·e IA-IPR seul·e : ni case ni signature CMi
  */
 /** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @returns {string} */
 export function htmlImpression(r, c) {
@@ -63,15 +64,16 @@ export function htmlImpression(r, c) {
   <tr><td colspan="3">Nom du professeur·e : <strong>${esc([r.Prof_civilite, r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '))}</strong></td></tr>
   <tr><td colspan="2">Statut : ${esc(r.Prof_statut)}</td><td>Discipline : <strong>${esc(c.discipline)}</strong></td></tr>
   <tr><td colspan="3">Établissement : ${esc([r.Etab_nom, r.Etab_commune].filter(Boolean).join(', '))} – UAI : ${esc(r.UAI)}</td></tr>
-  <tr><td><strong>Date de la visite :</strong> ${esc(dateFr(r.Date_visite))}</td><td><strong>Chargé·e de mission :</strong> ${esc(c.cmi)}</td>
-    <td><strong>IA-IPR :</strong> ${esc(c.ipr)}</td></tr>
+  <tr>${c.sansCmi ? `<td><strong>Date de la visite :</strong> ${esc(dateFr(r.Date_visite))}</td><td colspan="2"><strong>IA-IPR :</strong> ${esc(c.ipr)}</td>`
+    : `<td><strong>Date de la visite :</strong> ${esc(dateFr(r.Date_visite))}</td><td><strong>Chargé·e de mission :</strong> ${esc(c.cmi)}</td>
+    <td><strong>IA-IPR :</strong> ${esc(c.ipr)}</td>`}</tr>
   <tr><td><strong>Classe :</strong> ${esc(r.Classe)}</td><td><strong>Effectif :</strong> ${esc(r.Effectif ?? '')}</td><td><strong>Heure :</strong> ${esc(r.Heure)}</td></tr>
 </table>
 ${String(r.Theme || '').trim() ? `<div class="theme">Thème : ${esc(r.Theme)}</div>` : ''}
 ${rubriques.map(x => `<h2>${esc(x.titre)}</h2>${x.forme === 'Puces' ? puces(contenu[x.code]) : paragraphes(contenu[x.code])}`).join('\n')}
 <table class="sig"><tr>
   <td><div class="t">Pris connaissance le :</div><div class="vide"></div><div class="n">L'intéressé·e</div></td>
-  ${sig(c.titreCmi, c.cmi, r.Signature_cmi)}
+  ${c.sansCmi ? '' : sig(c.titreCmi, c.cmi, r.Signature_cmi)}
   ${sig(c.titreIpr, c.ipr, r.Signature_ipr)}
 </tr></table>
 </div></body></html>`;
