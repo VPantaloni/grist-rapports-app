@@ -12,6 +12,8 @@ import { norm, liste } from './donnees.js';
  * @property {boolean} [obligatoire]                en-tête exigé ; cellule vide = ligne ignorée
  * @property {string[]} [synonymes]                 autres en-têtes acceptés
  * @property {string[]} [valeurs]                   choix et listes : valeurs autorisées
+ * @property {Record<string, string>} [equivalences]  choix et listes : autres écritures d'une valeur autorisée,
+ *                                                   comparées sans accent ni casse (ex. { MM: 'Mme' })
  * @property {number} [min]                         entier, décimal : bornes plausibles
  * @property {number} [max]
  * @property {string} [libelle]                     notice : ce que contient la colonne
@@ -107,6 +109,13 @@ export function reconnaitreColonnes(entete, colonnes) {
 
 const BOOLEENS = { oui: true, vrai: true, x: true, '1': true, true: true, yes: true, non: false, faux: false, '0': false, false: false, no: false };
 
+// Autre écriture d'une valeur (déclarée dans `equivalences`, comparée sans accent ni casse) → la valeur autorisée.
+/** @param {string} t @param {ColonneImport} def @returns {string} */
+function equivalent(t, def) {
+  const e = Object.entries(def.equivalences || {}).find(([k]) => norm(k) === norm(t));
+  return e ? e[1] : t;
+}
+
 // Cellule → { valeur } ; { vide: true } ; ou { erreur } (valeur illisible : le champ n'est pas écrit).
 /** @param {any} texte @param {ColonneImport} def @returns {{ valeur?: any, vide?: true, erreur?: string }} */
 export function convertir(texte, def) {
@@ -140,15 +149,15 @@ export function convertir(texte, def) {
       return b === undefined ? { erreur: 'oui ou non attendu' } : { valeur: b };
     }
     case 'choix': {
-      const v = (def.valeurs || []).find(x => norm(x) === norm(t));
+      const v = (def.valeurs || []).find(x => norm(x) === norm(equivalent(t, def)));
       return v === undefined ? { erreur: `valeur inconnue (attendu : ${(def.valeurs || []).join(', ')})` } : { valeur: v };
     }
     case 'liste': {
       const morceaux = t.split(/\s*[,;]\s*/).filter(Boolean);
       if (!def.valeurs) return { valeur: morceaux };
-      const inconnus = morceaux.filter(x => !def.valeurs?.some(v => norm(v) === norm(x)));
+      const inconnus = morceaux.filter(x => !def.valeurs?.some(v => norm(v) === norm(equivalent(x, def))));
       if (inconnus.length) return { erreur: `valeur(s) inconnue(s) : ${inconnus.join(', ')}` };
-      return { valeur: morceaux.map(x => def.valeurs?.find(v => norm(v) === norm(x))) };
+      return { valeur: morceaux.map(x => def.valeurs?.find(v => norm(v) === norm(equivalent(x, def)))) };
     }
     default: return { erreur: 'type inconnu' };
   }
