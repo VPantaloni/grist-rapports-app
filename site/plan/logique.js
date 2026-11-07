@@ -81,10 +81,13 @@ export function lirePeriode(texte, rentree) {
   const date = (/** @type {number} */ m) => gristDe(m >= 8 ? rentree : rentree + 1, m);
   return { debut: date(parts[0]), fin: date(parts[parts.length - 1]) };
 }
-// « 03/11/2026 », « 3/11/26 », « 2026-11-03 » → date Grist, ou null.
-/** @param {string} t */
-export function lireDateFr(t) {
+// « 03/11/2026 », « 3/11/26 », « 2026-11-03 », et « 06 nov » (année tirée de l'année scolaire `rentree`) → date
+// Grist, ou null.
+/** @param {string} t @param {number} [rentree] */
+export function lireDateFr(t, rentree = 0) {
   const x = String(t || '').trim();
+  const j = /^(\d{1,2})\s*([a-zéèêûôîç.]+)$/i.exec(x);
+  if (j && rentree) { const m = numeroMois(j[2]); if (m) return gristDe(m >= 8 ? rentree : rentree + 1, m, +j[1]); }
   let m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(x);
   if (m) { const a = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return gristDe(a, +m[2], +m[1]); }
   m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(x);
@@ -92,11 +95,14 @@ export function lireDateFr(t) {
 }
 
 // Colonnes du tableur (en-têtes reconnus sans accent ni casse) ; sans en-tête : NOM, Prénom, statut, établissement,
-// ville, période de visite, Visite INSPE, UAI (ordre du tableur des collègues).
+// ville, période de visite, Visite INSPE, UAI (ordre du tableur des collègues). Facultatives : CMi (« Prénom NOM »),
+// date calée, notes.
 export const COLONNES_PLAN = ['nom', 'prenom', 'statut', 'etablissement', 'ville', 'periode', 'inspe', 'uai'];
 /** @type {Record<string, string[]>} */
 const ENTETES = { nom: ['nom'], prenom: ['prenom'], statut: ['statut'], etablissement: ['etablissement', 'etab'], ville: ['ville', 'commune'],
-  periode: ['periode', 'periodedevisite', 'mois'], inspe: ['visiteinspe', 'inspe'], uai: ['uai', 'rne', 'codeetablissement'] };
+  periode: ['periode', 'periodedevisite', 'mois'], inspe: ['visiteinspe', 'inspe', 'inspe1', 'visisteinspe', 'dateinspe'],
+  uai: ['uai', 'rne', 'codeetablissement'], cmi: ['cmi', 'chargedemission', 'chargeedemission'],
+  date: ['datecalee', 'visitecmi', 'datedevisite', 'datevisite', 'visite1'], notes: ['notes', 'remarques', 'commentaire'] };
 /** @param {string} h */
 const cleEntete = h => { const x = norm(h).replace(/[^a-z]/g, ''); return Object.keys(ENTETES).find(k => ENTETES[k].includes(x)) || ''; };
 // Texte collé (tableur : tabulations ; sinon point-virgule) → lignes { nom, prenom, … , n } (n = n° de ligne collée).
@@ -119,14 +125,31 @@ export function lireTableauColle(texte) {
 
 // Professeur·e d'une ligne du plan : même UAI et même nom (prénom s'il est donné) ; sinon même nom et prénom ailleurs,
 // si une seule personne correspond. → { prof, ambigu }.
-/** @param {Record<string, string>} l @param {Ligne[]} profs */
-export function trouverProf(l, profs) {
+// Plusieurs affectations (même nom et prénom) : celle dont la commune de l'établissement commence comme la ville du plan.
+/** @param {Record<string, string>} l @param {Ligne[]} profs @param {Ligne[]} [etabs] */
+export function trouverProf(l, profs, etabs = []) {
   const nom = norm(l.nom).trim(), prenom = norm(l.prenom).trim(), uai = String(l.uai || '').replace(/\s+/g, '').toUpperCase();
   const memeNom = profs.filter(p => norm(p.Nom).trim() === nom && (!prenom || norm(p.Prenom).trim() === prenom));
   const ici = memeNom.filter(p => String(p.UAI || '').toUpperCase() === uai);
   if (ici.length) return { prof: ici[0], ambigu: false };
   if (memeNom.length === 1 && prenom) return { prof: memeNom[0], ambigu: false };
+  const ville = norm(l.ville).replace(/[^a-z ]/g, ' ').trim().split(/\s+/)[0] || '';
+  if (memeNom.length > 1 && ville) {
+    const la = memeNom.filter(p => norm((etabs.find(e => String(e.UAI || '').toUpperCase() === String(p.UAI || '').toUpperCase()) || {}).Commune).replace(/[^a-z ]/g, ' ').trim().startsWith(ville));
+    if (la.length === 1) return { prof: la[0], ambigu: false };
+  }
   return { prof: null, ambigu: memeNom.length > 1 };
+}
+// CMi d'une ligne (« Prénom NOM » ou « NOM Prénom ») : fiche de Personnes, sinon professeur·e du fichier académique du
+// même nom (pour créer sa fiche, avec son e-mail). → { personne, prof }.
+/** @param {string} texte @param {Ligne[]} personnes @param {Ligne[]} profs */
+export function trouverCmi(texte, personnes, profs) {
+  const mots = norm(texte).replace(/[^a-z' -]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+  if (!mots) return { personne: null, prof: null };
+  const cle = (/** @type {any} */ a, /** @type {any} */ b) => norm(`${a} ${b}`).replace(/[^a-z' -]/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+  const personne = personnes.find(p => cle(p.Prenom, p.Nom) === mots) || null;
+  const prof = personne ? null : profs.find(p => cle(p.Prenom, p.Nom) === mots) || null;
+  return { personne, prof };
 }
 
 // Visite déjà au plan pour cette personne, cette année scolaire ?
@@ -137,40 +160,66 @@ export function dejaAuPlan(visites, x, rentree) {
       && String(v.UAI || '').toUpperCase() === String(x.uai || '').toUpperCase())) || null;
 }
 
-// Lignes collées → visites à créer, avec alertes. cmi : id Personnes (tout le lot) ; rentree : année scolaire.
+// Lignes collées → visites à créer, avec alertes. cmi : id Personnes pour les lignes sans colonne CMi (0 = aucun·e) ;
+// rentree : année scolaire. Un·e CMi absent·e de Personnes mais trouvé·e dans Professeurs est à créer (`nouvelleCmi`,
+// clé « Prénom|Nom ») : les visites de cette personne attendent son id (CMi: 0).
 /**
- * @param {Record<string, string>[]} lignes @param {{ profs: Ligne[], etabs: Ligne[], visites: Ligne[] }} D
+ * @param {Record<string, string>[]} lignes @param {{ profs: Ligne[], etabs: Ligne[], visites: Ligne[], personnes?: Ligne[] }} D
  * @param {number} cmi @param {number} rentree
- * @returns {{ n: string, libelle: string, champs: Record<string, any> | null, prof: Ligne | null, alertes: string[], ignoree: string }[]}
+ * @returns {{ n: string, libelle: string, cmi: string, nouvelleCmi: Ligne | null, champs: Record<string, any> | null, prof: Ligne | null, alertes: string[], ignoree: string }[]}
  */
 export function preparerImport(lignes, D, cmi, rentree) {
   /** @type {Set<string>} */
   const vues = new Set();
+  const personnes = D.personnes || [];
   return lignes.map(l => {
     const alertes = [];
     const uai = String(l.uai || '').replace(/\s+/g, '').toUpperCase();
-    const { prof, ambigu } = trouverProf(l, D.profs);
+    const { prof, ambigu } = trouverProf(l, D.profs, D.etabs);
     if (!prof) alertes.push(ambigu ? 'plusieurs professeur·es de ce nom : à choisir après l\'import' : 'pas trouvé·e dans Professeurs : nom recopié tel quel');
     else if (uai && String(prof.UAI || '').toUpperCase() !== uai) alertes.push(`trouvé·e dans un autre établissement (${prof.UAI})`);
     const per = lirePeriode(l.periode, rentree);
     if (l.periode && !per) alertes.push(`période « ${l.periode} » illisible`);
     if (!l.periode) alertes.push('pas de période');
-    const inspe = lireDateFr(l.inspe);
+    const inspe = lireDateFr(l.inspe, rentree);
     if (l.inspe && !inspe) alertes.push(`date INSPE « ${l.inspe} » illisible`);
+    const date = lireDateFr(l.date, rentree);
+    // CMi : colonne du tableur, sinon celui ou celle choisi·e pour le lot.
+    let idCmi = cmi, nomCmi = '', nouvelleCmi = null;
+    if (String(l.cmi || '').trim()) {
+      const t = trouverCmi(l.cmi, personnes, D.profs);
+      if (t.personne) { idCmi = t.personne.id; nomCmi = String(t.personne.Nom_complet || `${t.personne.Prenom} ${t.personne.Nom}`); }
+      else if (t.prof) { idCmi = 0; nouvelleCmi = t.prof; nomCmi = `${t.prof.Prenom} ${t.prof.Nom}`; alertes.push(`CMi ${nomCmi} : fiche à créer dans l'annuaire (e-mail ${t.prof.Email || 'inconnu'})`); }
+      else { idCmi = cmi; nomCmi = String(l.cmi).trim(); alertes.push(`CMi « ${nomCmi} » introuvable${cmi ? ' : CMi du lot utilisé·e' : ''}`); }
+    } else if (cmi) { const p = personnes.find(x => x.id === cmi); nomCmi = p ? String(p.Nom_complet || `${p.Prenom} ${p.Nom}`) : ''; }
+    if (!idCmi && !nouvelleCmi) alertes.push('pas de CMi');
     const u = prof ? String(prof.UAI || '') : uai;
     const etab = D.etabs.find(e => String(e.UAI || '').toUpperCase() === u.toUpperCase());
     if (!etab && u) alertes.push(`UAI ${u} absent de Etablissements`);
     const x = { prof: prof ? prof.id : 0, nom: prof ? prof.Nom : String(l.nom || '').trim(), prenom: prof ? prof.Prenom : String(l.prenom || '').trim(), uai: u };
     const cle = `${x.prof || ''}|${norm(x.nom)}|${norm(x.prenom)}|${u}`;
     const deja = dejaAuPlan(D.visites, x, rentree);
-    const ignoree = deja ? 'déjà au plan' : vues.has(cle) ? 'en double dans le collage' : '';
+    const ignoree = deja ? 'déjà au plan' : vues.has(cle) ? 'en double dans le collage' : !idCmi && !nouvelleCmi ? 'sans CMi' : '';
     vues.add(cle);
-    return { n: l.n, libelle: [x.nom, x.prenom].filter(Boolean).join(' '), prof, alertes, ignoree, champs: ignoree ? null : {
+    return { n: l.n, libelle: [x.nom, x.prenom].filter(Boolean).join(' '), cmi: nomCmi, nouvelleCmi, prof, alertes, ignoree, champs: ignoree ? null : {
       Professeur: x.prof, Prof_nom: x.nom, Prof_prenom: x.prenom, UAI: u,
-      Etab_nom: etab ? String(etab.Nom || '') : [l.etablissement, l.ville].filter(Boolean).join(', '),
-      Statut_plan: String(l.statut || '').trim(), CMi: cmi, Mois_debut: per ? per.debut : null, Mois_fin: per ? per.fin : null,
-      Visite_inspe: inspe, Date_prevue: null, Notes: '', Rapport: 0 } };
+      Etab_nom: etab ? String(etab.Nom || '') : [l.etablissement, l.ville].map(y => String(y || '').trim()).filter(Boolean).join(', '),
+      Statut_plan: String(l.statut || '').trim(), CMi: idCmi, Mois_debut: per ? per.debut : null, Mois_fin: per ? per.fin : null,
+      Visite_inspe: inspe, Date_prevue: date, Notes: String(l.notes || '').trim(), Rapport: 0 } };
   });
+}
+// Fiches de CMi à créer avant l'enregistrement des visites (une par professeur·e trouvé·e), sans doublon.
+/** @param {{ nouvelleCmi: Ligne | null, champs: Record<string, any> | null }[]} lot */
+export function fichesCmiACreer(lot) {
+  /** @type {Map<number, Record<string, any>>} */
+  const m = new Map();
+  for (const x of lot) if (x.champs && x.nouvelleCmi && !m.has(x.nouvelleCmi.id)) {
+    const p = x.nouvelleCmi;
+    const prenom = String(p.Prenom || '').trim(), nom = String(p.Nom || '').trim();
+    const ini = (prenom + ' ' + nom).normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[\s'-]+/).filter(Boolean).map(w => w[0]).join('').toUpperCase();
+    m.set(p.id, { Prenom: prenom, Nom: nom, Fonction: 'CMi', Initiales: ini, Email: String(p.Email || '').trim(), Titre_signature: '', Stagiaires: false, Referent: 0 });
+  }
+  return m;
 }
 
 // --- État d'une visite ---
@@ -214,10 +263,10 @@ export function compter(lignes) {
   return n;
 }
 // Filtres du suivi : CMi, état (ou « faites » / « a_faire »), recherche (nom, établissement, UAI, statut).
-/** @param {{ v: Ligne, e: Etat }[]} lignes @param {{ cmi?: number, etat?: string, q?: string }} f */
+/** @param {{ v: Ligne, e: Etat }[]} lignes @param {{ cmi?: number, cmis?: number[], etat?: string, q?: string }} f */
 export function filtrer(lignes, f) {
   const mots = norm(f.q || '').split(/\s+/).filter(Boolean);
-  return lignes.filter(({ v, e }) => (!f.cmi || v.CMi === f.cmi)
+  return lignes.filter(({ v, e }) => (!f.cmi || v.CMi === f.cmi) && (!f.cmis || f.cmis.includes(Number(v.CMi)))
     && (!f.etat || (f.etat === 'faites' ? e.faite : f.etat === 'a_faire' ? !e.faite : e.cle === f.etat))
     && mots.every(m => norm([v.Prof_nom, v.Prof_prenom, v.Etab_nom, v.UAI, v.Statut_plan].join(' ')).includes(m)));
 }
@@ -292,7 +341,8 @@ export const peutPlanifier = d => d.C === 'Oui';
 /** @param {DroitsTable} d @param {Ligne | null | undefined} moi @param {Ligne[]} visites */
 export function onglets(d, moi, visites) {
   const o = [];
-  if (d.C === 'Oui' || (d.L === 'Oui' && !liste(moi && moi.Roles).includes('CMi'))) o.push('suivi');
+  const roles = liste(moi && moi.Roles);
+  if (d.C === 'Oui' || d.L === 'Oui' || roles.includes('IA-IPR') || roles.includes('Administrateur·trice')) o.push('suivi');
   if (moi && moi.Personne && (visites.some(v => v.CMi === moi.Personne) || liste(moi.Roles).includes('CMi') || !o.length)) o.push('mes');
   return o.length ? o : ['mes'];
 }

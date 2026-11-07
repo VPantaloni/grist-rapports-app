@@ -62,6 +62,7 @@
   .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
   .suggestions { border: 1px solid var(--border); border-radius: 4px; max-height: 180px; overflow-y: auto; margin-top: 2px; }
   .suggestions div { padding: 4px 8px; cursor: pointer; font-size: 13px; } .suggestions div:hover { background: var(--sel); }
+  #imp-fichier { max-width: 100%; font-size: 12px; }
   #imp-texte { width: 100%; min-height: 120px; font: 12px monospace; }
   table.apercu { font-size: 12px; width: 100%; border-collapse: collapse; margin-top: 8px; }
   table.apercu td, table.apercu th { padding: 3px 5px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
@@ -87,11 +88,12 @@
 
 <dialog id="dlg-visite"><form method="dialog" id="f-visite"></form></dialog>
 <dialog id="dlg-import">
-  <h2>Importer un plan (copier-coller du tableur)</h2>
-  <p class="petit muted">Dans le tableur, sélectionner les lignes (avec la ligne d'en-tête si possible : NOM, Prénom, statut, établissement, ville, période de visite, Visite INSPE, UAI), copier, puis coller ci-dessous. Chaque professeur·e est retrouvé·e par l'UAI et le nom.</p>
+  <h2>Importer un plan (copier-coller du tableur ou fichier .csv)</h2>
+  <p class="petit muted">Dans le tableur, sélectionner les lignes avec la ligne d'en-tête (NOM, Prénom, statut, établissement, ville, période de visite, Visite INSPE, UAI ; facultatives : CMi, Date calée, Notes), copier, puis coller ci-dessous, ou choisir un fichier .csv / .tsv. Chaque professeur·e est retrouvé·e par l'UAI et le nom (sinon par le nom, le prénom et la ville). Avec une colonne CMi, chaque ligne va à son ou sa CMi ; une CMi absente de l'annuaire mais présente dans le fichier des professeur·es est créée avec son e-mail.</p>
   <div class="grille">
     <label class="champ"><span>CMi de ce lot</span><select id="imp-cmi"></select></label>
     <label class="champ"><span>Année scolaire</span><select id="imp-annee"></select></label>
+    <label class="champ"><span>Ou un fichier</span><input type="file" id="imp-fichier" accept=".csv,.tsv,.txt,text/csv,text/plain"></label>
   </div>
   <textarea id="imp-texte" placeholder="Coller ici les lignes du tableur…"></textarea>
   <div id="imp-apercu"></div>
@@ -106,12 +108,13 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { norm, nomFiche } from '../commun/donnees.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
   filtrer, periodeDepassee, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
-  valider, lireTableauColle, preparerImport } from './logique.js';
+  valider, lireTableauColle, preparerImport, fichesCmiACreer } from './logique.js';
 
 const pref = preferences('Plan');
 const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [] };
 let moi = null, droits = droitsTable(null, TABLE), droitsRapports = droitsTable(null, 'Rapports');
-let onglet = pref.lire('Onglet', ''), filtre = { cmi: Number(pref.lire('Cmi', '0')) || 0, etat: '', q: '' };
+const cmiPref = pref.lire('Cmi', '0');
+let onglet = pref.lire('Onglet', ''), filtre = { cmi: cmiPref === 'mes' ? 'mes' : Number(cmiPref) || 0, etat: '', q: '' };
 let rentree = Number(pref.lire('Annee', '0')) || rentreeDe(aujourdhui());
 let saisie = null;      // visite en cours de saisie dans la fenêtre (IA-IPR)
 let lotImport = null;   // résultat de l'analyse du collage
@@ -125,6 +128,9 @@ const personne = id => D.personnes.find(p => p.id === id);
 const etabDe = uai => D.etabs.find(e => String(e.UAI || '').toUpperCase() === String(uai || '').toUpperCase());
 const cmis = () => D.personnes.filter(p => p.Fonction === 'CMi' || D.visites.some(v => v.CMi === p.id))
   .sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
+// CMi dont je suis le ou la référent·e (filtre « Mes CMi »).
+const mesCmi = () => D.personnes.filter(p => moi && moi.Personne && p.Referent === moi.Personne).map(p => p.id);
+const filtreEffectif = () => (filtre.cmi === 'mes' ? { ...filtre, cmi: 0, cmis: mesCmi() } : filtre);
 const pastille = e => `<span class="pastille e-${e.cle}">${esc(e.libelle)}</span>`;
 const visitesAnnee = () => D.visites.filter(v => rentreeDe(v.Mois_debut || v.Date_prevue) === rentree || (!v.Mois_debut && !v.Date_prevue));
 const nomProf = v => [v.Prof_nom, v.Prof_prenom].filter(Boolean).join(' ');
@@ -150,12 +156,14 @@ function afficherSuivi() {
   const auj = aujourdhui();
   const toutes = enrichir(visitesAnnee(), D.rapports, auj);
   const n = compter(toutes);
-  const lignes = filtrer(toutes, filtre);
+  const lignes = filtrer(toutes, filtreEffectif());
   const hp = rapportsHorsPlan(D.rapports, D.visites, rentree);
   const bilan = bilanParCmi(toutes, hp, D.personnes);
   const plan = peutPlanifier(droits);
   const faites = toutes.filter(l => l.e.faite).length;
-  $('contenu').innerHTML = `
+  const avert = droits.L === 'Non' ? '<div class="alerte ko">Ton compte n\'a encore aucun droit sur la table <strong>Visites</strong> : Administration → Permissions → « Appliquer les droits par défaut » (pour le rôle IA-IPR), puis recharger.</div>'
+    : !plan ? '<div class="alerte">Lecture seule : ajouter des visites demande le droit « Créer » sur Visites (Administration → Permissions).</div>' : '';
+  $('contenu').innerHTML = `${avert}
     <div class="compteurs">
       <button data-etat="" class="${!filtre.etat ? 'actif' : ''}"><b>${toutes.length}</b><span>visites au plan</span></button>
       <button data-etat="faites" class="${filtre.etat === 'faites' ? 'actif' : ''}"><b>${faites}</b><span>effectuées</span></button>
@@ -168,7 +176,8 @@ function afficherSuivi() {
         : '<p class="vide">Aucune visite pour cette année.</p>'}
     </details>
     <div class="outils">
-      <select id="f-cmi"><option value="0">Tous les CMi</option>${cmis().map(p => `<option value="${p.id}" ${p.id === filtre.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select>
+      <select id="f-cmi"><option value="0">Tous les CMi</option>${moi && moi.Personne && mesCmi().length ? `<option value="mes" ${filtre.cmi === 'mes' ? 'selected' : ''}>Mes CMi (${mesCmi().length})</option>` : ''}
+        ${cmis().map(p => `<option value="${p.id}" ${p.id === filtre.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select>
       <input type="search" id="f-q" placeholder="Rechercher (nom, établissement, UAI, statut)…" value="${esc(filtre.q)}">
       ${plan ? '<button id="nouvelle" class="primary">+ Visite</button><button id="importer">Importer un plan</button>' : ''}
     </div>
@@ -215,7 +224,7 @@ function afficherMes() {
 
 // --- Saisie d'une visite (IA-IPR) ---
 function ouvrirSaisie(v) {
-  saisie = v ? { ...v } : { id: null, Professeur: 0, Prof_nom: '', Prof_prenom: '', UAI: '', Etab_nom: '', Statut_plan: '', CMi: filtre.cmi || 0,
+  saisie = v ? { ...v } : { id: null, Professeur: 0, Prof_nom: '', Prof_prenom: '', UAI: '', Etab_nom: '', Statut_plan: '', CMi: typeof filtre.cmi === 'number' ? filtre.cmi : 0,
     Mois_debut: null, Mois_fin: null, Visite_inspe: null, Date_prevue: null, Notes: '', Rapport: 0 };
   afficherSaisie();
   if (!$('dlg-visite').open) $('dlg-visite').showModal();
@@ -291,29 +300,46 @@ function afficherSaisie() {
 function ouvrirImport() {
   const annees = [rentree - 1, rentree, rentree + 1];
   $('imp-annee').innerHTML = annees.map(a => `<option value="${a}" ${a === rentree ? 'selected' : ''}>${libelleAnnee(a)}</option>`).join('');
-  $('imp-cmi').innerHTML = `<option value="0">— choisir —</option>${cmis().map(p => `<option value="${p.id}" ${p.id === filtre.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}`;
+  $('imp-cmi').innerHTML = `<option value="0">— selon la colonne CMi du tableau —</option>${cmis().map(p => `<option value="${p.id}" ${p.id === filtre.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}`;
+  $('imp-fichier').value = '';
   $('imp-apercu').innerHTML = ''; $('imp-ok').disabled = true; lotImport = null;
   $('dlg-import').showModal();
 }
 function analyserImport() {
   const cmi = Number($('imp-cmi').value) || 0;
-  if (!cmi) { toast('Choisir d\'abord le ou la CMi de ce lot.', true); return; }
   const lignes = lireTableauColle($('imp-texte').value);
-  if (!lignes.length) { $('imp-apercu').innerHTML = '<p class="vide">Rien à lire : coller les lignes du tableur.</p>'; return; }
+  if (!lignes.length) { $('imp-apercu').innerHTML = '<p class="vide">Rien à lire : coller les lignes du tableur ou choisir un fichier.</p>'; return; }
+  if (!cmi && !lignes.some(l => String(l.cmi || '').trim())) { toast('Pas de colonne CMi dans le tableau : choisir le ou la CMi de ce lot.', true); return; }
   lotImport = preparerImport(lignes, D, cmi, Number($('imp-annee').value));
   const n = lotImport.filter(x => x.champs).length;
-  $('imp-apercu').innerHTML = `<p class="petit">${n} visite(s) à ajouter pour <strong>${esc(nomFiche(personne(cmi)))}</strong>${lotImport.length - n ? `, ${lotImport.length - n} ignorée(s)` : ''}.</p>
-    <table class="apercu"><tr><th>#</th><th>Professeur·e</th><th>Établissement</th><th>Période</th><th>INSPE</th><th>Remarques</th></tr>
+  const fiches = fichesCmiACreer(lotImport);
+  const creer = droitsTable(moi, 'Personnes').C === 'Oui';
+  $('imp-apercu').innerHTML = `<p class="petit">${n} visite(s) à ajouter${lotImport.length - n ? `, ${lotImport.length - n} ignorée(s)` : ''}.
+      ${fiches.size ? (creer ? ` ${fiches.size} fiche(s) de CMi créée(s) dans l'annuaire (à compléter ensuite : référent·e, titre de signature).`
+        : ` <span class="ko">${fiches.size} CMi absent·e(s) de l'annuaire : à créer d'abord dans l'Annuaire (droit réservé aux administrateur·trices) ; leurs visites seront ignorées.</span>`) : ''}</p>
+    <table class="apercu"><tr><th>#</th><th>Professeur·e</th><th>CMi</th><th>Établissement</th><th>Période</th><th>INSPE</th><th>Remarques</th></tr>
     ${lotImport.map(x => { const c = x.champs || {}; return `<tr class="${x.ignoree ? 'ignoree' : ''}"><td>${esc(x.n)}</td>
-      <td>${x.prof ? '✔ ' : ''}${esc(x.libelle)}</td><td>${esc(c.Etab_nom || '')} <span class="muted">${esc(c.UAI || '')}</span></td>
+      <td>${x.prof ? '✔ ' : ''}${esc(x.libelle)}</td><td>${esc(x.cmi)}${x.nouvelleCmi ? ' <span class="al">(nouvelle fiche)</span>' : ''}</td><td>${esc(c.Etab_nom || '')} <span class="muted">${esc(c.UAI || '')}</span></td>
       <td>${esc(x.champs ? periode(c) : '')}</td><td>${esc(dateFr(c.Visite_inspe))}</td>
       <td>${x.ignoree ? `<span class="muted">${esc(x.ignoree)}</span>` : x.alertes.map(a => `<span class="al">${esc(a)}</span>`).join('<br>')}</td></tr>`; }).join('')}</table>`;
   $('imp-ok').disabled = !n;
   $('imp-ok').textContent = `Enregistrer ${n} visite${n > 1 ? 's' : ''}`;
 }
 async function enregistrerImport() {
-  const a = (lotImport || []).filter(x => x.champs).map(x => ['AddRecord', TABLE, null, x.champs]);
-  if (!a.length) return;
+  const lot = (lotImport || []).filter(x => x.champs);
+  // 1. Fiches des CMi à créer (si le droit le permet), 2. visites reliées à ces fiches.
+  const fiches = fichesCmiACreer(lot), creer = droitsTable(moi, 'Personnes').C === 'Oui';
+  /** @type {Map<number, number>} prof → id de la nouvelle fiche */
+  const ids = new Map();
+  if (fiches.size && creer) {
+    const cles = [...fiches.keys()];
+    const res = await ecrire(cles.map(k => ['AddRecord', 'Personnes', null, fiches.get(k)]), `${cles.length} fiche(s) de CMi créée(s)`);
+    if (!res) return;
+    cles.forEach((k, i) => ids.set(k, res.retValues && res.retValues[i]));
+  }
+  const a = lot.map(x => (x.nouvelleCmi ? (ids.get(x.nouvelleCmi.id) ? { ...x.champs, CMi: ids.get(x.nouvelleCmi.id) } : null) : x.champs))
+    .filter(c => c && c.CMi).map(c => ['AddRecord', TABLE, null, c]);
+  if (!a.length) { toast('Aucune visite à enregistrer.', true); return; }
   if (await ecrire(a, `${a.length} visite(s) ajoutée(s) au plan`, charger)) { lotImport = null; $('dlg-import').close(); }
 }
 
@@ -364,7 +390,7 @@ if (await initialiserGrist()) {
   });
   $('contenu').addEventListener('change', async e => {
     const t = e.target;
-    if (t.id === 'f-cmi') { filtre.cmi = Number(t.value) || 0; pref.ecrire('Cmi', String(filtre.cmi)); afficher(); return; }
+    if (t.id === 'f-cmi') { filtre.cmi = t.value === 'mes' ? 'mes' : Number(t.value) || 0; pref.ecrire('Cmi', String(filtre.cmi)); afficher(); return; }
     if (t.dataset.date) await ecrire([['UpdateRecord', TABLE, Number(t.dataset.date), { Date_prevue: isoVersGrist(t.value) }]], t.value ? 'Date calée' : 'Date retirée', charger);
     if (t.dataset.notes) await ecrire([['UpdateRecord', TABLE, Number(t.dataset.notes), { Notes: t.value.trim() }]], 'Notes enregistrées', charger);
   });
@@ -373,6 +399,14 @@ if (await initialiserGrist()) {
   $('f-visite').addEventListener('click', e => { const ra = e.target.closest('[data-rapport]'); if (ra) { $('dlg-visite').close(); saisie = null; ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); } });
   $('dlg-visite').addEventListener('close', () => { saisie = null; });
   $('imp-analyser').addEventListener('click', analyserImport);
+  $('imp-fichier').addEventListener('change', async () => {
+    const f = $('imp-fichier').files[0];
+    if (!f) return;
+    let t = await f.text();
+    if (/\uFFFD/.test(t)) t = new TextDecoder('windows-1252').decode(await f.arrayBuffer());   // CSV enregistré par Excel
+    $('imp-texte').value = t.replace(/^\uFEFF/, '');
+    analyserImport();
+  });
   $('imp-ok').addEventListener('click', enregistrerImport);
   $('imp-annuler').addEventListener('click', () => $('dlg-import').close());
   relectureReguliere(charger, occupe);
