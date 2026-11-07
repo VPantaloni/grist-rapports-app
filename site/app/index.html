@@ -51,7 +51,7 @@
 <dialog id="phrase" aria-labelledby="phrase-titre">
   <form method="dialog" id="phrase-form">
     <h2 id="phrase-titre">Révéler les données chiffrées</h2>
-    <p>Saisis la phrase secrète de l'application. Les données restent révélées dans cet onglet, jusqu'à 5 minutes sans
+    <p>Saisis la phrase secrète de l'application. Les données restent révélées dans cet onglet, jusqu'à 6 heures sans
       activité ou jusqu'à « Masquer ».</p>
     <input type="password" id="phrase-saisie" autocomplete="off" spellcheck="false" aria-label="Phrase secrète">
     <ul class="erreurs" id="phrase-erreur" hidden></ul>
@@ -169,7 +169,7 @@ function afficherMenu() {
 }
 
 // --- Chiffrement (SPEC § 5.8) : le conteneur tient la clé et la donne aux écrans (état partagé ETAT_CLE) ---
-// Révélée pour l'onglet jusqu'à 5 minutes sans activité (clic ou frappe, ici ou dans un écran) ou « Masquer » ; gardée
+// Révélée pour l'onglet jusqu'à 6 heures sans activité (clic ou frappe, ici ou dans un écran) ou « Masquer » ; gardée
 // pour l'onglet (IndexedDB) seulement pour survivre à un rechargement. La phrase n'est jamais gardée.
 // Icônes Lucide « lock » et « lock-open » (https://lucide.dev, licence ISC)
 const IC_FERME = '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
@@ -178,7 +178,7 @@ let ligneChiffre = null, cleActive = null, derniereActivite = 0, dernierProlonge
 function boutonCadenas() {
   if (!CHIFFREMENT || !ligneChiffre || !entrees.length) return '';
   return cleActive
-    ? `<button class="cadenas ouvert" id="cadenas" title="Données révélées dans cet onglet : cliquer pour les masquer (automatique après 5 minutes sans activité)">
+    ? `<button class="cadenas ouvert" id="cadenas" title="Données révélées dans cet onglet : cliquer pour les masquer (automatique après 6 heures sans activité)">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC_OUVERT}</svg><span>Masquer</span></button>`
     : `<button class="cadenas" id="cadenas" title="Saisir la phrase secrète pour révéler les données chiffrées">
         <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC_FERME}</svg><span>Révéler</span></button>`;
@@ -328,7 +328,7 @@ if (await initialiserGrist()) {
   $('phrase-form').addEventListener('submit', e => { e.preventDefault(); validerPhrase(); });
   $('phrase-annuler').addEventListener('click', () => $('phrase').close());
   suivreActivite(document);
-  setInterval(() => { if (cleActive && Date.now() - derniereActivite > DUREE_MS) masquer('Données masquées après 5 minutes sans activité.'); }, 10000);
+  setInterval(() => { if (cleActive && Date.now() - derniereActivite > DUREE_MS) masquer('Données masquées après 6 heures sans activité.'); }, 10000);
   hote.suivreEtat(window, ETAT_CLE, async cle => {
     cleActive = cle;
     derniereActivite = dernierProlongement = Date.now();

@@ -200,7 +200,7 @@
             dans Grist, ils sont illisibles pour tout le monde, propriétaires compris, sans la phrase.</li>
           <li>La phrase n'est <strong>jamais</strong> envoyée ni gardée. <strong>Phrase perdue = données perdues</strong> :
             la noter dans un lieu sûr (gestionnaire de mots de passe), et garder les fichiers d'origine.</li>
-          <li>Révélées, les données restent visibles dans l'onglet jusqu'à 5 minutes sans activité, ou « Masquer ».</li>
+          <li>Révélées, les données restent visibles dans l'onglet jusqu'à 6 heures sans activité, ou « Masquer ».</li>
           <li>Changer la phrase rechiffre tout, mais l'<strong>historique</strong> de Grist et les anciennes copies .grist
             restent lisibles avec l'ancienne : en cas de fuite de la phrase, repartir d'un document neuf (Export, nouvelle
             phrase, Import).</li>
@@ -1256,7 +1256,7 @@ if (await initialiserGrist()) {
       else if (t.id === 'chi-enclair') chiffrerEnClair();
     });
     $('chi-etat').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'chi-phrase') revelerIci(); });
-    // Clé changée par le conteneur (Révéler, Masquer, 5 minutes sans activité) : relire, redessiner.
+    // Clé changée par le conteneur (Révéler, Masquer, 6 heures sans activité) : relire, redessiner.
     suivreCle(k => { cle = k; cacheChiffre.clear(); charger(); });
   }
   if (EXPORT) {

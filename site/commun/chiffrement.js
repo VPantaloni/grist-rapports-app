@@ -26,8 +26,8 @@ export const COLONNES_CHIFFREMENT = [
 ];
 // Date de création ou du dernier changement de la phrase (rien de secret).
 export const COLONNE_MODIFIE = { id: 'Modifie', type: 'Date' };
-// Révélation : 5 minutes sans activité (clic ou frappe), puis tout repasse en masqué.
-export const DUREE_MS = 5 * 60 * 1000;
+// Révélation : 6 heures sans activité (clic ou frappe), puis tout repasse en masqué.
+export const DUREE_MS = 6 * 60 * 60 * 1000;   // 6 heures (APP § 11, 2026-11-07 ; 5 minutes dans le kit)
 
 // --- Outils ---
 export const cryptoDisponible = () => !!(globalThis.crypto && globalThis.crypto.subtle && globalThis.crypto.getRandomValues);
@@ -367,7 +367,7 @@ export async function actionsRechiffrement(ancienne, nouvelle, o) {
     ['UpdateRecord', TABLE_CHIFFREMENT, o.ligne.id, { ...o.params, Verificateur: o.verificateur, [COLONNE_MODIFIE.id]: dateGrist(o.aujourdhui) }]];
 }
 
-// --- Clé gardée pour l'onglet (survit à un rechargement, 5 minutes sans activité) ---
+// --- Clé gardée pour l'onglet (survit à un rechargement, 6 heures sans activité) ---
 // La clé (CryptoKey non exportable) est rangée dans IndexedDB, liée à l'onglet par un identifiant au hasard gardé dans
 // sessionStorage : un autre onglet ou navigateur ne la trouve pas. La phrase n'est jamais gardée.
 // env = { base, session, maintenant } : remplaçable (tests).
@@ -425,7 +425,7 @@ export async function rangerCle(cle, ligne, env) {
   return echeance;
 }
 // Clé gardée pour cet onglet et cette phrase → { cle, echeance }, ou null (absente, échue — alors effacée —, autre
-// phrase). prolonger : l'échéance repart pour 5 minutes (activité).
+// phrase). prolonger : l'échéance repart pour 6 heures (activité).
 /** @param {LigneChiffrement | null} ligne @param {Partial<EnvCles>} [env] @param {boolean} [prolonger] */
 export async function reprendreCle(ligne, env, prolonger = false) {
   const e = envCle(env), id = e.session.lire();
@@ -450,7 +450,7 @@ export async function nettoyerCles(env) {
 }
 
 // --- Clé partagée entre les écrans (état du conteneur app/, SPEC § 6.2) ---
-// Le conteneur tient la clé (Révéler / Masquer, 5 minutes sans activité) ; chaque écran la lit et suit ses changements.
+// Le conteneur tient la clé (Révéler / Masquer, 6 heures sans activité) ; chaque écran la lit et suit ses changements.
 // Hors conteneur (page seule), la clé gardée pour l'onglet est reprise au démarrage (cleAuDemarrage).
 export const ETAT_CLE = 'chiffrement';
 /** @returns {CryptoKey | null} */
