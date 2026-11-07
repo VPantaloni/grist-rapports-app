@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Modèles & phrases pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  #onglets { display: flex; gap: 2px; padding: 4px 44px 0 8px; border-bottom: 1px solid var(--border); background: var(--bg2); flex: none; overflow-x: auto; }
+  #onglets button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 7px 12px; white-space: nowrap; }
+  #onglets button.actif { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #aide { position: absolute; top: 5px; right: 10px; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center;
+    justify-content: center; text-decoration: none; color: var(--fg); background: var(--bg); border: 1px solid var(--border); z-index: 3; }
+  #aide:hover { border-color: var(--accent); color: var(--accent); }
+  #app { flex: 1; display: flex; min-height: 0; }
+  #menu { width: 330px; flex: none; border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .outils { padding: 8px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
+  .outils .ligne { display: flex; gap: 6px; } .outils input, .outils select { flex: 1; min-width: 0; }
+  #liste { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
+  #liste li { padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; border-left: 3px solid transparent; }
+  #liste li:hover { background: var(--bg2); } #liste li.sel { background: var(--sel); border-left-color: var(--accent); }
+  #liste li .det { display: block; font-size: 12px; color: var(--muted); }
+  #liste li.a-valider { border-left-color: var(--warn); }
+  #fiche { flex: 1; overflow-y: auto; padding: 14px 16px; min-width: 0; }
+  #fiche h1 { font-size: 18px; margin: 0 0 4px; }
+  .note { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  .champ textarea { min-height: 70px; width: 100%; }
+  .cases label { margin-right: 12px; white-space: nowrap; }
+  @media (max-width: 640px) { body.plein-ecran { overflow: auto; height: auto; } #app { flex-direction: column; }
+    #menu { width: auto; border-right: none; } #liste { max-height: 40vh; } }
+</style>
+</head>
+<body class="plein-ecran" style="position:relative">
+<div id="msg">Chargement…</div>
+<a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide : mode d'emploi de l'écran Modèles & phrases">?</a>
+<nav id="onglets" hidden></nav>
+<div id="app" hidden>
+  <aside id="menu">
+    <div class="outils">
+      <div class="ligne"><button id="nouveau" class="primary">+ Ajouter</button><button id="lot" hidden title="Coller plusieurs phrases d'un coup">Coller un lot…</button></div>
+      <div class="ligne"><input id="recherche" type="search" placeholder="Rechercher…"><button id="recharger" title="Relire les tables">↻</button></div>
+      <div class="ligne" id="filtres-phrases" hidden>
+        <select id="f-rubrique"><option value="">Toutes les rubriques</option></select>
+        <select id="f-competence" style="max-width:80px"><option value="">P…</option></select>
+      </div>
+      <label class="petit" id="f-valider-l" hidden><input type="checkbox" id="f-valider"> seulement les phrases à valider</label>
+    </div>
+    <ul id="liste"></ul>
+  </aside>
+  <main id="fiche"></main>
+</div>
+
+<script type="module">
+import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { identifierMoi, droitsTable } from '../commun/droits.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
+import { liste } from '../commun/donnees.js';
+import { ONGLETS, COMPETENCES, onglet, trier, filtrerPhrases, versGrist, valider, ordreSuivant, lirePhrasesCollees,
+  peutModifier, peutSupprimer, peutCreer, peutValider } from './logique.js';
+
+const pref = preferences('Modeles');
+const T = {};                     // table → lignes
+const COLS = {};                  // table → colonnes présentes dans Grist
+let moi = null, cle = pref.lire('Onglet', 'rubriques'), sel = 0, f = null, lot = false;
+const O = () => onglet(cle);
+const droits = () => droitsTable(moi, O().table);
+const lignes = () => T[O().table] || [];
+const affiche = (table, col, id) => { const l = (T[table] || []).find(x => x.id === id); return l ? String(l[col] ?? '') : ''; };
+
+function afficherOnglets() {
+  $('onglets').hidden = false;
+  $('onglets').innerHTML = ONGLETS.map(o => `<button data-onglet="${o.cle}" class="${o.cle === cle ? 'actif' : ''}">${esc(o.libelle)}${o.cle === 'phrases'
+    ? ` <span class="muted">(${filtrerPhrases(T.Phrases || [], { aValider: true }).length} à valider)</span>` : ''}</button>`).join('');
+}
+
+function afficherListe() {
+  const o = O(), ph = o.cle === 'phrases';
+  $('filtres-phrases').hidden = !ph; $('f-valider-l').hidden = !ph; $('lot').hidden = !ph;
+  let l = trier(o, lignes(), $('recherche').value);
+  if (ph) l = filtrerPhrases(l, { rubrique: Number($('f-rubrique').value) || 0, competence: $('f-competence').value, aValider: $('f-valider').checked });
+  $('liste').innerHTML = l.length ? l.map(x => `<li data-id="${x.id}" class="${x.id === sel ? 'sel' : ''} ${ph && x.Validee !== true ? 'a-valider' : ''}">${esc(o.titre(x))}
+    ${o.detail ? `<span class="det">${esc(o.detail(x))}${ph ? ' · ' + esc(affiche('Rubriques', 'Titre', x.Rubrique)) : ''}</span>` : ''}</li>`).join('')
+    : '<li class="vide" style="cursor:default">Aucune ligne.</li>';
+  const ok = peutCreer(droits(), moi);
+  $('nouveau').classList.toggle('inactif', !ok); $('lot').classList.toggle('inactif', !ok);
+  $('nouveau').title = ok ? 'Ajouter une ligne' : 'Réservé (droits de l\'Administration → Permissions)';
+}
+
+function champ(c, v, actif) {
+  const dis = actif ? '' : 'disabled';
+  const tete = `<span>${esc(c.lib)}${c.obligatoire ? ' *' : ''}</span>`;
+  const aide = c.aide ? `<div class="petit muted">${esc(c.aide)}</div>` : '';
+  if (c.type === 'long') return `<label class="champ">${tete}<textarea data-c="${c.id}" rows="${c.id === 'Valeur' || c.id === 'Texte' ? 5 : 3}" ${dis}>${esc(v ?? '')}</textarea>${aide}</label>`;
+  if (c.type === 'case') return `<label class="champ"><input type="checkbox" data-c="${c.id}" ${v ? 'checked' : ''} ${dis}> ${esc(c.lib)}${aide}</label>`;
+  if (c.type === 'choix') return `<label class="champ">${tete}<select data-c="${c.id}" ${dis}>${c.choix.map(x => `<option value="${esc(x)}" ${x === (v ?? '') ? 'selected' : ''}>${esc(x || '—')}</option>`).join('')}</select>${aide}</label>`;
+  if (c.type === 'ref') return `<label class="champ">${tete}<select data-c="${c.id}" ${dis}><option value="0">—</option>${trier(onglet('rubriques'), T[c.cible] || [])
+    .map(x => `<option value="${x.id}" ${x.id === v ? 'selected' : ''}>${esc(x[c.affichee])}</option>`).join('')}</select>${aide}</label>`;
+  if (c.type === 'refs') return `<div class="champ">${tete}<div class="cases">${(T[c.cible] || []).map(x => `<label><input type="checkbox" data-refs="${c.id}" value="${x.id}"
+    ${liste(v).includes(x.id) ? 'checked' : ''} ${dis}> ${esc(x[c.affichee])}</label>`).join('')}</div>${aide}</div>`;
+  return `<label class="champ">${tete}<input type="text" data-c="${c.id}" value="${esc(v ?? '')}" ${dis}>${aide}</label>`;
+}
+
+function afficherFiche() {
+  const o = O();
+  if (lot) return afficherLot();
+  const l = f && f.id === null ? f : lignes().find(x => x.id === sel);
+  if (!l) { $('fiche').innerHTML = `<h1>${esc(o.libelle)}</h1><p class="note">${esc(o.aide)}</p><p class="vide">Choisis une ligne dans la liste, ou « + Ajouter ».</p>`; return; }
+  const d = droits(), nouveau = l.id === null;
+  const actif = nouveau || peutModifier(o.table, d, moi, l);
+  const cols = o.colonnes.filter(c => !c.facultative || (COLS[o.table] || []).includes(c.id));
+  f = { ...(f && f.id === l.id ? f : l) };
+  $('fiche').innerHTML = `<h1>${nouveau ? 'Nouvelle ligne' : esc(o.titre(l))}</h1><p class="note">${esc(o.aide)}</p>
+    ${o.cle === 'phrases' && !nouveau ? `<p class="petit muted">Auteur·e : ${esc(affiche('Personnes', 'Nom_complet', l.Auteur) || '—')}</p>` : ''}
+    ${cols.map(c => champ(c, f[c.id], actif && !(c.validation && !peutValider(d)))).join('')}
+    ${o.colonnes.some(c => c.facultative && !(COLS[o.table] || []).includes(c.id)) ? '<p class="petit muted">Colonne « Titre_imprime » absente de Rubriques : l\'écran Installer (« Créer la structure ») l\'ajoute. En attendant, seul « Bilan par compétence » a son titre imprimé.</p>' : ''}
+    <ul class="erreurs" id="erreurs"></ul>
+    <div class="actions">${actif ? '<button id="ok" class="primary">Enregistrer</button>' : '<span class="muted">Lecture seule.</span>'}
+      ${nouveau ? '<button id="annuler">Annuler</button>' : peutSupprimer(o.table, d, moi, l) ? '<button id="suppr" class="danger" title="Double clic">Supprimer</button>' : ''}</div>`;
+  if ($('annuler')) $('annuler').addEventListener('click', () => { f = null; afficherFiche(); });
+  if ($('suppr')) boutonConfirmation($('suppr'), 'Confirmer la suppression', async () => {
+    if (await ecrire([['RemoveRecord', o.table, l.id]], 'Supprimé', charger)) { sel = 0; f = null; afficherListe(); afficherFiche(); }
+  });
+  if ($('ok')) $('ok').addEventListener('click', () => enregistrer(cols));
+}
+
+function lireFormulaire(cols) {
+  for (const c of cols) {
+    if (c.type === 'refs') { f[c.id] = [...$('fiche').querySelectorAll(`[data-refs="${c.id}"]`)].filter(x => x.checked).map(x => Number(x.value)); continue; }
+    const e = $('fiche').querySelector(`[data-c="${c.id}"]`);
+    if (e) f[c.id] = c.type === 'case' ? e.checked : c.type === 'ref' ? Number(e.value) : e.value;
+  }
+}
+async function enregistrer(cols) {
+  const o = O();
+  lireFormulaire(cols);
+  const err = valider(o, f, lignes(), f.id);
+  $('erreurs').innerHTML = err.map(e => `<li>${esc(e)}</li>`).join('');
+  if (err.length) return;
+  const v = versGrist(o, f, COLS[o.table] || []);
+  if (o.cle === 'phrases' && !peutValider(droits())) v.Validee = false;
+  if (f.id) { if (await ecrire([['UpdateRecord', o.table, f.id, v]], 'Enregistré', charger)) { f = null; afficherListe(); afficherFiche(); } return; }
+  if (o.cle === 'phrases') v.Auteur = (moi && moi.Personne) || 0;
+  const res = await ecrire([['AddRecord', o.table, null, v]], 'Ajouté');
+  if (!res) return;
+  sel = (res.retValues && res.retValues[0]) || 0; f = null;
+  await charger(); afficherListe(); afficherFiche();
+}
+
+// Lot de phrases collées : une par ligne, dans une rubrique, avec une nature et une compétence communes.
+function afficherLot() {
+  $('fiche').innerHTML = `<h1>Coller un lot de phrases</h1>
+    <p class="note">Une phrase par ligne (puces et numéros retirés). Les phrases déjà présentes et les doublons sont ignorés. ${peutValider(droits()) ? '' : 'Elles seront « à valider » par un·e IA-IPR.'}</p>
+    ${champ(onglet('phrases').colonnes[1], Number($('f-rubrique').value) || 0, true)}
+    ${champ(onglet('phrases').colonnes[2], $('f-competence').value, true)}${champ(onglet('phrases').colonnes[3], '', true)}
+    <label class="champ"><span>Phrases</span><textarea id="lot-texte" rows="10"></textarea></label>
+    <p class="petit" id="lot-compte"></p><ul class="erreurs" id="erreurs"></ul>
+    <div class="actions"><button id="lot-ok" class="primary">Ajouter</button><button id="lot-annuler">Annuler</button></div>`;
+  const compter = () => { $('lot-compte').textContent = `${lirePhrasesCollees($('lot-texte').value, T.Phrases || []).length} phrase(s) nouvelle(s).`; };
+  $('lot-texte').addEventListener('input', compter);
+  $('lot-annuler').addEventListener('click', () => { lot = false; afficherFiche(); });
+  $('lot-ok').addEventListener('click', async () => {
+    const rub = Number($('fiche').querySelector('[data-c="Rubrique"]').value);
+    const p = lirePhrasesCollees($('lot-texte').value, T.Phrases || []);
+    if (!rub || !p.length) { $('erreurs').innerHTML = '<li>Choisir la rubrique et coller au moins une phrase nouvelle.</li>'; return; }
+    const comp = $('fiche').querySelector('[data-c="Competence"]').value, nat = $('fiche').querySelector('[data-c="Nature"]').value;
+    let ordre = ordreSuivant(T.Phrases || []);
+    const n = p.length, valide = peutValider(droits()), auteur = (moi && moi.Personne) || 0;
+    const champs = { Texte: p, Rubrique: p.map(() => rub), Competence: p.map(() => comp), Nature: p.map(() => nat),
+      Validee: p.map(() => valide), Auteur: p.map(() => auteur), Ordre: p.map(() => { const x = ordre; ordre += 10; return x; }) };
+    if (await ecrire([['BulkAddRecord', 'Phrases', p.map(() => null), champs]], `${n} phrase(s) ajoutée(s)`, charger)) { lot = false; afficherListe(); afficherFiche(); }
+  });
+  compter();
+}
+
+function remplirFiltres() {
+  const r = $('f-rubrique'), v = r.value;
+  r.innerHTML = '<option value="">Toutes les rubriques</option>' + trier(onglet('rubriques'), T.Rubriques || []).map(x => `<option value="${x.id}">${esc(x.Titre)}</option>`).join('');
+  r.value = v;
+  if ($('f-competence').options.length === 1) $('f-competence').innerHTML += COMPETENCES.map(c => `<option>${c}</option>`).join('');
+}
+
+const change = detecteurChangement();
+// Saisie en cours : nouvelle ligne, lot, ou curseur dans un champ de la fiche.
+const occupe = () => lot || (!!f && f.id === null)
+  || (!!document.activeElement && $('fiche').contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+const charger = sansChevauchement(async () => {
+  const noms = ['Rubriques', 'Phrases', 'Types_rapport', 'Competences_MD', 'Parametres', 'Personnes', 'Utilisateurs', '_grist_Tables_column', '_grist_Tables'];
+  const lus = Object.fromEntries(noms.map((n, i) => [n, null]));
+  const r = await Promise.all(noms.map(lireTable));
+  noms.forEach((n, i) => { lus[n] = r[i]; T[n] = r[i].lignes || []; });
+  if (lus.Rubriques.erreur) { message(`Impossible de lire la table Rubriques : ${lus.Rubriques.erreur}`, true); $('app').hidden = true; return; }
+  // Colonnes présentes (colonne facultative Titre_imprime) : d'après les lignes lues, sinon les métadonnées.
+  for (const o of ONGLETS) {
+    const t = (T._grist_Tables || []).find(x => x.tableId === o.table);
+    const meta = t ? (T._grist_Tables_column || []).filter(c => c.parentId === t.id).map(c => c.colId) : [];
+    COLS[o.table] = [...new Set([...meta, ...Object.keys((T[o.table] || [])[0] || {})])];
+  }
+  moi = identifierMoi(T.Utilisateurs).moi;
+  if (!change([r.slice(0, 6).map(x => x.lignes), sel, cle]) && !$('app').hidden) return;
+  message(''); $('app').hidden = false;
+  remplirFiltres(); afficherOnglets(); afficherListe();
+  if (!occupe()) { f = null; afficherFiche(); }
+});
+
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  grist.onRecords(regrouper(charger));
+  installerBulles();
+  $('onglets').addEventListener('click', e => {
+    const b = e.target.closest('[data-onglet]');
+    if (!b) return;
+    cle = b.dataset.onglet; pref.ecrire('Onglet', cle); sel = 0; f = null; lot = false; $('recherche').value = '';
+    afficherOnglets(); afficherListe(); afficherFiche();
+  });
+  for (const id of ['recherche', 'f-rubrique', 'f-competence', 'f-valider']) $(id).addEventListener(id === 'recherche' ? 'input' : 'change', afficherListe);
+  $('recharger').addEventListener('click', () => relireSansCache(charger));
+  $('liste').addEventListener('click', e => {
+    const li = e.target.closest('li[data-id]');
+    if (!li) return;
+    sel = Number(li.dataset.id); f = null; lot = false; afficherListe(); afficherFiche();
+  });
+  $('nouveau').addEventListener('click', () => {
+    if ($('nouveau').classList.contains('inactif')) { toast($('nouveau').title + '.', true); return; }
+    const o = O();
+    f = { id: null, Ordre: ordreSuivant(lignes()) };
+    for (const c of o.colonnes) if (!(c.id in f)) f[c.id] = c.type === 'refs' ? [] : c.type === 'case' ? (c.id === 'Imprimee') : c.type === 'choix' ? c.choix[0] : '';
+    if (o.cle === 'phrases') { f.Rubrique = Number($('f-rubrique').value) || 0; f.Competence = $('f-competence').value; f.Validee = peutValider(droits()); }
+    if (o.cle === 'rubriques') f.Types = (T.Types_rapport || []).map(t => t.id);
+    lot = false; afficherFiche();
+  });
+  $('lot').addEventListener('click', () => { if (!$('lot').classList.contains('inactif')) { lot = true; f = null; afficherFiche(); } });
+  relectureReguliere(charger, occupe);
+  await charger();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Aide de l'écran Modèles & phrases</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 6px; color: var(--accent); }
+  ol, ul { padding-left: 22px; } li { margin-bottom: 4px; }
+  .etapes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .etapes span { padding: 2px 10px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
+  kbd { font: 12px monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg2); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Écran Modèles & phrases — mode d'emploi</h1>
+  <p class="muted">Tout ce qui façonne les rapports, modifiable sans toucher au code. Les IA-IPR et les administrateur·trices modifient ; les CMi consultent et proposent des phrases.</p>
+  <h2>Rubriques</h2>
+  <ul>
+    <li>Une ligne par rubrique du rapport, dans l'<strong>ordre</strong> (10, 20, 30…). Cocher les <strong>types de rapport</strong> concernés.</li>
+    <li><strong>Consigne</strong> : l'aide affichée au-dessus de la zone de rédaction (l'ancien texte rouge du modèle Word) ; jamais imprimée.</li>
+    <li><strong>Texte de départ</strong> : proposé à la création d'un rapport ; <code>{civilite}</code>, <code>{nom}</code>, <code>{prenom}</code> sont remplacés.</li>
+    <li><strong>Forme « Puces »</strong> : une ligne = une puce. <strong>Titre imprimé</strong> : le titre apparaît en gras dans le rapport (par défaut, seul « Bilan par compétence »).</li>
+    <li>Un rapport <strong>garde les rubriques de sa création</strong> : modifier ou supprimer une rubrique ne change pas les rapports existants. Ne pas changer le <strong>code</strong> d'une rubrique déjà utilisée.</li>
+  </ul>
+  <h2>Phrases types</h2>
+  <ul>
+    <li>Proposées dans le panneau de droite de la rédaction, pour la rubrique (et la compétence P1 à P5) où l'on écrit.</li>
+    <li><strong>Coller un lot…</strong> : une phrase par ligne, d'un coup (les doublons sont ignorés).</li>
+    <li>Une phrase ajoutée par un·e CMi est <strong>à valider</strong> (liseré orange) : elle n'est visible que de son auteur·e jusqu'à ce qu'un·e IA-IPR coche « Validée ».</li>
+  </ul>
+  <h2>Types de rapport, grille MD, paramètres</h2>
+  <ul>
+    <li><strong>Types</strong> : libellé et titre imprimé ; « Positionnement MD » ajoute l'onglet de positionnement. Les codes CLASSIQUE, PSTG et MD sont reconnus pour le type proposé d'office.</li>
+    <li><strong>Grille MD</strong> : les compétences du positionnement ; les niveaux sont dans le paramètre <code>echelle_md</code> (séparés par « ; »).</li>
+    <li><strong>Paramètres</strong> : <code>discipline</code>, <code>entete</code> (lignes de l'en-tête), <code>secretariat</code> (destinataire), <code>mail_objet</code> et <code>mail_texte</code> (champs <code>{etablissement}</code>, <code>{professeur}</code>, <code>{auteur}</code>, <code>{date}</code>). Les IA-IPR en copie des rapports de stagiaires se règlent dans l'<strong>Annuaire</strong>.</li>
+  </ul>
+</main>
+</body>
+</html>
