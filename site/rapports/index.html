@@ -101,7 +101,7 @@
     <div class="outils">
       <button id="nouveau" class="primary">+ Nouveau rapport</button>
       <div class="ligne">
-        <input id="recherche" type="search" placeholder="Rechercher (professeur·e, établissement, thème)…">
+        <input id="recherche" type="search" placeholder="Filtrer les rapports existants…" title="Filtre la liste des rapports déjà créés (professeur·e, établissement, thème). Pour en créer un : + Nouveau rapport">
         <button id="recharger" title="Relire les tables">↻</button>
       </div>
       <select id="filtre" title="Rapports affichés">
@@ -208,10 +208,22 @@ function afficherListe() {
         <span class="nom">${esc([x.Prof_nom, x.Prof_prenom].filter(Boolean).join(' ') || 'Sans nom')}</span>
         <span class="det">${esc(dateFr(x.Date_visite))} · ${esc(typeDe(x).Code || '')} · ${esc(x.Etab_nom || '')} · ${esc((personne(x.Auteur) || {}).Initiales || '')}</span></li>`).join('')}</ul></div>`;
   }).join('') : '<p class="vide">Aucun rapport.</p>';
-  const ok = peutCreer(droits, moi) || (estAdmin(moi) && droits.C === 'Oui');
-  $('nouveau').hidden = droits.C === 'Non';
-  $('nouveau').classList.toggle('inactif', !ok || masque());
-  $('nouveau').title = !ok ? 'Création réservée aux CMi et IA-IPR (fiche liée à ton compte)' : masque() ? TIP_MASQUE : 'Créer un rapport';
+  // Toujours visible : inactif, il dit pourquoi (info-bulle, et message au clic).
+  const pb = pourquoiPasCreer();
+  $('nouveau').classList.toggle('inactif', !!pb);
+  $('nouveau').title = pb || 'Créer un rapport';
+}
+
+// Pourquoi ne puis-je pas créer de rapport ? '' = je peux.
+function pourquoiPasCreer() {
+  if (!moi) return 'Compte non reconnu : ton e-mail Grist doit figurer, actif, dans la table Utilisateurs (Administration → Mon compte pour vérifier)';
+  if (!peutCreer(droits, moi)) return droits.C === 'Limité'
+    ? 'Ton compte n\'est relié à aucune fiche de l\'annuaire : renseigner la colonne Personne de ta ligne Utilisateurs'
+    : 'Ton rôle ne permet pas de créer de rapport (matrice Permissions, table Rapports, colonne Créer)';
+  if (masque()) return TIP_MASQUE;
+  if (!D.profs.length) return 'Aucun·e professeur·e : importer le fichier académique (Administration → Import)';
+  if (!moiPers() && !D.personnes.some(x => x.Fonction === 'CMi')) return 'Aucune fiche CMi dans la table Personnes, et ton compte n\'est relié à aucune fiche : ajouter les fiches (CMi, IA-IPR) puis relier ta ligne Utilisateurs';
+  return '';
 }
 
 // --- Création ---
@@ -314,7 +326,16 @@ async function creer() {
 function afficherFiche() {
   if (creation) return afficherCreation();
   const r = rapportSel();
-  if (!r) { $('phrases').hidden = true; $('fiche').innerHTML = '<p class="vide">Choisis un rapport dans la liste, ou crée-en un.</p>'; return; }
+  if (!r) {
+    $('phrases').hidden = true;
+    const pb = pourquoiPasCreer();
+    $('fiche').innerHTML = `<div class="entete"><h1>Rapports de visite<span class="sous">${D.rapports.length
+      ? 'Choisis un rapport dans la liste de gauche, ou crée-en un nouveau.' : 'Aucun rapport pour l\'instant.'}</span></h1></div>
+      ${pb ? `<div class="alerte">${esc(pb)}.</div>` : ''}
+      <button id="creer-vide" class="primary ${pb ? 'inactif' : ''}" title="${esc(pb || 'Choisir un·e professeur·e ou un établissement, puis compléter l\'en-tête')}">+ Nouveau rapport</button>`;
+    $('creer-vide').addEventListener('click', () => $('nouveau').click());
+    return;
+  }
   const t = typeDe(r);
   const redige = peutRediger(droits, moi, r) && !masque();
   const relit = peutRelire(droits, moi, r) && !masque();
