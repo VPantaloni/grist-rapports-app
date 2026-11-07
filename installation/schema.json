@@ -326,6 +326,12 @@
           "id": "Imprimee",
           "libelle": "Imprimée",
           "type": "Bool"
+        },
+        {
+          "id": "Titre_imprime",
+          "libelle": "Titre imprimé",
+          "type": "Bool",
+          "role": "titre de la rubrique imprimé dans le rapport (en gras) ; sinon, seul son texte est imprimé"
         }
       ]
     },

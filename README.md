@@ -119,6 +119,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Consigne` | Texte | aide à la rédaction (texte rouge du modèle) : affichée, jamais imprimée |
 | `Texte_depart` | Texte | texte proposé à la création du rapport |
 | `Imprimee` | Booléen | Imprimée |
+| `Titre_imprime` | Booléen | titre de la rubrique imprimé dans le rapport (en gras) ; sinon, seul son texte est imprimé |
 
 #### `Phrases` — bibliothèque de phrases types (aide à la rédaction)
 

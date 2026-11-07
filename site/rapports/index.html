@@ -370,9 +370,12 @@ function afficherFiche() {
     <div class="onglets">
       <button data-onglet="redaction" class="${onglet === 'redaction' ? 'actif' : ''}">Rédaction</button>
       ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences : jamais imprimé dans le rapport">Positionnement MD</button>` : ''}
+      <button data-onglet="apercu" class="${onglet === 'apercu' ? 'actif' : ''}" title="Le rapport mis en page, comme imprimé ; ${redige ? 'texte modifiable sur place' : 'lecture seule'}">Aperçu${redige ? ' et retouches' : ''}</button>
       <button data-onglet="historique" class="${onglet === 'historique' ? 'actif' : ''}">Historique</button>
     </div>
-    <div id="corps">${onglet === 'md' ? corpsMd(r, redige) : onglet === 'historique' ? corpsHistorique(r) : structure.map(x => `
+    <div id="corps">${onglet === 'apercu' ? `<p class="muted petit">${redige ? 'Clique dans un paragraphe pour le corriger : la modification est enregistrée et reprise dans l\'onglet Rédaction. Les titres non imprimés apparaissent au survol.' : 'Lecture seule.'}</p>
+      <iframe id="apercu" title="Aperçu du rapport" style="width:100%;height:75vh;border:1px solid var(--border);border-radius:6px;background:#fff"></iframe>`
+      : onglet === 'md' ? corpsMd(r, redige) : onglet === 'historique' ? corpsHistorique(r) : structure.map(x => `
       <div class="rubrique" data-rubrique="${esc(x.code)}">
         <h3>${esc(x.titre)} ${x.forme === 'Puces' ? '<span class="forme">(une ligne = une puce)</span>' : ''}${x.imprimee === false ? '<span class="forme">(non imprimée)</span>' : ''}</h3>
         ${consigne(x.code) && redige ? `<details class="consigne"><summary>Consigne</summary><p>${esc(consigne(x.code))}</p></details>` : ''}
@@ -425,8 +428,33 @@ function boutons(r) {
   return b.join('');
 }
 
+// Aperçu : la page d'impression en mode modifiable, dans un cadre (même origine : srcdoc) ; chaque frappe met à jour le
+// rapport (Contenu, Theme) comme dans l'onglet Rédaction.
+function brancherApercu(r, redige) {
+  const f = $('apercu');
+  if (!f) return;
+  f.addEventListener('load', () => {
+    const doc = f.contentDocument;
+    if (!doc) return;
+    if (!redige) doc.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+    doc.addEventListener('input', e => {
+      const el = e.target.closest && e.target.closest('[data-texte], [data-champ]');
+      if (!el) return;
+      const texte = el.innerText.replace(/\n$/, '');
+      if (el.dataset.champ) { r[el.dataset.champ] = texte; noter(r.id, { [el.dataset.champ]: texte }); return; }
+      const o = lireObjet(r.Contenu); o[el.dataset.texte] = texte;
+      r.Contenu = JSON.stringify(o);
+      noter(r.id, { Contenu: r.Contenu });
+    });
+    doc.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); envoyer(); } });
+    doc.addEventListener('focusout', () => envoyer());
+  });
+  f.srcdoc = htmlImpression(r, contexte(r), { editable: redige });
+}
+
 function brancherFiche(r) {
   const fiche = $('fiche');
+  brancherApercu(r, peutRediger(droits, moi, r) && !masque());
   fiche.querySelectorAll('[data-onglet]').forEach(b => b.addEventListener('click', async () => { await envoyer(); onglet = b.dataset.onglet; afficherFiche(); }));
   fiche.querySelectorAll('[data-champ]').forEach(i => i.addEventListener('input', () => {
     const c = i.dataset.champ;
@@ -610,7 +638,7 @@ function preparerMail(r) {
 // --- Chargement ---
 const change = detecteurChangement();
 const occupe = () => !!brouillon || envoiEnCours || !!creation || $('dlg-signature').open
-  || (document.activeElement && $('fiche').contains(document.activeElement) && /TEXTAREA|INPUT/.test(document.activeElement.tagName));
+  || (document.activeElement && $('fiche').contains(document.activeElement) && /TEXTAREA|INPUT|IFRAME/.test(document.activeElement.tagName));
 const charger = sansChevauchement(async () => {
   const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs'];
   const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);

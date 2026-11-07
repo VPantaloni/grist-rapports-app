@@ -70,7 +70,7 @@ export function nomFichierPdf(r, initiales) {
 
 // --- Rubriques ---
 
-/** @typedef {{ code: string, titre: string, forme: string, imprimee: boolean }} RubriqueFigee */
+/** @typedef {{ code: string, titre: string, forme: string, imprimee: boolean, titreImprime?: boolean }} RubriqueFigee */
 
 // Rubriques d'un type de rapport, dans l'ordre.
 /** @param {Ligne[]} rubriques @param {number} typeId @returns {Ligne[]} */
@@ -80,8 +80,16 @@ export function rubriquesDuType(rubriques, typeId) {
 }
 // Structure figée à la création (Rapports.Structure).
 /** @param {Ligne[]} rubriques @returns {RubriqueFigee[]} */
-export const structureDe = rubriques => rubriques.map(r => ({ code: String(r.Code), titre: String(r.Titre || r.Code),
-  forme: r.Forme === 'Puces' ? 'Puces' : 'Texte', imprimee: r.Imprimee !== false }));
+// Titre imprimé : case Rubriques.Titre_imprime ; si aucune rubrique ne l'a (colonne ajoutée après coup, encore vide),
+// seul « Bilan par compétence » (code competences) garde son titre, comme dans le modèle.
+export const structureDe = rubriques => {
+  const regle = rubriques.some(r => r.Titre_imprime === true);
+  return rubriques.map(r => ({ code: String(r.Code), titre: String(r.Titre || r.Code), forme: r.Forme === 'Puces' ? 'Puces' : 'Texte',
+    imprimee: r.Imprimee !== false, titreImprime: regle ? r.Titre_imprime === true : String(r.Code) === 'competences' }));
+};
+// Titre imprimé d'une rubrique figée (rapports d'avant la colonne : seul « competences »).
+/** @param {RubriqueFigee} x */
+export const titreImprime = x => (typeof x.titreImprime === 'boolean' ? x.titreImprime : x.code === 'competences');
 /** @param {any} json @returns {RubriqueFigee[]} */
 export function lireStructure(json) {
   try { const s = JSON.parse(String(json || '[]')); return Array.isArray(s) ? s.filter(x => x && x.code) : []; } catch (e) { return []; }

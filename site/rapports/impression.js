@@ -3,7 +3,16 @@
 // page comme le modèle Word : logo et en-tête, titre, tableau d'identification, thème, rubriques, signatures,
 // « Page n sur N ». Les consignes et le positionnement MD n'y figurent jamais. Logique pure (tests/rapports.test.js).
 import { LOGO } from './logo.js';
-import { dateFr, anneeScolaire, lireStructure, lireObjet } from './logique.js';
+import { dateFr, anneeScolaire, lireStructure, lireObjet, titreImprime } from './logique.js';
+
+// Police Marianne (Système de design de l'État, paquet @gouvfr/dsfr) : celle installée sur le poste, sinon le CDN ;
+// Arial si aucune n'est disponible.
+const DSFR = 'https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/fonts/';
+const POLICE = ['Regular:400:normal', 'Regular_Italic:400:italic', 'Bold:700:normal', 'Bold_Italic:700:italic'].map(x => {
+  const [f, poids, style] = x.split(':');
+  return `@font-face { font-family: "Marianne"; font-weight: ${poids}; font-style: ${style}; font-display: swap;
+    src: local("Marianne ${f.replace('_', ' ')}"), local("Marianne-${f}"), url("${DSFR}Marianne-${f}.woff2") format("woff2"); }`;
+}).join('\n');
 
 /** @param {any} s */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => /** @type {Record<string, string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -27,27 +36,39 @@ const puces = t => `<ul>${String(t || '').split('\n').map(x => x.replace(/^\s*[-
  * @property {string} nomFichier         titre de la page = nom proposé pour le PDF
  * @property {boolean} [sansCmi]         rapport rédigé par un·e IA-IPR seul·e : ni case ni signature CMi
  */
-/** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @returns {string} */
-export function htmlImpression(r, c) {
+// o.editable : aperçu modifiable (onglet « Aperçu » de l'écran) : mêmes page et police, chaque rubrique et le thème
+// modifiables sur place (contenteditable, texte brut, data-texte = code de la rubrique), rubriques vides comprises.
+/** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @param {{ editable?: boolean }} [o] @returns {string} */
+export function htmlImpression(r, c, o = {}) {
+  const ed = !!o.editable;
   const contenu = lireObjet(r.Contenu);
-  const rubriques = lireStructure(r.Structure).filter(x => x.imprimee !== false && String(contenu[x.code] || '').trim());
+  const rubriques = lireStructure(r.Structure).filter(x => x.imprimee !== false && (ed || String(contenu[x.code] || '').trim()));
+  const bloc = (/** @type {import('./logique.js').RubriqueFigee} */ x) => (ed
+    ? `<div class="ed${x.forme === 'Puces' ? ' puces' : ''}" contenteditable="plaintext-only" spellcheck="true" data-texte="${esc(x.code)}" title="${esc(x.titre)}${x.forme === 'Puces' ? ' — une ligne = une puce' : ''}" data-vide="${esc(x.titre)}…">${esc(contenu[x.code] || '')}</div>`
+    : x.forme === 'Puces' ? puces(contenu[x.code]) : paragraphes(contenu[x.code]));
   const entete = [...c.entete, `Année scolaire ${anneeScolaire(r.Date_visite)}`].map(esc).join('<br>');
   const sig = (/** @type {string} */ titre, /** @type {string} */ nom, /** @type {any} */ img) => `<td><div class="t">${esc(titre)}</div>
     ${imageSure(img) ? `<img src="${imageSure(img)}" alt="Signature">` : '<div class="vide"></div>'}<div class="n">${esc(nom)}</div></td>`;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(c.nomFichier)}</title>
 <style>
-  @page { size: A4; margin: 15mm 15mm 18mm; @bottom-center { content: "Page " counter(page) " sur " counter(pages); font: 9pt Arial, sans-serif; } }
-  body { font: 10.5pt/1.4 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
+  ${POLICE}
+  @page { size: A4; margin: 15mm 15mm 18mm; @bottom-center { content: "Page " counter(page) " sur " counter(pages); font: 8pt Marianne, Arial, sans-serif; } }
+  body { font: 10pt/1.4 Marianne, Arial, Helvetica, sans-serif; color: #000; margin: 0; background: #fff; }
   .outil { position: sticky; top: 0; background: #f5f6f7; padding: 8px; border-bottom: 1px solid #ccc; font: 13px sans-serif; }
   .page { max-width: 180mm; margin: 0 auto; padding: 6mm 0; }
   header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6mm; }
   header img { width: 48mm; }
   header .droite { text-align: right; font-size: 9.5pt; }
   h1 { font-size: 13pt; text-align: center; border: 1px solid #000; padding: 3mm; margin: 0 0 4mm; letter-spacing: .02em; }
-  table.id { width: 100%; border-collapse: collapse; margin-bottom: 4mm; font-size: 9.5pt; }
+  table.id { width: 100%; border-collapse: collapse; margin-bottom: 4mm; font-size: 9pt; }
   table.id td { border: 1px solid #000; padding: 1.5mm 2mm; vertical-align: top; }
   .theme { font-weight: bold; margin: 4mm 0 3mm; }
-  h2 { font-size: 10.5pt; margin: 4mm 0 1mm; }
+  h2 { font-size: 10pt; margin: 4mm 0 1mm; }
+  .rub { margin-top: 3mm; }
+  .ed { white-space: pre-wrap; text-align: justify; outline: 1px dashed #c9c9d1; outline-offset: 2px; border-radius: 2px; min-height: 1.4em; }
+  .ed:hover { outline-color: #7a7a8c; } .ed:focus { outline: 2px solid #2563eb; background: #f5f8ff; }
+  .ed:empty::before { content: attr(data-vide); color: #999; font-style: italic; }
+  .ed.puces { padding-left: 4mm; border-left: 2px solid #ddd; }
   p { margin: 0 0 2mm; text-align: justify; }
   ul { margin: 0 0 2mm; padding-left: 6mm; }
   table.sig { width: 100%; border-collapse: collapse; margin-top: 8mm; page-break-inside: avoid; font-size: 9.5pt; }
@@ -56,7 +77,7 @@ export function htmlImpression(r, c) {
   table.sig .vide { height: 22mm; } table.sig .n { font-size: 9pt; }
   @media print { .outil { display: none; } .page { padding: 0; } }
 </style></head><body>
-<div class="outil">Ctrl / Cmd + P → « Enregistrer au format PDF ». Nom proposé : <strong>${esc(c.nomFichier)}.pdf</strong></div>
+${ed ? '' : `<div class="outil">Ctrl / Cmd + P → « Enregistrer au format PDF ». Nom proposé : <strong>${esc(c.nomFichier)}.pdf</strong></div>`}
 <div class="page">
 <header><img src="${LOGO}" alt="Académie d'Orléans-Tours"><div class="droite">${entete}</div></header>
 <h1>${esc(c.titreDocument)}</h1>
@@ -69,8 +90,9 @@ export function htmlImpression(r, c) {
     <td><strong>IA-IPR :</strong> ${esc(c.ipr)}</td>`}</tr>
   <tr><td><strong>Classe :</strong> ${esc(r.Classe)}</td><td><strong>Effectif :</strong> ${esc(r.Effectif ?? '')}</td><td><strong>Heure :</strong> ${esc(r.Heure)}</td></tr>
 </table>
-${String(r.Theme || '').trim() ? `<div class="theme">Thème : ${esc(r.Theme)}</div>` : ''}
-${rubriques.map(x => `<h2>${esc(x.titre)}</h2>${x.forme === 'Puces' ? puces(contenu[x.code]) : paragraphes(contenu[x.code])}`).join('\n')}
+${ed ? `<div class="theme">Thème : <span class="ed" contenteditable="plaintext-only" data-champ="Theme" data-vide="thème de la séance">${esc(r.Theme || '')}</span></div>`
+  : String(r.Theme || '').trim() ? `<div class="theme">Thème : ${esc(r.Theme)}</div>` : ''}
+${rubriques.map(x => `<div class="rub">${titreImprime(x) ? `<h2>${esc(x.titre)}</h2>` : ''}${bloc(x)}</div>`).join('\n')}
 <table class="sig"><tr>
   <td><div class="t">Pris connaissance le :</div><div class="vide"></div><div class="n">L'intéressé·e</div></td>
   ${c.sansCmi ? '' : sig(c.titreCmi, c.cmi, r.Signature_cmi)}
