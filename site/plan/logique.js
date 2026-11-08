@@ -3,6 +3,7 @@
 // Table Visites : une visite à faire, attribuée à un·e CMi par un·e IA-IPR, reliée au rapport rédigé.
 // Spécification : specifications/ecrans/plan.md.
 import { norm, liste } from '../commun/donnees.js';
+import { statutStagiaire } from '../suivis/stagiaires.js';
 
 export const TABLE = 'Visites';
 
@@ -164,7 +165,7 @@ export function dejaAuPlan(visites, x, rentree) {
 // rentree : année scolaire. Un·e CMi absent·e de Personnes mais trouvé·e dans Professeurs est à créer (`nouvelleCmi`,
 // clé « Prénom|Nom ») : les visites de cette personne attendent son id (CMi: 0).
 /**
- * @param {Record<string, string>[]} lignes @param {{ profs: Ligne[], etabs: Ligne[], visites: Ligne[], personnes?: Ligne[] }} D
+ * @param {Record<string, string>[]} lignes @param {{ profs: Ligne[], etabs: Ligne[], visites: Ligne[], personnes?: Ligne[], stagiaires?: Ligne[] }} D
  * @param {number} cmi @param {number} rentree
  * @returns {{ n: string, libelle: string, cmi: string, nouvelleCmi: Ligne | null, champs: Record<string, any> | null, prof: Ligne | null, alertes: string[], ignoree: string }[]}
  */
@@ -204,7 +205,8 @@ export function preparerImport(lignes, D, cmi, rentree) {
     return { n: l.n, libelle: [x.nom, x.prenom].filter(Boolean).join(' '), cmi: nomCmi, nouvelleCmi, prof, alertes, ignoree, champs: ignoree ? null : {
       Professeur: x.prof, Prof_nom: x.nom, Prof_prenom: x.prenom, UAI: u,
       Etab_nom: etab ? String(etab.Nom || '') : [l.etablissement, l.ville].map(y => String(y || '').trim()).filter(Boolean).join(', '),
-      Statut_plan: String(l.statut || '').trim(), CMi: idCmi, Mois_debut: per ? per.debut : null, Mois_fin: per ? per.fin : null,
+      Stagiaire: stagiaireDe({ Professeur: x.prof, Prof_nom: x.nom, Prof_prenom: x.prenom }, D.stagiaires || [], rentree),
+      Statut_plan: prof ? '' : String(l.statut || '').trim(), CMi: idCmi, Mois_debut: per ? per.debut : null, Mois_fin: per ? per.fin : null,
       Visite_inspe: inspe, Date_prevue: date, Notes: String(l.notes || '').trim(), Rapport: 0 } };
   });
 }
@@ -262,13 +264,34 @@ export function compter(lignes) {
   for (const l of lignes) n[l.e.cle]++;
   return n;
 }
+// Statut affiché d'une visite (APP § 11, 2026-11-08) : stagiaire relié·e → corps, concours, quotité ; sinon grade du
+// fichier des professeur·es ; sinon l'ancienne saisie libre (Statut_plan, lignes importées avant).
+/** @param {Ligne} v @param {{ stagiaires?: Ligne[], profs?: Ligne[] }} D */
+export function statutVisite(v, D) {
+  const s = v.Stagiaire ? (D.stagiaires || []).find(x => x.id === v.Stagiaire) : null;
+  if (s) return statutStagiaire(s);
+  const p = v.Professeur ? (D.profs || []).find(x => x.id === v.Professeur) : null;
+  const grade = p ? String(p.Grade || '').trim() : '';
+  return grade ? grade + (norm(p && p.Type_nomination) === 'stg' || norm(p && p.Type_nomination) === 'str' ? ' · stagiaire' : '') : String(v.Statut_plan || '');
+}
+// Stagiaire de l'année relié·e à une visite (même professeur·e, ou même nom et prénom).
+/** @param {{ Professeur?: any, Prof_nom?: any, Prof_prenom?: any }} v @param {Ligne[]} stagiaires @param {number} rentree */
+export function stagiaireDe(v, stagiaires, rentree) {
+  const annee = libelleAnnee(rentree);
+  const k = (/** @type {any} */ n, /** @type {any} */ p) => `${norm(n)}|${norm(p)}`;
+  const s = stagiaires.find(x => x.Annee === annee && ((v.Professeur && x.Professeur === v.Professeur) || k(x.Nom, x.Prenom) === k(v.Prof_nom, v.Prof_prenom)));
+  return s ? s.id : 0;
+}
 // Filtres du suivi : CMi, état (ou « faites » / « a_faire »), recherche (nom, établissement, UAI, statut).
-/** @param {{ v: Ligne, e: Etat }[]} lignes @param {{ cmi?: number, cmis?: number[], etat?: string, q?: string }} f */
-export function filtrer(lignes, f) {
+/**
+ * @param {{ v: Ligne, e: Etat }[]} lignes @param {{ cmi?: number, cmis?: number[], etat?: string, q?: string }} f
+ * @param {{ stagiaires?: Ligne[], profs?: Ligne[] }} [D] pour chercher aussi dans le statut affiché
+ */
+export function filtrer(lignes, f, D = {}) {
   const mots = norm(f.q || '').split(/\s+/).filter(Boolean);
   return lignes.filter(({ v, e }) => (!f.cmi || v.CMi === f.cmi) && (!f.cmis || f.cmis.includes(Number(v.CMi)))
     && (!f.etat || (f.etat === 'faites' ? e.faite : f.etat === 'a_faire' ? !e.faite : e.cle === f.etat))
-    && mots.every(m => norm([v.Prof_nom, v.Prof_prenom, v.Etab_nom, v.UAI, v.Statut_plan].join(' ')).includes(m)));
+    && mots.every(m => norm([v.Prof_nom, v.Prof_prenom, v.Etab_nom, v.UAI, statutVisite(v, D)].join(' ')).includes(m)));
 }
 
 // Bilan par CMi : visites prévues, effectuées (rapport commencé ou date passée), rapports validés ou transmis, en
@@ -299,7 +322,7 @@ export function visiteDepuisRapport(r) {
   const d = dateDe(r.Date_visite);
   const mois = d ? gristDe(d.getUTCFullYear(), d.getUTCMonth() + 1) : null;
   return { Professeur: Number(r.Professeur) || 0, Prof_nom: String(r.Prof_nom || ''), Prof_prenom: String(r.Prof_prenom || ''),
-    UAI: String(r.UAI || ''), Etab_nom: String(r.Etab_nom || ''), Statut_plan: '', CMi: Number(r.Auteur) || 0,
+    UAI: String(r.UAI || ''), Etab_nom: String(r.Etab_nom || ''), Stagiaire: 0, Statut_plan: '', CMi: Number(r.Auteur) || 0,
     Mois_debut: mois, Mois_fin: mois, Visite_inspe: null, Date_prevue: r.Date_visite || null, Notes: 'ajoutée d\'après un rapport hors plan', Rapport: r.id };
 }
 

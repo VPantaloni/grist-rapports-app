@@ -742,10 +742,16 @@
           "role": "recopié"
         },
         {
+          "id": "Stagiaire",
+          "libelle": "Stagiaire",
+          "type": "Ref:Stagiaires",
+          "role": "visite d'un·e stagiaire : statut affiché calculé (corps, concours, quotité)"
+        },
+        {
           "id": "Statut_plan",
           "libelle": "Statut (plan)",
           "type": "Text",
-          "role": "« AGREG 50 % », « CAPES 100 % »… tel que dans le plan"
+          "role": "ancienne saisie libre (« AGREG 50 % ») : n'est plus saisie ; le statut affiché est calculé (Stagiaires ou grade)"
         },
         {
           "id": "CMi",
@@ -910,6 +916,198 @@
       ]
     },
     {
+      "id": "Stagiaires",
+      "role": "professeur·es stagiaires suivi·es, une ligne par année ; identité recopiée du fichier des professeur·es (qui change chaque année)",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Annee",
+          "libelle": "Année scolaire",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "« 2026-2027 »"
+        },
+        {
+          "id": "Professeur",
+          "libelle": "Professeur·e",
+          "type": "Ref:Professeurs",
+          "role": "lien vers l'année en cours (facultatif : stagiaire absent·e du fichier)"
+        },
+        {
+          "id": "Civilite",
+          "libelle": "Civilité",
+          "type": "Text"
+        },
+        {
+          "id": "Nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Prenom",
+          "libelle": "Prénom",
+          "type": "Text"
+        },
+        {
+          "id": "Email",
+          "libelle": "E-mail",
+          "type": "Text"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_nom",
+          "libelle": "Établissement",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_commune",
+          "libelle": "Commune",
+          "type": "Text"
+        },
+        {
+          "id": "Corps",
+          "libelle": "Corps",
+          "type": "Choice",
+          "choix": [
+            "CERT",
+            "AGREG",
+            "PLP",
+            "Autre"
+          ],
+          "role": "proposé d'après le Grade, modifiable"
+        },
+        {
+          "id": "Concours",
+          "libelle": "Concours",
+          "type": "Choice",
+          "choix": [
+            "Externe",
+            "Interne",
+            "3e voie",
+            "Autre"
+          ]
+        },
+        {
+          "id": "Quotite",
+          "libelle": "Quotité",
+          "type": "Choice",
+          "choix": [
+            "50 %",
+            "100 %"
+          ]
+        },
+        {
+          "id": "Sans_tuteur",
+          "libelle": "Sans tuteur·trice",
+          "type": "Bool",
+          "role": "agrégation interne et quelques autres cas"
+        },
+        {
+          "id": "CMi",
+          "libelle": "CMi",
+          "type": "Ref:Personnes",
+          "role": "chargé·e de mission qui suit le ou la stagiaire cette année"
+        },
+        {
+          "id": "Suivi",
+          "libelle": "Suivi",
+          "type": "Choice",
+          "choix": [
+            "À suivre",
+            "Écarté·e"
+          ],
+          "role": "Écarté·e : repéré·e dans le fichier mais pas suivi·e (motif)"
+        },
+        {
+          "id": "Motif",
+          "libelle": "Motif",
+          "type": "Text",
+          "role": "pourquoi écarté·e"
+        },
+        {
+          "id": "Notes",
+          "libelle": "Notes",
+          "type": "Text"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Nom} {$Prenom} – {$Annee} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
+      "id": "Tutorats",
+      "role": "tuteur·trices des stagiaires (un·e ou deux par stagiaire) ; identité recopiée",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Stagiaire",
+          "libelle": "Stagiaire",
+          "type": "Ref:Stagiaires",
+          "obligatoire": true
+        },
+        {
+          "id": "Professeur",
+          "libelle": "Professeur·e",
+          "type": "Ref:Professeurs",
+          "role": "lien vers l'année en cours (facultatif)"
+        },
+        {
+          "id": "Civilite",
+          "libelle": "Civilité",
+          "type": "Text"
+        },
+        {
+          "id": "Nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Prenom",
+          "libelle": "Prénom",
+          "type": "Text"
+        },
+        {
+          "id": "Email",
+          "libelle": "E-mail",
+          "type": "Text",
+          "role": "adresse du tuteur ou de la tutrice (futurs formulaires)"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_nom",
+          "libelle": "Établissement",
+          "type": "Text"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric",
+          "role": "1 = tuteur·trice principal·e, 2 = co-tuteur·trice"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Nom} {$Prenom} → {$Stagiaire.Nom} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
       "id": "Utilisateurs",
       "role": "comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit",
       "administration": true,
@@ -991,7 +1189,9 @@
             "Signatures",
             "Visites",
             "Maitres_delegues",
-            "Bilans_MD"
+            "Bilans_MD",
+            "Stagiaires",
+            "Tutorats"
           ]
         },
         {
@@ -1113,6 +1313,13 @@
       "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
       "droits": "-U",
       "libelle": "Visites.CMi : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "Stagiaire",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.Stagiaire : seul·es les IA-IPR remplissent le plan"
     },
     {
       "table": "Visites",

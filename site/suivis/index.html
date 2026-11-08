@@ -65,6 +65,19 @@
   .comp .phrase { font-size: 13px; margin-top: 4px; }
   .suggestions { border: 1px solid var(--border); border-radius: 4px; max-height: 180px; overflow-y: auto; margin-top: 2px; }
   .suggestions div { padding: 4px 8px; cursor: pointer; font-size: 13px; } .suggestions div:hover { background: var(--sel); }
+  table.stg { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.stg th { position: sticky; top: -12px; background: var(--bg); z-index: 1; text-align: left; font-weight: 600; padding: 6px 6px; border-bottom: 2px solid var(--border); }
+  table.stg td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.stg tr.cliquable { cursor: pointer; } table.stg tr.cliquable:hover td { background: var(--sel); }
+  table.stg tr.ecarte td { color: var(--muted); }
+  table.stg .det { display: block; font-size: 12px; color: var(--muted); }
+  .manque { color: var(--warn); font-size: 12px; }
+  .tuteurs-liste { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+  .tuteurs-liste div { display: flex; gap: 8px; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 13px; }
+  .tuteurs-liste div span { flex: 1; }
+  .apercu-import { max-height: 50vh; overflow-y: auto; font-size: 13px; }
+  .apercu-import table { width: 100%; border-collapse: collapse; } .apercu-import td, .apercu-import th { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .apercu-import .alerte-l { color: var(--warn); font-size: 12px; display: block; }
   .bientot { max-width: 620px; margin: 40px auto; text-align: center; color: var(--muted); }
   @media (max-width: 640px) { body.plein-ecran { overflow: auto; height: auto; } table.suivi { display: block; overflow-x: auto; }
     .compteurs button { min-width: 0; flex: 1 1 40%; } }
@@ -88,6 +101,9 @@
 
 <dialog id="dlg-bilan"><form method="dialog" id="f-bilan"></form></dialog>
 <dialog id="dlg-md"><form method="dialog" id="f-md"></form></dialog>
+<dialog id="dlg-stg"><form method="dialog" id="f-stg"></form></dialog>
+<dialog id="dlg-import"><form method="dialog" id="f-import"></form></dialog>
+<input type="file" id="fichier-csv" accept=".csv,.tsv,.txt,text/csv" hidden>
 
 <script type="module">
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
@@ -101,9 +117,18 @@ import { aujourdhui, rentreeDe, libelleAnnee, dateFr, dateIso, isoVersGrist } fr
 import { grillePour, echellePour, couleurNiveau, lirePositionnement, positionner, descripteurs } from '../rapports/logique.js';
 import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneMd, mdsAAjouter, anneesSuivi, pastilles, lignesSuivi, filtrerMds,
   compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
+import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
+  statutStagiaire, tuteursDe, filtrerStagiaires, anneesStagiaires, manques, validerStagiaire, csvModele, lireCsvStagiaires,
+  preparerImportStagiaires, aMettreAuPlan, droitsStagiaires } from './stagiaires.js';
+import { telechargerFichier } from '../commun/export.js';
+import { etat as etatVisite } from '../plan/logique.js';
 
 const pref = preferences('Suivis');
-const D = { mds: [], bilans: [], rapports: [], profs: [], etabs: [], personnes: [], types: [], competences: [], visites: [], params: {} };
+const D = { mds: [], bilans: [], rapports: [], profs: [], etabs: [], personnes: [], types: [], competences: [], visites: [], params: {},
+  stagiaires: [], tutorats: [] };
+let erreurMd = '', erreurStg = '', droitsStg = droitsStagiaires(droitsTable(null, TABLE_STAGIAIRES), droitsTable(null, TABLE_TUTORATS));
+let peutPlanifier = false;
+const filtreStg = { q: '', ecartes: pref.lire('Ecartes', '0') === '1', annee: '' };
 let moi = null, droits = droitsSuivi(droitsTable(null, TABLE), droitsTable(null, TABLE_BILANS));
 let onglet = pref.lire('Onglet', 'md') === 'pstg' ? 'pstg' : 'md';
 const filtre = { q: '', etat: '', anciens: pref.lire('Anciens', '0') === '1' };
@@ -136,25 +161,32 @@ function infobulle(c) {
 
 // --- Lecture ---
 const charger = sansChevauchement(async () => {
-  const noms = [TABLE, TABLE_BILANS, 'Rapports', 'Professeurs', 'Etablissements', 'Personnes', 'Types_rapport', 'Competences_MD', 'Parametres', 'Visites', 'Utilisateurs'];
+  const noms = [TABLE, TABLE_BILANS, TABLE_STAGIAIRES, TABLE_TUTORATS, 'Rapports', 'Professeurs', 'Etablissements', 'Personnes', 'Types_rapport', 'Competences_MD', 'Parametres', 'Visites', 'Utilisateurs'];
   const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
   const T = Object.fromEntries(noms.map((n, i) => [n, lus[i]]));
   if (CHIFFREMENT && !cleLue) { cleLue = true; cle = await cleAuDemarrage(ligneChiffrementValide(lus[noms.length].lignes)); }
   moi = identifierMoi(T.Utilisateurs.lignes || []).moi;
   droits = droitsSuivi(droitsTable(moi, TABLE), droitsTable(moi, TABLE_BILANS));
-  if (T[TABLE].erreur || T[TABLE_BILANS].erreur || !droits.voir) {
-    const e = T[TABLE].erreur || T[TABLE_BILANS].erreur;
-    message(e ? `Impossible de lire le suivi des MD : ${e} — les tables Maitres_delegues et Bilans_MD n'existent pas encore (Installer → Créer la structure), ou tes droits ne permettent pas de les lire (écran réservé aux IA-IPR).`
-      : 'Écran réservé aux IA-IPR et aux administrateur·trices.', true);
+  droitsStg = droitsStagiaires(droitsTable(moi, TABLE_STAGIAIRES), droitsTable(moi, TABLE_TUTORATS));
+  peutPlanifier = droitsTable(moi, 'Visites').C === 'Oui';
+  erreurMd = T[TABLE].erreur || T[TABLE_BILANS].erreur
+    ? `Impossible de lire le suivi des MD : ${T[TABLE].erreur || T[TABLE_BILANS].erreur} — les tables Maitres_delegues et Bilans_MD n'existent pas encore (Installer → Créer la structure), ou tes droits ne permettent pas de les lire.`
+    : droits.voir ? '' : 'Suivi des MD réservé aux IA-IPR et aux administrateur·trices.';
+  erreurStg = T[TABLE_STAGIAIRES].erreur || T[TABLE_TUTORATS].erreur
+    ? `Impossible de lire la liste des stagiaires : ${T[TABLE_STAGIAIRES].erreur || T[TABLE_TUTORATS].erreur} — les tables Stagiaires et Tutorats n'existent pas encore (Installer → Créer la structure, puis règles d'accès et « Appliquer les droits par défaut »), ou tes droits ne permettent pas de les lire.`
+    : droitsStg.voir ? '' : 'Liste des stagiaires : pas de droit de lecture sur la table Stagiaires.';
+  if (erreurMd && erreurStg && !droits.voir && !droitsStg.voir) {
+    message('Écran réservé aux IA-IPR et aux administrateur·trices.', true);
     $('app').hidden = true; return;
   }
-  D.mds = T[TABLE].lignes;
-  D.bilans = await lignesLisibles(cle, TABLE_BILANS, T[TABLE_BILANS].lignes, CHIFFREMENT, cache);
+  D.mds = T[TABLE].lignes || [];
+  D.bilans = erreurMd ? [] : await lignesLisibles(cle, TABLE_BILANS, T[TABLE_BILANS].lignes || [], CHIFFREMENT, cache);
+  D.stagiaires = T[TABLE_STAGIAIRES].lignes || []; D.tutorats = T[TABLE_TUTORATS].lignes || [];
   D.rapports = await lignesLisibles(cle, 'Rapports', T.Rapports.lignes || [], CHIFFREMENT, cache);
   D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.personnes = T.Personnes.lignes || [];
   D.types = T.Types_rapport.lignes || []; D.competences = T.Competences_MD.lignes || []; D.visites = T.Visites.lignes || [];
   D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
-  if (!change([T[TABLE].lignes, T[TABLE_BILANS].lignes, T.Rapports.lignes, T.Visites.lignes, moi && moi.Droits, !!cle]) && !$('app').hidden) return;
+  if (!change([T[TABLE].lignes, T[TABLE_BILANS].lignes, T[TABLE_STAGIAIRES].lignes, T[TABLE_TUTORATS].lignes, T.Rapports.lignes, T.Visites.lignes, moi && moi.Droits, !!cle]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
   if (!occupe()) afficher();
 });
@@ -166,10 +198,8 @@ async function ecrireBilans(actions, ok) {
 // --- Affichage ---
 function afficher() {
   document.querySelectorAll('#onglets [data-onglet]').forEach(b => b.classList.toggle('actif', b.dataset.onglet === onglet));
-  if (onglet === 'pstg') {
-    $('contenu').innerHTML = `<div class="bientot"><h2>Suivi PSTG</h2><p>À venir : le suivi des professeur·es stagiaires (positionnement sur P1 à P5 au fil des visites).</p></div>`;
-    return;
-  }
+  if (onglet === 'pstg') { afficherPstg(); return; }
+  if (erreurMd) { $('contenu').innerHTML = `<div class="alerte">${esc(erreurMd)}</div>`; return; }
   const t = typeMd();
   if (!t) { $('contenu').innerHTML = '<div class="alerte">Aucun type de rapport « MD » : Modèles &amp; phrases → Types de rapport.</div>'; return; }
   const donnees = { ...D, typeMd: t.id };
@@ -206,6 +236,213 @@ function afficher() {
         <td>${esc(derniereAnnee(l.cases) || '—')}</td>
         <td><span class="etiquette e-${l.etat.cle}">${esc(l.etat.libelle)}</span></td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">${D.mds.length ? 'Aucun·e MD ne correspond aux filtres.' : 'Aucun·e MD suivi·e pour l\'instant : « Ajouter au suivi » ou « + MD ».'}</p>`}`;
+}
+
+// --- Suivi PSTG : liste des stagiaires de l'année (Stagiaires, Tutorats) ---
+const nomStg = x => [x.Civilite, x.Nom, x.Prenom].filter(Boolean).join(' ');
+const cmis = () => D.personnes.filter(p => p.Fonction === 'CMi').sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
+const anneeStg = () => filtreStg.annee || libelleAnnee(rentree);
+const codes = () => codesStagiaires(D.params);
+// Visites du plan reliées à un·e stagiaire, avec leur état (même calcul que l'écran Plan).
+function visitesDe(s) {
+  return D.visites.filter(v => v.Stagiaire === s.id).map(v => {
+    const r = v.Rapport ? D.rapports.find(x => x.id === v.Rapport) : null;
+    return { v, e: etatVisite(v, r, aujourdhui()) };
+  });
+}
+function afficherPstg() {
+  if (erreurStg) { $('contenu').innerHTML = `<div class="alerte">${esc(erreurStg)}</div>`; return; }
+  const annee = anneeStg(), courante = libelleAnnee(rentree);
+  const lignes = filtrerStagiaires(D.stagiaires, { ...filtreStg, annee }, D.personnes);
+  const tous = D.stagiaires.filter(s => s.Annee === annee);
+  const ecartes = tous.filter(s => s.Suivi === 'Écarté·e').length;
+  const aAjouter = annee === courante && droitsStg.ajouter
+    ? stagiairesAAjouter({ stagiaires: D.stagiaires, profs: D.profs, etabs: D.etabs, codes: codes(), annee }) : [];
+  const auPlan = peutPlanifier ? aMettreAuPlan(D.stagiaires, D.visites, annee) : [];
+  $('contenu').innerHTML = `
+    ${aAjouter.length ? `<div class="ajouter"><span class="noms"><strong>${aAjouter.length} stagiaire${aAjouter.length > 1 ? 's' : ''} du fichier des professeur·es
+      (${esc(codes().map(c => c.toUpperCase()).join(', '))}) pas encore dans la liste</strong> :
+      ${aAjouter.map(x => `<span style="white-space:nowrap">${esc(nomStg(x.champs))} <button type="button" class="petit" data-ajout="${x.prof.id}" title="Ajouter à la liste">+</button><button type="button" class="petit" data-ecarter="${x.prof.id}" title="Ne pas suivre (motif à indiquer)">×</button></span>`).join(' · ')}</span>
+      <button id="stg-ajouter-tous" class="primary">Tout ajouter</button></div>` : ''}
+    ${auPlan.length ? `<div class="ajouter"><span class="noms"><strong>${auPlan.length} stagiaire${auPlan.length > 1 ? 's' : ''} avec un·e CMi, pas encore au plan d'inspection</strong> :
+      ${auPlan.map(x => esc(nomStg(x.stagiaire))).join(', ')}</span><button id="stg-plan" class="primary">Mettre au plan</button></div>` : ''}
+    <div class="outils">
+      <select id="stg-annee" title="Année scolaire">${anneesStagiaires(D.stagiaires, courante).map(a => `<option ${a === annee ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
+      <input type="search" id="stg-q" placeholder="Rechercher un·e stagiaire, un établissement, un·e CMi, AGREG…" value="${esc(filtreStg.q)}">
+      <label><input type="checkbox" id="stg-ecartes" ${filtreStg.ecartes ? 'checked' : ''}> Afficher les écarté·es (${ecartes})</label>
+      ${droitsStg.ajouter ? '<button id="stg-nouveau">+ Stagiaire</button>' : ''}
+      <button id="stg-modele" title="Fichier CSV à faire compléter par les collègues (les stagiaires déjà connu·es de l'année y figurent)">⤓ Modèle CSV</button>
+      ${droitsStg.ajouter ? '<button id="stg-importer" title="Reverser le fichier CSV complété">⤒ Importer un CSV</button>' : ''}
+    </div>
+    <p class="petit muted">${tous.length - ecartes} stagiaire${tous.length - ecartes > 1 ? 's' : ''} suivi·e${tous.length - ecartes > 1 ? 's' : ''} en ${esc(annee)}.
+      Statut, établissement et e-mail viennent du fichier des professeur·es à l'ajout ; corps, concours, quotité et tuteur·trices se complètent ici ou par le fichier CSV.</p>
+    ${lignes.length ? `<table class="stg"><thead><tr><th>Stagiaire</th><th>Statut</th><th>Tuteur·trice(s)</th><th>CMi</th><th>Plan</th><th>À compléter</th></tr></thead><tbody>
+      ${lignes.map(s => { const t = tuteursDe(D.tutorats, s.id), m = manques(s, t), vis = visitesDe(s);
+        return `<tr class="cliquable ${s.Suivi === 'Écarté·e' ? 'ecarte' : ''}" data-stg="${s.id}">
+        <td><strong>${esc(nomStg(s))}</strong>${s.Professeur ? '' : ' <span class="etiquette" title="Absent·e du fichier des professeur·es">hors fichier</span>'}
+          <span class="det">${esc([s.Etab_nom, s.Etab_commune].filter(Boolean).join(', ') || s.UAI || '')}</span></td>
+        <td>${s.Suivi === 'Écarté·e' ? `<span class="etiquette">écarté·e</span><span class="det">${esc(s.Motif || '')}</span>` : esc(statutStagiaire(s))}</td>
+        <td>${s.Sans_tuteur ? '<span class="muted">sans tuteur·trice</span>' : t.map(x => `${esc(`${x.Prenom} ${x.Nom}`)}<span class="det">${esc(x.Etab_nom || x.UAI || '')}${x.UAI && x.UAI !== s.UAI ? ' · autre établissement' : ''}</span>`).join('') || '—'}</td>
+        <td>${esc(s.CMi ? nomPers(s.CMi) : '—')}</td>
+        <td>${vis.length ? vis.map(x => `<span class="etiquette" title="${esc(x.v.Date_prevue ? 'calée le ' + dateFr(x.v.Date_prevue) : 'à caler')}">${esc(x.e.libelle)}</span>`).join(' ') : '<span class="muted">—</span>'}</td>
+        <td>${m.length ? `<span class="manque">${esc(m.join(', '))}</span>` : ''}</td></tr>`; }).join('')}
+      </tbody></table>` : `<p class="muted">${tous.length ? 'Aucun·e stagiaire ne correspond aux filtres.' : `Aucun·e stagiaire dans la liste ${esc(annee)} : « Tout ajouter » depuis le fichier, « + Stagiaire » ou « Importer un CSV ».`}</p>`}`;
+}
+
+// Fiche d'un·e stagiaire (ajout ou modification), avec ses tuteur·trices.
+function ouvrirStagiaire(s, depart = {}) {
+  const nouveau = !s || !s.id;
+  if (nouveau ? !droitsStg.ajouter : false) return;
+  const ecrit = nouveau ? droitsStg.ajouter : droitsStg.modifier;
+  enCours = { stg: { ...(s || { Annee: anneeStg(), Professeur: 0, Civilite: '', Nom: '', Prenom: '', Email: '', UAI: '', Etab_nom: '', Etab_commune: '',
+    Corps: '', Concours: '', Quotite: '', Sans_tuteur: false, CMi: 0, Suivi: 'À suivre', Motif: '', Notes: '' }), ...depart },
+    tuteurs: s && s.id ? tuteursDe(D.tutorats, s.id).map(t => ({ ...t })) : [], retires: [] };
+  dessinerStagiaire(nouveau, ecrit);
+  $('dlg-stg').showModal();
+}
+function dessinerStagiaire(nouveau, ecrit) {
+  const x = enCours.stg;
+  const dis = ecrit ? '' : 'disabled';
+  const champ = (id, lib, v) => `<label class="champ"><span>${lib}</span><input type="text" id="s-${id}" value="${esc(v ?? '')}" ${dis}></label>`;
+  const choix = (id, lib, liste, v) => `<label class="champ"><span>${lib}</span><select id="s-${id}" ${dis}><option value=""></option>${liste.map(c => `<option ${c === v ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>`;
+  const lie = x.Professeur && D.profs.find(p => p.id === x.Professeur);
+  $('f-stg').innerHTML = `
+    <h2>${nouveau ? 'Ajouter un·e stagiaire' : esc(nomStg(x))} <span class="muted petit">${esc(x.Annee)}</span></h2>
+    ${nouveau ? `<label class="champ"><span>Chercher dans le fichier des professeur·es (sinon, saisir ci-dessous)</span>
+      <input type="search" id="s-q" placeholder="Nom, prénom, établissement ou UAI…"></label><div id="s-sugg"></div>` : ''}
+    <p class="petit muted" id="s-lien">${lie ? `Relié·e au fichier : ${esc(lie.Libelle || `${lie.Nom} ${lie.Prenom}`)} · ${esc(lie.Grade || '')} · ${esc(lie.Type_nomination || '')}` : 'Non relié·e au fichier des professeur·es de l\'année.'}</p>
+    <div class="grille">
+      <label class="champ"><span>Civilité</span><select id="s-Civilite" ${dis}>${['', 'M.', 'Mme'].map(c => `<option ${c === x.Civilite ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      ${champ('Nom', 'Nom', x.Nom)}${champ('Prenom', 'Prénom', x.Prenom)}${champ('Email', 'E-mail', x.Email)}
+      ${champ('UAI', 'UAI', x.UAI)}${champ('Etab_nom', 'Établissement', x.Etab_nom)}${champ('Etab_commune', 'Commune', x.Etab_commune)}
+      ${choix('Corps', 'Corps', CORPS, x.Corps)}${choix('Concours', 'Concours', CONCOURS, x.Concours)}${choix('Quotite', 'Quotité', QUOTITES, x.Quotite)}
+      <label class="champ"><span>CMi</span><select id="s-CMi" ${dis}><option value="0"></option>${cmis().map(p => `<option value="${p.id}" ${p.id === x.CMi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
+      ${choix('Suivi', 'Suivi', SUIVIS, x.Suivi || 'À suivre')}
+    </div>
+    <label class="champ" id="s-motif-l" ${x.Suivi === 'Écarté·e' ? '' : 'hidden'}><span>Motif (écarté·e)</span><input type="text" id="s-Motif" value="${esc(x.Motif || '')}" placeholder="Autre discipline, renouvellement suivi ailleurs…" ${dis}></label>
+    <h3 style="font-size:14px;margin:12px 0 2px">Tuteur·trice(s)</h3>
+    <label class="petit"><input type="checkbox" id="s-Sans_tuteur" ${x.Sans_tuteur ? 'checked' : ''} ${dis}> Sans tuteur·trice (agrégation interne…)</label>
+    <div class="tuteurs-liste" id="s-tuteurs">${enCours.tuteurs.map((t, i) => `<div><span><strong>${i + 1}.</strong> ${esc(`${t.Civilite ? t.Civilite + ' ' : ''}${t.Prenom} ${t.Nom}`)}
+      <span class="muted">— ${esc(t.Etab_nom || t.UAI || '')}${t.Email ? ' · ' + esc(t.Email) : ''}${t.Professeur ? '' : ' · hors fichier'}</span></span>
+      ${ecrit && droitsStg.tuteurs ? `<button type="button" class="petit" data-retirer="${i}" title="Retirer">×</button>` : ''}</div>`).join('') || '<span class="muted petit">Aucun·e.</span>'}</div>
+    ${ecrit && droitsStg.tuteurs && enCours.tuteurs.length < 2 ? `<label class="champ"><span>Ajouter un·e tuteur·trice (même établissement proposé d'abord)</span>
+      <input type="search" id="s-tq" placeholder="Nom du ou de la professeur·e…"></label><div id="s-tsugg"></div>` : ''}
+    <label class="champ"><span>Notes</span><textarea id="s-Notes" ${dis}>${esc(x.Notes || '')}</textarea></label>
+    <div class="actions">
+      ${ecrit ? `<button type="button" id="s-ok" class="primary">${nouveau ? 'Ajouter' : 'Enregistrer'}</button>` : ''}
+      ${!nouveau && droitsStg.supprimer ? `<button type="button" id="s-suppr" class="danger" title="Supprimer de la liste (double clic) ; pour ne plus suivre, préférer « Écarté·e »">Supprimer</button>` : ''}
+      <button type="button" id="s-fermer">Fermer</button>
+    </div>`;
+  const lire = () => {   // garde la saisie en cours quand la fenêtre est redessinée (ajout ou retrait d'un·e tuteur·trice)
+    if (!$('s-Nom')) return;
+    for (const k of ['Nom', 'Prenom', 'Email', 'UAI', 'Etab_nom', 'Etab_commune', 'Motif', 'Notes']) x[k] = $(`s-${k}`).value.trim();
+    for (const k of ['Civilite', 'Corps', 'Concours', 'Quotite', 'Suivi']) x[k] = $(`s-${k}`).value;
+    x.CMi = Number($('s-CMi').value) || 0; x.Sans_tuteur = $('s-Sans_tuteur').checked; x.UAI = x.UAI.toUpperCase();
+  };
+  $('s-Suivi').addEventListener('change', () => { $('s-motif-l').hidden = $('s-Suivi').value !== 'Écarté·e'; });
+  if ($('s-UAI') && ecrit) $('s-UAI').addEventListener('change', () => {
+    const e = D.etabs.find(y => norm(y.UAI) === norm($('s-UAI').value));
+    if (e) { $('s-Etab_nom').value = e.Nom || ''; $('s-Etab_commune').value = e.Commune || ''; }
+  });
+  const chercher = (q, uai) => q.length < 2 ? [] : D.profs.filter(p => norm(`${p.Nom} ${p.Prenom} ${p.UAI} ${(D.etabs.find(e => e.UAI === p.UAI) || {}).Nom || ''}`).includes(q))
+    .sort((a, b) => Number(b.UAI === uai) - Number(a.UAI === uai)).slice(0, 12);
+  const sugg = (res, attr) => res.length ? `<div class="suggestions">${res.map(p => `<div data-${attr}="${p.id}">${esc(`${p.Nom} ${p.Prenom}`)} <span class="muted">— ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Nom || p.UAI || '')} · ${esc(p.Grade || '')}${p.Type_nomination ? ' · ' + esc(p.Type_nomination) : ''}</span></div>`).join('')}</div>` : '';
+  if ($('s-q')) $('s-q').addEventListener('input', () => { $('s-sugg').innerHTML = sugg(chercher(norm($('s-q').value), ''), 'prof'); });
+  if ($('s-sugg')) $('s-sugg').addEventListener('click', e => {
+    const d = e.target.closest('[data-prof]');
+    if (!d) return;
+    lire();
+    const p = D.profs.find(y => y.id === Number(d.dataset.prof));
+    const c = ligneStagiaire(p, D.etabs, x.Annee);
+    for (const k of ['Professeur', 'Civilite', 'Nom', 'Prenom', 'Email', 'UAI', 'Etab_nom', 'Etab_commune']) x[k] = c[k];
+    if (!x.Corps) x.Corps = c.Corps;
+    dessinerStagiaire(nouveau, ecrit);
+  });
+  if ($('s-tq')) {
+    $('s-tq').addEventListener('input', () => {
+      const q = norm($('s-tq').value);
+      const res = chercher(q, $('s-UAI').value.trim().toUpperCase());
+      $('s-tsugg').innerHTML = sugg(res, 'tuteur') + (q.length >= 2 ? `<button type="button" class="petit" id="s-tlibre">+ Ajouter « ${esc($('s-tq').value.trim())} » hors fichier</button>` : '');
+    });
+    $('s-tsugg').addEventListener('click', e => {
+      const d = e.target.closest('[data-tuteur]');
+      if (d) { lire(); enCours.tuteurs.push({ ...ligneTuteur(D.profs.find(y => y.id === Number(d.dataset.tuteur)), D.etabs), id: 0 }); x.Sans_tuteur = false; dessinerStagiaire(nouveau, ecrit); return; }
+      if (e.target.closest('#s-tlibre')) {
+        lire();
+        const mots = $('s-tq').value.trim().split(/\s+/);
+        enCours.tuteurs.push({ ...ligneTuteur(null, D.etabs, { nom: mots[0] || '', prenom: mots.slice(1).join(' '), uai: '' }), id: 0 });
+        x.Sans_tuteur = false; dessinerStagiaire(nouveau, ecrit);
+      }
+    });
+  }
+  $('s-tuteurs').addEventListener('click', e => {
+    const b = e.target.closest('[data-retirer]');
+    if (!b) return;
+    lire();
+    const [t] = enCours.tuteurs.splice(Number(b.dataset.retirer), 1);
+    if (t && t.id) enCours.retires.push(t.id);
+    dessinerStagiaire(nouveau, ecrit);
+  });
+  if ($('s-ok')) $('s-ok').addEventListener('click', async () => {
+    lire();
+    const champs = { ...x };
+    delete champs.id; delete champs.Libelle; delete champs.manualSort;
+    const pb = validerStagiaire(champs);
+    if (pb) return toast(pb, true);
+    if (nouveau && D.stagiaires.some(y => y.Annee === champs.Annee && norm(y.Nom) === norm(champs.Nom) && norm(y.Prenom) === norm(champs.Prenom)))
+      return toast(`${champs.Nom} ${champs.Prenom} est déjà dans la liste ${champs.Annee}.`, true);
+    const tuteurs = enCours.tuteurs, retires = enCours.retires, id0 = x.id;
+    fermer('dlg-stg');
+    const res = await ecrire([nouveau ? ['AddRecord', TABLE_STAGIAIRES, null, champs] : ['UpdateRecord', TABLE_STAGIAIRES, id0, champs]]);
+    if (!res) return;
+    const id = nouveau ? res.retValues[0] : id0;
+    const actions = [...retires.map(t => ['RemoveRecord', TABLE_TUTORATS, t]),
+      ...tuteurs.map((t, i) => (t.id ? ['UpdateRecord', TABLE_TUTORATS, t.id, { Ordre: i + 1 }]
+        : ['AddRecord', TABLE_TUTORATS, null, { Stagiaire: id, Professeur: t.Professeur || 0, Civilite: t.Civilite, Nom: t.Nom, Prenom: t.Prenom,
+          Email: t.Email, UAI: t.UAI, Etab_nom: t.Etab_nom, Ordre: i + 1 }]))];
+    if (actions.length) await ecrire(actions);
+    toast(nouveau ? 'Stagiaire ajouté·e' : 'Fiche enregistrée');
+    await charger();
+  });
+  if ($('s-suppr')) boutonConfirmation($('s-suppr'), 'Confirmer la suppression', async () => {
+    const id = x.id;
+    fermer('dlg-stg');
+    await ecrire([...tuteursDe(D.tutorats, id).map(t => ['RemoveRecord', TABLE_TUTORATS, t.id]), ['RemoveRecord', TABLE_STAGIAIRES, id]], 'Stagiaire supprimé·e', charger);
+  });
+  $('s-fermer').addEventListener('click', () => fermer('dlg-stg'));
+}
+
+// Import du fichier CSV complété : aperçu, puis création ou complément des fiches et des tuteur·trices.
+async function importerCsv(fichier) {
+  const texte = await fichier.text();
+  const l = lireCsvStagiaires(texte);
+  if (l.erreur) { toast(l.erreur, true); return; }
+  const annee = anneeStg();
+  const prep = preparerImportStagiaires(l.lignes, { stagiaires: D.stagiaires, tutorats: D.tutorats, profs: D.profs, etabs: D.etabs, personnes: D.personnes, annee });
+  enCours = { prep };
+  const action = p => p.ignoree ? p.ignoree : p.id ? `compléter${p.tuteurs.length ? ` (+ ${p.tuteurs.length} tuteur·trice${p.tuteurs.length > 1 ? 's' : ''})` : ''}` : `créer${p.tuteurs.length ? ` avec ${p.tuteurs.length} tuteur·trice${p.tuteurs.length > 1 ? 's' : ''}` : ''}`;
+  const utiles = prep.filter(p => !p.ignoree);
+  $('f-import').innerHTML = `<h2>Importer les stagiaires ${esc(annee)}</h2>
+    <p class="petit muted">${esc(fichier.name)} : ${prep.length} ligne${prep.length > 1 ? 's' : ''}. Une fiche existante n'est que complétée (cases vides) ; rien n'est écrasé.</p>
+    <div class="apercu-import"><table><thead><tr><th>Ligne</th><th>Stagiaire</th><th>Action</th></tr></thead><tbody>
+      ${prep.map(p => `<tr><td>${p.n}</td><td>${esc(p.libelle)}${p.alertes.map(a => `<span class="alerte-l">⚠ ${esc(a)}</span>`).join('')}</td><td>${esc(action(p))}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="actions">${utiles.length ? `<button type="button" id="i-ok" class="primary">Importer ${utiles.length} ligne${utiles.length > 1 ? 's' : ''}</button>` : ''}
+      <button type="button" id="i-fermer">Fermer</button></div>`;
+  if ($('i-ok')) $('i-ok').addEventListener('click', async () => {
+    fermer('dlg-import');
+    const nouveaux = utiles.filter(p => !p.id), maj = utiles.filter(p => p.id && p.champs && Object.keys(p.champs).length);
+    const res = nouveaux.length ? await ecrire(nouveaux.map(p => ['AddRecord', TABLE_STAGIAIRES, null, p.champs])) : { retValues: [] };
+    if (!res) return;
+    const idDe = p => (p.id ? p.id : res.retValues[nouveaux.indexOf(p)]);
+    const actions = [...maj.map(p => ['UpdateRecord', TABLE_STAGIAIRES, p.id, p.champs]),
+      ...utiles.flatMap(p => p.tuteurs.map(t => ['AddRecord', TABLE_TUTORATS, null, { ...t, Stagiaire: idDe(p) }]))];
+    if (actions.length) await ecrire(actions);
+    toast(`${nouveaux.length} stagiaire${nouveaux.length > 1 ? 's' : ''} créé·e${nouveaux.length > 1 ? 's' : ''}, ${maj.length} complété·e${maj.length > 1 ? 's' : ''}`);
+    await charger();
+  });
+  $('i-fermer').addEventListener('click', () => fermer('dlg-import'));
+  $('dlg-import').showModal();
 }
 
 // --- Fenêtre d'un bilan (case MD × année) ---
@@ -378,10 +615,48 @@ if (await initialiserGrist()) {
     if (c) { const [id, annee] = c.dataset.case.split('|'); ouvrirBilan(Number(id), annee); return; }
     const n = t.closest('td.nom[data-md]');
     if (n) { ouvrirMd(D.mds.find(m => m.id === Number(n.dataset.md))); return; }
+    // Suivi PSTG
+    const annee = anneeStg();
+    const profDe = id => D.profs.find(p => p.id === Number(id));
+    if (t.closest('[data-ajout]')) {
+      const p = profDe(t.closest('[data-ajout]').dataset.ajout);
+      await ecrire([['AddRecord', TABLE_STAGIAIRES, null, ligneStagiaire(p, D.etabs, annee)]], 'Stagiaire ajouté·e : compléter sa fiche', charger);
+      return;
+    }
+    if (t.closest('[data-ecarter]')) { ouvrirStagiaire(ligneStagiaire(profDe(t.closest('[data-ecarter]').dataset.ecarter), D.etabs, annee), { Suivi: 'Écarté·e' }); return; }
+    if (t.closest('#stg-ajouter-tous')) {
+      const a = stagiairesAAjouter({ stagiaires: D.stagiaires, profs: D.profs, etabs: D.etabs, codes: codes(), annee });
+      if (a.length) await ecrire(a.map(x => ['AddRecord', TABLE_STAGIAIRES, null, x.champs]), `${a.length} stagiaire${a.length > 1 ? 's' : ''} ajouté·e${a.length > 1 ? 's' : ''} à la liste`, charger);
+      return;
+    }
+    if (t.closest('#stg-plan')) {
+      const a = aMettreAuPlan(D.stagiaires, D.visites, annee);
+      if (a.length) await ecrire(a.map(x => ['AddRecord', 'Visites', null, x.champs]), `${a.length} visite${a.length > 1 ? 's' : ''} ajoutée${a.length > 1 ? 's' : ''} au plan (période à caler dans l'écran Plan)`, charger);
+      return;
+    }
+    if (t.closest('#stg-nouveau')) { ouvrirStagiaire(null); return; }
+    if (t.closest('#stg-modele')) {
+      const liste = D.stagiaires.filter(x => x.Annee === annee && x.Suivi !== 'Écarté·e');
+      telechargerFichier(`stagiaires-${annee}.csv`, csvModele(liste, D.tutorats, D.personnes), 'text/csv;charset=utf-8');
+      return;
+    }
+    if (t.closest('#stg-importer')) { $('fichier-csv').value = ''; $('fichier-csv').click(); return; }
+    const r = t.closest('tr[data-stg]');
+    if (r) { ouvrirStagiaire(D.stagiaires.find(x => x.id === Number(r.dataset.stg))); return; }
   });
-  $('contenu').addEventListener('change', e => { if (e.target.id === 'f-anciens') { filtre.anciens = e.target.checked; pref.ecrire('Anciens', filtre.anciens ? '1' : '0'); afficher(); } });
-  $('contenu').addEventListener('input', e => { if (e.target.id === 'f-q') { filtre.q = e.target.value; const p = e.target.selectionStart; afficher(); $('f-q').focus(); $('f-q').setSelectionRange(p, p); } });
-  ['dlg-bilan', 'dlg-md'].forEach(id => $(id).addEventListener('cancel', () => { enCours = null; }));
+  $('fichier-csv').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) importerCsv(f); });
+  $('contenu').addEventListener('change', e => {
+    if (e.target.id === 'f-anciens') { filtre.anciens = e.target.checked; pref.ecrire('Anciens', filtre.anciens ? '1' : '0'); afficher(); }
+    if (e.target.id === 'stg-ecartes') { filtreStg.ecartes = e.target.checked; pref.ecrire('Ecartes', filtreStg.ecartes ? '1' : '0'); afficher(); }
+    if (e.target.id === 'stg-annee') { filtreStg.annee = e.target.value; afficher(); }
+  });
+  $('contenu').addEventListener('input', e => {
+    const id = e.target.id;
+    if (id !== 'f-q' && id !== 'stg-q') return;
+    if (id === 'f-q') filtre.q = e.target.value; else filtreStg.q = e.target.value;
+    const p = e.target.selectionStart; afficher(); $(id).focus(); $(id).setSelectionRange(p, p);
+  });
+  ['dlg-bilan', 'dlg-md', 'dlg-stg', 'dlg-import'].forEach(id => $(id).addEventListener('cancel', () => { enCours = null; }));
   relectureReguliere(charger, occupe);
   await charger();
 }

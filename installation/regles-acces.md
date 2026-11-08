@@ -162,6 +162,14 @@ Prêtes à copier, une ligne par table de données (générées depuis `installa
 | [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
 | [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
 | [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Stagiaires` | `user.Profil and "Stagiaires:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Stagiaires` | `user.Profil and "Stagiaires:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Stagiaires` | `user.Profil and "Stagiaires:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Stagiaires` | `user.Profil and "Stagiaires:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Tutorats` | `user.Profil and "Tutorats:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Tutorats` | `user.Profil and "Tutorats:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Tutorats` | `user.Profil and "Tutorats:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Tutorats` | `user.Profil and "Tutorats:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
 <!-- /schema:matrice -->
 
 - [ ] **Enregistrer.**

@@ -92,7 +92,7 @@
 <dialog id="dlg-visite"><form method="dialog" id="f-visite"></form></dialog>
 <dialog id="dlg-import">
   <h2>Importer un plan (copier-coller du tableur ou fichier .csv)</h2>
-  <p class="petit muted">Dans le tableur, sélectionner les lignes avec la ligne d'en-tête (NOM, Prénom, statut, établissement, ville, période de visite, Visite INSPE, UAI ; facultatives : CMi, Date calée, Notes), copier, puis coller ci-dessous, ou choisir un fichier .csv / .tsv. Chaque professeur·e est retrouvé·e par l'UAI et le nom (sinon par le nom, le prénom et la ville). Avec une colonne CMi, chaque ligne va à son ou sa CMi ; une CMi absente de l'annuaire mais présente dans le fichier des professeur·es est créée avec son e-mail.</p>
+  <p class="petit muted">Dans le tableur, sélectionner les lignes avec la ligne d'en-tête (NOM, Prénom, statut, établissement, ville, période de visite, Visite INSPE, UAI ; facultatives : CMi, Date calée, Notes), copier, puis coller ci-dessous, ou choisir un fichier .csv / .tsv. Chaque professeur·e est retrouvé·e par l'UAI et le nom (sinon par le nom, le prénom et la ville). Le statut n'est plus recopié : il est calculé (liste des stagiaires, sinon grade du fichier) ; la colonne statut ne sert que pour un·e professeur·e absent·e du fichier. Avec une colonne CMi, chaque ligne va à son ou sa CMi ; une CMi absente de l'annuaire mais présente dans le fichier des professeur·es est créée avec son e-mail.</p>
   <div class="grille">
     <label class="champ"><span>CMi de ce lot</span><select id="imp-cmi"></select></label>
     <label class="champ"><span>Année scolaire</span><select id="imp-annee"></select></label>
@@ -111,10 +111,12 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { norm, nomFiche } from '../commun/donnees.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
   filtrer, periodeDepassee, objectif, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
-  valider, lireTableauColle, preparerImport, fichesCmiACreer } from './logique.js';
+  valider, lireTableauColle, preparerImport, fichesCmiACreer, statutVisite, stagiaireDe } from './logique.js';
 
 const pref = preferences('Plan');
-const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [] };
+const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [], stagiaires: [] };
+// Statut affiché : calculé (stagiaire relié·e : corps, concours, quotité ; sinon grade du fichier), APP § 11.
+const statut = v => statutVisite(v, D);
 let moi = null, droits = droitsTable(null, TABLE), droitsRapports = droitsTable(null, 'Rapports');
 const cmiPref = pref.lire('Cmi', '0');
 let onglet = pref.lire('Onglet', ''), filtre = { cmi: cmiPref === 'mes' ? 'mes' : Number(cmiPref) || 0, etat: '', q: '' };
@@ -159,7 +161,7 @@ function afficherSuivi() {
   const auj = aujourdhui();
   const toutes = enrichir(visitesAnnee(), D.rapports, auj);
   const n = compter(toutes);
-  const lignes = filtrer(toutes, filtreEffectif());
+  const lignes = filtrer(toutes, filtreEffectif(), D);
   const hp = rapportsHorsPlan(D.rapports, D.visites, rentree);
   const bilan = bilanParCmi(toutes, hp, D.personnes);
   const plan = peutPlanifier(droits);
@@ -186,7 +188,7 @@ function afficherSuivi() {
       ${plan ? '<button id="nouvelle" class="primary">+ Visite</button><button id="importer">Importer un plan</button>' : ''}
     </div>
     ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th>État</th></tr></thead><tbody>
-      ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(v.Statut_plan || '')}${v.Professeur ? '' : ' · hors fichier'}</span></td>
+      ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(statut(v))}${v.Professeur ? '' : ' · hors fichier'}</span></td>
         <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}</span></td>
         <td>${esc(nomFiche(personne(v.CMi)) || '—')}</td><td>${esc(periode(v))}</td><td class="large">${esc(dateFr(v.Visite_inspe))}</td>
         <td>${esc(dateFr(v.Date_prevue)) || '<span class="muted">—</span>'}</td>
@@ -205,7 +207,7 @@ function carte({ v, r, e }) {
   const dep = periodeDepassee(v, e, aujourdhui());
   return `<div class="carte ${dep ? 'depassee' : ''}" data-id="${v.id}">
     <h3><span>${esc(nomProf(v))}</span>${pastille(e)}</h3>${dep ? '<span class="depasse">Période de visite dépassée</span>' : ''}
-    <div class="petit muted">${esc(v.Statut_plan || '')}${v.Statut_plan ? ' · ' : ''}période ${esc(periode(v) || '—')}${v.Visite_inspe ? ` · INSPE le ${esc(dateFr(v.Visite_inspe))}` : ''}</div>
+    <div class="petit muted">${esc(statut(v))}${statut(v) ? ' · ' : ''}période ${esc(periode(v) || '—')}${v.Visite_inspe ? ` · INSPE le ${esc(dateFr(v.Visite_inspe))}` : ''}</div>
     <div class="contact"><span>${ic('ecole')} <strong>${esc(v.Etab_nom || (etab && etab.Nom) || '')}</strong>&nbsp;${esc((etab && etab.Commune) || '')} <span class="muted">${esc(v.UAI || '')}</span></span>
       ${etab && etab.Adresse ? `<span class="muted">${esc(etab.Adresse)}, ${esc(etab.Code_postal || '')} ${esc(etab.Commune || '')}</span>` : ''}
       ${c.mel ? `<a href="mailto:${esc(c.mel)}">${ic('mail')} ${esc(c.mel)}</a>` : ''}
@@ -233,7 +235,7 @@ function afficherMes() {
 
 // --- Saisie d'une visite (IA-IPR) ---
 function ouvrirSaisie(v) {
-  saisie = v ? { ...v } : { id: null, Professeur: 0, Prof_nom: '', Prof_prenom: '', UAI: '', Etab_nom: '', Statut_plan: '', CMi: typeof filtre.cmi === 'number' ? filtre.cmi : 0,
+  saisie = v ? { ...v } : { id: null, Professeur: 0, Prof_nom: '', Prof_prenom: '', UAI: '', Etab_nom: '', Stagiaire: 0, Statut_plan: '', CMi: typeof filtre.cmi === 'number' ? filtre.cmi : 0,
     Mois_debut: null, Mois_fin: null, Visite_inspe: null, Date_prevue: null, Notes: '', Rapport: 0 };
   afficherSaisie();
   if (!$('dlg-visite').open) $('dlg-visite').showModal();
@@ -250,7 +252,7 @@ function afficherSaisie() {
       <label class="champ"><span>Nom</span><input type="text" id="v-Prof_nom" value="${esc(f.Prof_nom)}" ${f.Professeur ? 'readonly' : ''}></label>
       <label class="champ"><span>Prénom</span><input type="text" id="v-Prof_prenom" value="${esc(f.Prof_prenom)}" ${f.Professeur ? 'readonly' : ''}></label>
       <label class="champ"><span>UAI</span><input type="text" id="v-UAI" value="${esc(f.UAI)}" ${f.Professeur ? 'readonly' : ''}></label>
-      <label class="champ"><span>Statut (plan)</span><input type="text" id="v-Statut_plan" value="${esc(f.Statut_plan)}" placeholder="AGREG 50%, CAPES 100%…"></label>
+      <div class="champ"><span>Statut</span><div class="petit" style="padding:6px 0" title="Calculé : liste des stagiaires (Suivis → Suivi PSTG) ou grade du fichier des professeur·es">${esc(statut(f) || '—')}${f.Stagiaire ? ' <span class="muted">(stagiaire suivi·e)</span>' : ''}</div></div>
       <label class="champ"><span>CMi</span><select id="v-CMi"><option value="0">—</option>${cmis().map(p => `<option value="${p.id}" ${p.id === f.CMi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
       <label class="champ"><span>Mois de début</span><select id="v-Mois_debut">${optMois(f.Mois_debut)}</select></label>
       <label class="champ"><span>Mois de fin</span><select id="v-Mois_fin">${optMois(f.Mois_fin)}</select></label>
@@ -263,7 +265,7 @@ function afficherSaisie() {
     <div class="actions"><button type="button" id="v-ok" class="primary">Enregistrer</button><button type="button" id="v-annuler">Annuler</button>
       ${f.id ? '<button type="button" id="v-suppr" class="danger" title="Supprimer cette visite du plan (double clic)">Supprimer</button>' : ''}</div>`;
   const lire = () => {
-    for (const c of ['Prof_nom', 'Prof_prenom', 'UAI', 'Statut_plan', 'Notes']) f[c] = $('v-' + c).value.trim();
+    for (const c of ['Prof_nom', 'Prof_prenom', 'UAI', 'Notes']) f[c] = $('v-' + c).value.trim();
     f.UAI = f.UAI.toUpperCase();
     f.CMi = Number($('v-CMi').value) || 0;
     f.Mois_debut = Number($('v-Mois_debut').value) || null; f.Mois_fin = Number($('v-Mois_fin').value) || null;
@@ -274,7 +276,7 @@ function afficherSaisie() {
     const mots = norm($('v-q').value).split(/\s+/).filter(Boolean);
     if (!mots.length) { $('v-sugg').hidden = true; return; }
     const t = D.profs.filter(p => { const e = etabDe(p.UAI) || {}; return mots.every(m => norm([p.Nom, p.Prenom, p.UAI, e.Nom, e.Commune].join(' ')).includes(m)); }).slice(0, 12);
-    $('v-sugg').innerHTML = t.length ? t.map(p => `<div data-prof="${p.id}"><strong>${esc(p.Nom)} ${esc(p.Prenom)}</strong> · ${esc((etabDe(p.UAI) || {}).Nom || '')} ${esc((etabDe(p.UAI) || {}).Commune || '')} <span class="muted">${esc(p.UAI)} · ${esc(p.Grade || '')}${p.Type_nomination === 'STG' ? ' · stagiaire' : ''}</span></div>`).join('')
+    $('v-sugg').innerHTML = t.length ? t.map(p => `<div data-prof="${p.id}"><strong>${esc(p.Nom)} ${esc(p.Prenom)}</strong> · ${esc((etabDe(p.UAI) || {}).Nom || '')} ${esc((etabDe(p.UAI) || {}).Commune || '')} <span class="muted">${esc(p.UAI)} · ${esc(p.Grade || '')}${/^(STG|STR)$/i.test(String(p.Type_nomination || '')) ? ' · stagiaire' : ''}</span></div>`).join('')
       : '<div class="muted">Aucun·e professeur·e : saisir nom, prénom et UAI à la main.</div>';
     $('v-sugg').hidden = false;
   });
@@ -284,6 +286,7 @@ function afficherSaisie() {
     lire();
     const p = D.profs.find(x => x.id === Number(d.dataset.prof));
     Object.assign(f, { Professeur: p.id, Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '', UAI: p.UAI || '', Etab_nom: (etabDe(p.UAI) || {}).Nom || '' });
+    f.Stagiaire = stagiaireDe(f, D.stagiaires, f.Mois_debut ? rentreeDe(f.Mois_debut) : rentree);
     afficherSaisie();
   });
   $('v-q').addEventListener('change', () => { if (!$('v-q').value.trim() && f.Professeur) { lire(); f.Professeur = 0; afficherSaisie(); } });
@@ -297,7 +300,8 @@ function afficherSaisie() {
     const err = valider(f);
     $('v-erreurs').innerHTML = err.map(e => `<li>${esc(e)}</li>`).join('');
     if (err.length) return;
-    const champs = Object.fromEntries(['Professeur', 'Prof_nom', 'Prof_prenom', 'UAI', 'Etab_nom', 'Statut_plan', 'CMi', 'Mois_debut', 'Mois_fin',
+    if (!f.Stagiaire) f.Stagiaire = stagiaireDe(f, D.stagiaires, f.Mois_debut ? rentreeDe(f.Mois_debut) : rentree);
+    const champs = Object.fromEntries(['Professeur', 'Prof_nom', 'Prof_prenom', 'UAI', 'Etab_nom', 'Stagiaire', 'CMi', 'Mois_debut', 'Mois_fin',
       'Visite_inspe', 'Date_prevue', 'Notes'].map(k => [k, f[k] ?? null]));
     const ok = f.id ? await ecrire([['UpdateRecord', TABLE, f.id, champs]], 'Visite enregistrée', charger)
       : await ecrire([['AddRecord', TABLE, null, { ...champs, Rapport: f.Rapport || 0 }]], 'Visite ajoutée au plan', charger);
@@ -356,7 +360,7 @@ async function enregistrerImport() {
 const change = detecteurChangement();
 const occupe = () => !!saisie || $('dlg-import').open || (document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName) && $('contenu').contains(document.activeElement));
 const charger = sansChevauchement(async () => {
-  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs'];
+  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs', 'Stagiaires'];
   const T = Object.fromEntries(noms.map((n, i) => [n, null]));
   const lus = await Promise.all(noms.map(lireTable));
   noms.forEach((n, i) => { T[n] = lus[i]; });
@@ -365,10 +369,10 @@ const charger = sansChevauchement(async () => {
     $('app').hidden = true; return;
   }
   D.visites = T.Visites.lignes; D.rapports = T.Rapports.lignes || []; D.personnes = T.Personnes.lignes || [];
-  D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || [];
+  D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.stagiaires = T.Stagiaires.lignes || [];   // absente : statut tiré du grade
   moi = identifierMoi(T.Utilisateurs.lignes || []).moi;
   droits = droitsTable(moi, TABLE); droitsRapports = droitsTable(moi, 'Rapports');
-  if (!change([T.Visites.lignes, T.Rapports.lignes, T.Personnes.lignes, moi && moi.Droits, rentree, onglet]) && !$('app').hidden) return;
+  if (!change([T.Visites.lignes, T.Rapports.lignes, T.Personnes.lignes, T.Stagiaires.lignes, moi && moi.Droits, rentree, onglet]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
   if (!occupe()) afficher();
 });
@@ -389,7 +393,7 @@ if (await initialiserGrist()) {
     if (t.closest('#nouvelle')) { ouvrirSaisie(null); return; }
     if (t.closest('#importer')) { ouvrirImport(); return; }
     const aj = t.closest('[data-ajouter]');
-    if (aj) { const r = D.rapports.find(x => x.id === Number(aj.dataset.ajouter)); if (r) ouvrirSaisie({ id: null, ...visiteDepuisRapport(r) }); return; }
+    if (aj) { const r = D.rapports.find(x => x.id === Number(aj.dataset.ajouter)); if (r) { const v = visiteDepuisRapport(r); v.Stagiaire = stagiaireDe(v, D.stagiaires, rentreeDe(r.Date_visite) || rentree); ouvrirSaisie({ id: null, ...v }); } return; }
     const ra = t.closest('[data-rapport]');
     if (ra) { ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); return; }
     const re = t.closest('[data-rediger]');

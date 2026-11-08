@@ -214,7 +214,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Prof_prenom` | Texte | Prénom |
 | `UAI` | Texte | UAI |
 | `Etab_nom` | Texte | recopié |
-| `Statut_plan` | Texte | « AGREG 50 % », « CAPES 100 % »… tel que dans le plan |
+| `Stagiaire` | Référence → Stagiaires | visite d'un·e stagiaire : statut affiché calculé (corps, concours, quotité) |
+| `Statut_plan` | Texte | ancienne saisie libre (« AGREG 50 % ») : n'est plus saisie ; le statut affiché est calculé (Stagiaires ou grade) |
 | `CMi` | Référence → Personnes | portée « Limité » des CMi (ses visites) |
 | `Mois_debut` | Date | 1er jour du mois de début de la période de visite |
 | `Mois_fin` | Date | 1er jour du mois de fin de la période de visite |
@@ -249,6 +250,44 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Date_visite` | Date | Date de la visite |
 | `Visiteur` | Référence → Personnes | CMi ou IA-IPR |
 | `Positionnement` | Texte | JSON { code compétence : { niveau, phrase } } — chiffré |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
+#### `Stagiaires` — professeur·es stagiaires suivi·es, une ligne par année ; identité recopiée du fichier des professeur·es (qui change chaque année)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Annee` | Texte | « 2026-2027 » |
+| `Professeur` | Référence → Professeurs | lien vers l'année en cours (facultatif : stagiaire absent·e du fichier) |
+| `Civilite` | Texte | Civilité |
+| `Nom` | Texte | Nom |
+| `Prenom` | Texte | Prénom |
+| `Email` | Texte | E-mail |
+| `UAI` | Texte | UAI |
+| `Etab_nom` | Texte | Établissement |
+| `Etab_commune` | Texte | Commune |
+| `Corps` | Choix | proposé d'après le Grade, modifiable |
+| `Concours` | Choix | Concours |
+| `Quotite` | Choix | Quotité |
+| `Sans_tuteur` | Booléen | agrégation interne et quelques autres cas |
+| `CMi` | Référence → Personnes | chargé·e de mission qui suit le ou la stagiaire cette année |
+| `Suivi` | Choix | Écarté·e : repéré·e dans le fichier mais pas suivi·e (motif) |
+| `Motif` | Texte | pourquoi écarté·e |
+| `Notes` | Texte | Notes |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
+#### `Tutorats` — tuteur·trices des stagiaires (un·e ou deux par stagiaire) ; identité recopiée
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Stagiaire` | Référence → Stagiaires | Stagiaire |
+| `Professeur` | Référence → Professeurs | lien vers l'année en cours (facultatif) |
+| `Civilite` | Texte | Civilité |
+| `Nom` | Texte | Nom |
+| `Prenom` | Texte | Prénom |
+| `Email` | Texte | adresse du tuteur ou de la tutrice (futurs formulaires) |
+| `UAI` | Texte | UAI |
+| `Etab_nom` | Texte | Établissement |
+| `Ordre` | Numérique | 1 = tuteur·trice principal·e, 2 = co-tuteur·trice |
 | `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
 
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit
