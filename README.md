@@ -30,6 +30,7 @@ Page d'accueil : https://grist-rapports-app.vercel.app/
 | Application | `https://grist-rapports-app.vercel.app/app/` | Menu et écrans (page unique) |
 | Administration | `https://grist-rapports-app.vercel.app/admin/` | Mon compte ; comptes, rôles, permissions, contrôles (admins) |
 | Plan d'inspection | `https://grist-rapports-app.vercel.app/plan/` | Visites à faire par CMi (IA-IPR), suivi des visites et des validations ; « Mes visites » avec les contacts des établissements (CMi) |
+| Suivis | `https://grist-rapports-app.vercel.app/suivis/` | IA-IPR : suivi pluriannuel des maître·sses délégué·es (positionnement sur trois compétences, visite tous les trois ans) ; suivi des stagiaires à venir |
 | Rapports | `https://grist-rapports-app.vercel.app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
 | Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types, grilles de positionnement (MD, PSTG), paramètres |
 | Annuaire | `https://grist-rapports-app.vercel.app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
@@ -223,6 +224,32 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Annee` | Texte (formule) | Année scolaire |
 | `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
 
+#### `Maitres_delegues` — maître·sses délégué·es suivi·es (visite tous les trois ans) ; identité recopiée, le fichier des professeur·es changeant chaque année
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Professeur` | Référence → Professeurs | lien vers l'année en cours (peut se perdre au changement d'année) |
+| `Civilite` | Texte | Civilité |
+| `Nom` | Texte | Nom |
+| `Prenom` | Texte | Prénom |
+| `UAI` | Texte | UAI |
+| `Etab_nom` | Texte | Établissement |
+| `Etab_commune` | Texte | Commune |
+| `En_poste` | Booléen | décoché : ancien·ne MD (masqué·e par défaut) |
+| `Notes` | Texte | Notes |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
+#### `Bilans_MD` — bilans de positionnement des MD saisis pour les années passées (les rapports MD validés s'ajoutent d'office au suivi)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `MD` | Référence → Maitres_delegues | MD |
+| `Annee` | Texte | « 2024-2025 » |
+| `Date_visite` | Date | Date de la visite |
+| `Visiteur` | Référence → Personnes | CMi ou IA-IPR |
+| `Positionnement` | Texte | JSON { code compétence : { niveau, phrase } } — chiffré |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit
 
 | Colonne | Type | Rôle |
@@ -304,6 +331,13 @@ en cours, en relecture, à reprendre, validé, transmis), donne un bilan par CMi
 rédigés hors plan (« Ajouter au plan »). Les CMi ne voient que **leurs** visites (« Mes visites ») : contacts de
 l'établissement (e-mail `ce.<UAI>@ac-orleans-tours.fr`, téléphone), date à caler, notes, puis « Rédiger le rapport »,
 qui ouvre l'écran Rapports déjà rempli et relie le rapport à la visite.
+
+**Suivis** (`suivis/`, tables `Maitres_delegues` et `Bilans_MD`, IA-IPR seulement). Onglet **Suivi MD** : une ligne par
+maître·sse délégué·e, une colonne par année (les cinq précédentes et l'année en cours), trois ronds colorés par visite
+(niveau sur chacune des trois compétences de la grille MD). Les rapports MD validés s'y inscrivent d'office ; les
+anciennes visites se saisissent en cliquant sur une case (visiteur·e, niveaux, phrases facultatives). Les MD du fichier
+des professeur·es (grade « MD… ») sont proposé·es à l'ajout ; « + MD » ajoute un·e MD absent·e du fichier. Visite tous
+les trois ans : « À visiter » signalé.
 
 **Rapports**, **Modèles & phrases**, **Annuaire** : voir l'aide (?) de chaque écran.
 

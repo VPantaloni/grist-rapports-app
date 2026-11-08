@@ -798,6 +798,112 @@
       ]
     },
     {
+      "id": "Maitres_delegues",
+      "role": "maître·sses délégué·es suivi·es (visite tous les trois ans) ; identité recopiée, le fichier des professeur·es changeant chaque année",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Professeur",
+          "libelle": "Professeur·e",
+          "type": "Ref:Professeurs",
+          "role": "lien vers l'année en cours (peut se perdre au changement d'année)"
+        },
+        {
+          "id": "Civilite",
+          "libelle": "Civilité",
+          "type": "Text"
+        },
+        {
+          "id": "Nom",
+          "libelle": "Nom",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Prenom",
+          "libelle": "Prénom",
+          "type": "Text"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_nom",
+          "libelle": "Établissement",
+          "type": "Text"
+        },
+        {
+          "id": "Etab_commune",
+          "libelle": "Commune",
+          "type": "Text"
+        },
+        {
+          "id": "En_poste",
+          "libelle": "En poste",
+          "type": "Bool",
+          "role": "décoché : ancien·ne MD (masqué·e par défaut)"
+        },
+        {
+          "id": "Notes",
+          "libelle": "Notes",
+          "type": "Text"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Nom} {$Prenom} – {$UAI} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
+      "id": "Bilans_MD",
+      "role": "bilans de positionnement des MD saisis pour les années passées (les rapports MD validés s'ajoutent d'office au suivi)",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "MD",
+          "libelle": "MD",
+          "type": "Ref:Maitres_delegues",
+          "obligatoire": true
+        },
+        {
+          "id": "Annee",
+          "libelle": "Année scolaire",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "« 2024-2025 »"
+        },
+        {
+          "id": "Date_visite",
+          "libelle": "Date de la visite",
+          "type": "Date"
+        },
+        {
+          "id": "Visiteur",
+          "libelle": "Visité·e par",
+          "type": "Ref:Personnes",
+          "role": "CMi ou IA-IPR"
+        },
+        {
+          "id": "Positionnement",
+          "libelle": "Positionnement",
+          "type": "Text",
+          "role": "JSON { code compétence : { niveau, phrase } } — chiffré"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$MD.Nom} {$MD.Prenom} – {$Annee} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
       "id": "Utilisateurs",
       "role": "comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit",
       "administration": true,
@@ -877,7 +983,9 @@
             "Parametres",
             "Rapports",
             "Signatures",
-            "Visites"
+            "Visites",
+            "Maitres_delegues",
+            "Bilans_MD"
           ]
         },
         {
@@ -939,6 +1047,7 @@
           "choix": [
             "plan",
             "rapports",
+            "suivis",
             "modeles",
             "annuaire",
             "admin"

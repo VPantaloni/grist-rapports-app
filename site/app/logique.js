@@ -10,6 +10,7 @@ import { compteConnecte } from '../commun/droits.js';
 export const ECRANS = {
   plan: { dossier: 'plan', libelle: "Plan d'inspection" },
   rapports: { dossier: 'rapports', libelle: 'Rapports' },
+  suivis: { dossier: 'suivis', libelle: 'Suivis' },
   modeles: { dossier: 'modeles', libelle: 'Modèles & phrases' },
   annuaire: { dossier: 'annuaire', libelle: 'Annuaire' },
   admin: { dossier: 'admin', libelle: 'Administration' },

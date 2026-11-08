@@ -10,6 +10,8 @@ Administrateur·trice,Parametres,Oui,Oui,Oui,Oui
 Administrateur·trice,Rapports,Oui,Oui,Oui,Oui
 Administrateur·trice,Signatures,Oui,Oui,Oui,Oui
 Administrateur·trice,Visites,Oui,Oui,Oui,Oui
+Administrateur·trice,Maitres_delegues,Oui,Oui,Oui,Oui
+Administrateur·trice,Bilans_MD,Oui,Oui,Oui,Oui
 IA-IPR,Personnes,Oui,Non,Limité,Non
 IA-IPR,Etablissements,Oui,Non,Non,Non
 IA-IPR,Professeurs,Oui,Non,Non,Non
@@ -21,6 +23,8 @@ IA-IPR,Parametres,Oui,Non,Oui,Non
 IA-IPR,Rapports,Oui,Oui,Oui,Non
 IA-IPR,Signatures,Limité,Limité,Limité,Limité
 IA-IPR,Visites,Oui,Oui,Oui,Oui
+IA-IPR,Maitres_delegues,Oui,Oui,Oui,Oui
+IA-IPR,Bilans_MD,Oui,Oui,Oui,Oui
 CMi,Personnes,Oui,Non,Limité,Non
 CMi,Etablissements,Oui,Non,Non,Non
 CMi,Professeurs,Oui,Non,Non,Non
@@ -32,3 +36,5 @@ CMi,Parametres,Oui,Non,Non,Non
 CMi,Rapports,Oui,Limité,Limité,Limité
 CMi,Signatures,Limité,Limité,Limité,Limité
 CMi,Visites,Limité,Non,Limité,Non
+CMi,Maitres_delegues,Non,Non,Non,Non
+CMi,Bilans_MD,Non,Non,Non,Non

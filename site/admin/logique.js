@@ -7,7 +7,7 @@ import { PREFIXE } from '../commun/config.js';
 // ===== À ADAPTER (APP § 4 et § 8) =====
 // Tables de données présentes dans la matrice Permissions (pas Utilisateurs, Permissions, Navigation).
 export const TABLES_DONNEES = ['Personnes', 'Etablissements', 'Professeurs', 'Types_rapport', 'Rubriques', 'Phrases',
-  'Competences_MD', 'Parametres', 'Rapports', 'Signatures', 'Visites'];
+  'Competences_MD', 'Parametres', 'Rapports', 'Signatures', 'Visites', 'Maitres_delegues', 'Bilans_MD'];
 // Table des fiches vers laquelle pointe Utilisateurs.Personne ('' si l'application n'en a pas).
 export const TABLE_FICHES = 'Personnes';
 // Rôles qui exigent une fiche (leurs droits « Limité » portent sur « mes » lignes).
@@ -48,6 +48,8 @@ export const MATRICE_DEFAUT = (() => {
     Rapports: [[O, O, O, N], [O, L, L, L]],
     Signatures: [[L, L, L, L], [L, L, L, L]],
     Visites: [[O, O, O, O], [L, N, L, N]],
+    Maitres_delegues: [[O, O, O, O], [N, N, N, N]],   // suivi des MD : IA-IPR seul·es
+    Bilans_MD: [[O, O, O, O], [N, N, N, N]],
   };
   return {
     'Administrateur·trice': Object.fromEntries(Object.keys(m).map(t => [t, [O, O, O, O]])),

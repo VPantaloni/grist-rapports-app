@@ -154,6 +154,14 @@ Prêtes à copier, une ligne par table de données (générées depuis `installa
 | [ ] | `Visites` | `user.Profil and "Visites:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
 | [ ] | `Visites` | `user.Profil and "Visites:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
 | [ ] | `Visites` | `user.Profil and "Visites:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Maitres_delegues` | `user.Profil and "Maitres_delegues:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Maitres_delegues` | `user.Profil and "Maitres_delegues:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Maitres_delegues` | `user.Profil and "Maitres_delegues:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Maitres_delegues` | `user.Profil and "Maitres_delegues:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Bilans_MD` | `user.Profil and "Bilans_MD:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
 <!-- /schema:matrice -->
 
 - [ ] **Enregistrer.**

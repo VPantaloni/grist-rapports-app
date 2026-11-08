@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports d'inspection — Aide des suivis</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 6px; color: var(--accent); }
+  ul { padding-left: 22px; } li { margin-bottom: 4px; }
+  .rond { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(0,0,0,.15); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Suivis — mode d'emploi</h1>
+  <p class="muted">Écran réservé aux IA-IPR (et aux administrateur·trices).</p>
+
+  <h2>Suivi MD : le tableau</h2>
+  <ul>
+    <li>Une ligne par maître·sse délégué·e (MD), une colonne par année : les <strong>cinq années précédentes</strong> et l'<strong>année en cours</strong> (surlignée).</li>
+    <li>Une visite = <strong>trois ronds</strong>, un par compétence de la grille MD, dans l'ordre de la légende : <span class="rond" style="background:#dc2626"></span> À consolider, <span class="rond" style="background:#f59e0b"></span> Satisfaisant, <span class="rond" style="background:#16a34a"></span> Très satisfaisant, <span class="rond" style="background:var(--bg2)"></span> non positionné. Survoler les ronds affiche le détail (visiteur·e, date, phrases).</li>
+    <li>Ronds <strong>encadrés</strong> : bilan tiré d'un <strong>rapport MD validé ou transmis</strong> de l'application, inscrit d'office. Sinon : bilan saisi à la main.</li>
+    <li><strong>État</strong> (visite tous les trois ans) : « À visiter » si la dernière visite date de trois ans ou plus (ou jamais), « Prévu·e au plan » si une visite est au plan de l'année, « Visité·e cette année », sinon l'année de la prochaine visite. Les compteurs en haut filtrent le tableau.</li>
+  </ul>
+
+  <h2>Saisir un ancien bilan</h2>
+  <ul>
+    <li>Cliquer sur une case vide (ou un bilan saisi) : choisir qui a fait la visite (CMi ou IA-IPR), la date si on la connaît, puis le niveau de chaque compétence. La phrase est facultative : une phrase d'illustration est proposée au choix du niveau, modifiable.</li>
+    <li>Une case tirée d'un rapport est en lecture seule : « Ouvrir le rapport ».</li>
+    <li>Les positionnements sont chiffrés : « Révéler » (menu de l'application) pour les voir et les saisir.</li>
+  </ul>
+
+  <h2>La liste des MD</h2>
+  <ul>
+    <li>Les MD du fichier des professeur·es (grade « MD1 »…) et des rapports MD qui ne sont pas encore suivi·es sont proposé·es en haut : <strong>Ajouter au suivi</strong>.</li>
+    <li><strong>+ MD</strong> : chercher dans le fichier des professeur·es, ou saisir l'identité et l'établissement (MD arrivé·e en cours d'année).</li>
+    <li>Cliquer sur un nom ouvre sa fiche : décocher <strong>En poste</strong> pour un·e MD parti·e (masqué·e, sauf « Afficher les ancien·nes MD »).</li>
+  </ul>
+
+  <h2>Suivi PSTG</h2>
+  <p>À venir.</p>
+</main>
+</body>
+</html>
