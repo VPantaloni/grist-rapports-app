@@ -166,9 +166,12 @@ const DEFAUT = { tableId: '*', colIds: '*' };
 const P = 'user.Profil';
 
 // Règles d'une application d'après son schéma : génériques, puis celles déclarées dans `regles` (portées « Limité »,
-// « ma fiche », campagnes…), dans l'ordre où Grist doit les examiner.
-/** @param {Schema & { regles?: { table: string, colonne?: string, condition: string, droits: string, libelle?: string }[] }} schema @returns {RegleAcces[]} */
-export function reglesAcces(schema) {
+// « ma fiche », campagnes…), dans l'ordre où Grist doit les examiner. o.chiffrement : la table Chiffrement (sel et
+// vérificateur de la phrase secrète, SPEC § 5.8) existe et doit être lisible des comptes actifs, sinon « Révéler »
+// n'apparaît pas pour eux.
+/** @param {Schema & { regles?: { table: string, colonne?: string, condition: string, droits: string, libelle?: string }[] }} schema
+ *  @param {{ chiffrement?: boolean }} [o] @returns {RegleAcces[]} */
+export function reglesAcces(schema, o = {}) {
   /** @type {RegleAcces[]} */
   const r = [];
   const t = (/** @type {string} */ tableId, colIds = '*') => ({ tableId, colIds });
@@ -178,6 +181,7 @@ export function reglesAcces(schema) {
   r.push({ ressource: t('Utilisateurs'), condition: 'rec.Email == user.Email', droits: '+R', libelle: 'Utilisateurs : sa ligne' });
   r.push({ ressource: t('Permissions'), condition: 'user.IsLoggedIn', droits: '+R', libelle: 'Permissions : lisible si connecté·e' });
   r.push({ ressource: t('Navigation'), condition: 'True', droits: '+R', libelle: 'Navigation : lisible par tous' });
+  if (o.chiffrement) r.push({ ressource: t('Chiffrement'), condition: `${P} and ${P}.Actif`, droits: '+R', libelle: 'Chiffrement : lisible des comptes actifs (pour « Révéler »)' });
   for (const tb of (schema.tables || []).filter(x => !x.administration)) {
     for (const regle of (schema.regles || []).filter(x => x.table === tb.id && x.colonne)) {
       r.push({ ressource: t(tb.id, /** @type {string} */ (regle.colonne)), condition: regle.condition, droits: regle.droits, libelle: regle.libelle || `${tb.id}.${regle.colonne} : règle déclarée` });

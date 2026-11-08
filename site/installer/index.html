@@ -70,6 +70,7 @@
 import { $, esc, message, toast, boutonConfirmation, preferences, copier } from '../commun/interface.js';
 import { initialiserGrist } from '../commun/grist.js';
 import { columnsToRows } from '../commun/donnees.js';
+import { CHIFFREMENT } from '../commun/config.js';
 import { decoderTexte, lireCsv } from '../commun/import.js';
 import { ordreTables, planStructure, actionsTables, actionsColonnes, actionsAffichage, objetsCsv, colonnesDonnees, reglesAcces, etatRegles,
   actionsRessources, actionsRegles, actionsRetraitKit, MEMO_REGLES } from '../commun/installation.js';
@@ -320,10 +321,10 @@ async function analyser() {
 let ri = null;
 const sauverRegles = () => pref.ecrire('Regles', JSON.stringify(ri));
 async function analyserRegles() {
-  const regles = reglesAcces(schema);
   const [rs, rg, meta] = await Promise.all([lire('_grist_ACLResources'), lire('_grist_ACLRules'), lireMeta()]);
   const etat = etatRegles(rs, rg);
   const tables = new Set(meta.tables.map(t => t.tableId));
+  const regles = reglesAcces(schema, { chiffrement: !!CHIFFREMENT && tables.has('Chiffrement') });
   const manquantes = [...new Set(regles.map(r => r.ressource.tableId).filter(t => t !== '*' && !tables.has(t)))];
   const liste = `<details><summary>Les ${regles.length} règles, dans l'ordre</summary><table class="petit">${regles.map(r =>
     `<tr><td><code>${esc(r.ressource.tableId === '*' ? 'défaut' : r.ressource.tableId + (r.ressource.colIds !== '*' ? '.' + r.ressource.colIds : ''))}</code></td>
