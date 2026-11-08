@@ -186,10 +186,14 @@ function afficherMenu() {
 // Icônes Lucide « app-window » et « panel-left » (https://lucide.dev, licence ISC)
 const IC_APP = '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>';
 const IC_GRIST = '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>';
+// CMi (ou compte sans rôle admin ni IA-IPR) : pas de passage vers Grist depuis l'application ; la bascule n'apparaît
+// qu'en mode Grist, pour revenir à l'application.
+let sansBascule = true;
 function modeActuel() { return modeDepuisReferent(document.referrer) || pref.lire('Mode', 'app'); }
 function basculeMode() {
   if (!adressePage) return '';
   const app = modeActuel() === 'app';
+  if (app && sansBascule) return '';
   const bouton = (mode, ic, libelle, titre) => `<button type="button" data-mode="${mode}" class="${(mode === 'app') === app ? 'actif' : ''}"
       ${(mode === 'app') === app ? 'aria-pressed="true"' : 'aria-pressed="false"'} title="${titre}">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${libelle}</span></button>`;
@@ -199,7 +203,7 @@ function basculeMode() {
     + '</div>';
 }
 function basculer(mode) {
-  if (!adressePage) return;   // même mode : recharge la page (utile si le mode supposé était faux)
+  if (!adressePage || (sansBascule && mode === 'grist')) return;   // même mode : recharge la page (utile si le mode supposé était faux)
   pref.ecrire('Mode', mode);
   const a = document.createElement('a');
   a.href = lienMode(adressePage, mode === 'app');
@@ -324,6 +328,7 @@ async function chargerMenu() {
   const lignes = nav.lignes || [], utilisateurs = util.lignes || [];
   // Permissions refusée = visiteur non connecté (partage public, SPEC § 5.7) ; table absente = installation en cours.
   const compte = compteMenu(utilisateurs, !!perm.erreur && classerErreur(perm.erreur) === 'refus');
+  sansBascule = !compte.tous && !(compte.moi && liste(compte.moi.Roles).some(r => r === 'Administrateur·trice' || r === 'IA-IPR'));
   // Vue admin (ou règles pas encore saisies) : mémoriser les comptes actifs pour la liste « Voir en tant que »
   // (vu en tant qu'un autre compte, seule la ligne de ce compte est lisible).
   if (compte.tous || (compte.moi && liste(compte.moi.Roles).includes('Administrateur·trice'))) {
