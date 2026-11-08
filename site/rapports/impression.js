@@ -19,8 +19,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => /** @type {Record<stri
 // Image de signature : seulement une image en data URL (jamais une adresse externe ni du HTML).
 /** @param {any} s */
 const imageSure = s => /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(String(s || '')) ? String(s) : '';
+// Texte d'une rubrique : un seul bloc ; chaque retour à la ligne est un simple saut de ligne, sans espace en plus (les
+// lignes vides sont ignorées). L'espace entre blocs n'existe qu'entre rubriques (APP § 11, 2026-11-08).
 /** @param {string} t */
-const paragraphes = t => String(t || '').split(/\n{2,}|\n/).map(x => x.trim()).filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('');
+export const paragraphes = t => { const l = String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); return l.length ? `<p>${l.map(esc).join('<br>')}</p>` : ''; };
 /** @param {string} t */
 const puces = t => `<ul>${String(t || '').split('\n').map(x => x.replace(/^\s*[-•*]\s*/, '').trim()).filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
 
@@ -93,7 +95,7 @@ export function htmlImpression(r, c, o = {}) {
 <style>
   ${POLICE}
   @page { size: A4; margin: 12mm 15mm 16mm; @bottom-left { content: ${pied}; font: 7.5pt Marianne, Arial, sans-serif; white-space: pre; } }
-  body { font: 10pt/1.4 Marianne, Arial, Helvetica, sans-serif; color: #000; margin: 0; background: #fff; }
+  body { font: 10pt/1.25 Marianne, Arial, Helvetica, sans-serif; color: #000; margin: 0; background: #fff; }
   .outil { position: sticky; top: 0; z-index: 2; background: #f5f6f7; padding: 8px; border-bottom: 1px solid #ccc; font: 13px sans-serif; }
   .page { max-width: 180mm; margin: 0 auto; padding: 6mm 0; }
   table.mise { width: 100%; border-collapse: collapse; } table.mise > thead > tr > td, table.mise > tbody > tr > td { padding: 0; }
@@ -120,8 +122,8 @@ export function htmlImpression(r, c, o = {}) {
   .ed:hover { outline-color: #7a7a8c; } .ed:focus { outline: 2px solid #2563eb; background: #f5f8ff; }
   .ed:empty::before { content: attr(data-vide); color: #999; font-style: italic; }
   .ed.puces { padding-left: 4mm; border-left: 2px solid #ddd; }
-  p { margin: 0 0 2mm; text-align: justify; }
-  ul { margin: 0 0 2mm; padding-left: 6mm; }
+  p { margin: 0; text-align: justify; }
+  ul { margin: 0; padding-left: 6mm; } li { margin: 0; }
   .signatures { display: flex; justify-content: space-between; gap: 6mm; margin-top: 8mm; padding-top: 2mm; border-top: 1px solid #000;
     page-break-inside: avoid; font-size: 9.5pt; }
   .signatures .s { flex: 1; } .signatures .s:not(:first-child) { text-align: center; }
