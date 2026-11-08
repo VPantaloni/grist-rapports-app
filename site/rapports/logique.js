@@ -122,11 +122,15 @@ export function contenuInitial(rubriques, v) {
 /** @param {RubriqueFigee[]} structure @param {Record<string, any>} contenu */
 export const rubriquesVides = (structure, contenu) => structure.filter(r => r.imprimee && !String(contenu[r.code] || '').trim()).map(r => r.titre);
 // Phrases proposées pour une rubrique : validées (ou les siennes), filtrées par compétence et par recherche.
-/** @param {Ligne[]} phrases @param {number} rubriqueId @param {{ competence?: string, recherche?: string, moi?: number }} o */
+// o.niveaux : { compétence : rang du niveau positionné } — une phrase d'une compétence positionnée n'est proposée que
+// pour ce niveau (ou sans niveau) ; les compétences non positionnées gardent toutes leurs phrases.
+/** @param {Ligne[]} phrases @param {number} rubriqueId @param {{ competence?: string, recherche?: string, moi?: number, niveaux?: Record<string, number> }} o */
 export function phrasesPour(phrases, rubriqueId, o = {}) {
   const q = norm(o.recherche);
+  const niv = o.niveaux || {};
   return phrases.filter(p => p.Rubrique === rubriqueId && (p.Validee === true || (o.moi && p.Auteur === o.moi))
-    && (!o.competence || p.Competence === o.competence) && (!q || norm(p.Texte).includes(q)))
+    && (!o.competence || p.Competence === o.competence) && (!q || norm(p.Texte).includes(q))
+    && (!p.Competence || !niv[p.Competence] || !Number(p.Niveau) || Number(p.Niveau) === niv[p.Competence]))
     .sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
 }
 // Insertion d'un texte à la position du curseur, avec une espace ou un saut de ligne si besoin.
@@ -250,7 +254,7 @@ export function tailleSignature(l, h, lMax = 480, hMax = 180) {
   return { l: Math.max(1, Math.round(l * k)), h: Math.max(1, Math.round(h * k)) };
 }
 
-// --- Positionnement MD ---
+// --- Positionnement (MD, PSTG) ---
 
 // Niveaux de l'échelle (Parametres.echelle_md, séparés par « ; »).
 /** @param {any} texte */
@@ -313,7 +317,7 @@ export function lienEchange(type, r, personnes, params, v) {
   return lienMailto(a, [], remplirMail(m.objet, v), remplirMail(String((params && params['mail_' + type]) || '').trim() || m.texte, v));
 }
 
-// --- Positionnement MD : un niveau et une phrase par compétence ---
+// --- Positionnement : un niveau (et une phrase, MD) par compétence ---
 // Rapports.Positionnement : { code : { niveau, phrase } } ; ancienne forme { code : niveau } lue aussi.
 /** @param {any} json @returns {Record<string, { niveau: string, phrase: string }>} */
 export function lirePositionnement(json) {
@@ -447,4 +451,42 @@ export function diffMots(a, b) {
   while (i < n) pousser('-', A[i++]);
   while (j < m) pousser('+', B[j++]);
   return out;
+}
+
+// --- Grilles de positionnement (MD : 3 compétences ; PSTG : P1 à P5 sur 4 niveaux) ---
+const parOrdre = (/** @type {Ligne} */ a, /** @type {Ligne} */ b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0);
+// Compétences d'un type de rapport : celles dont Competences_MD.Types contient ce type ; une grille sans colonne Types
+// (ou sans type coché) reste celle des MD.
+/** @param {Ligne | undefined} type @param {Ligne[]} competences */
+export function grillePour(type, competences) {
+  if (!type) return [];
+  const avec = competences.filter(k => liste(k.Types).includes(type.id));
+  if (avec.length) return [...avec].sort(parOrdre);
+  return String(type.Code || '').toUpperCase() === 'MD' ? competences.filter(k => !liste(k.Types).length).sort(parOrdre) : [];
+}
+// Échelle d'un type : Types_rapport.Echelle, un niveau par ligne « Niveau : description » ; sinon Parametres.echelle_md.
+/** @param {Ligne | undefined} type @param {Record<string, string>} params @returns {{ cle: string, desc: string }[]} */
+export function echellePour(type, params) {
+  const lignes = String((type && type.Echelle) || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  if (lignes.length) return lignes.map(l => { const m = /^([^:]{1,30}?)\s*:\s*(.*)$/.exec(l); return m ? { cle: m[1].trim(), desc: m[2].trim() } : { cle: l, desc: '' }; });
+  return niveauxMd(params && params.echelle_md).map(cle => ({ cle, desc: '' }));
+}
+// Couleur d'un niveau (rang 1 = le plus faible) : rouge, orange, vert clair, vert vif.
+const COULEURS_NIVEAUX = ['#dc2626', '#f59e0b', '#86efac', '#16a34a'];
+/** @param {number} rang @param {number} n nombre de niveaux */
+export function couleurNiveau(rang, n) {
+  if (!rang || !n) return '';
+  if (n === 1) return COULEURS_NIVEAUX[3];
+  return COULEURS_NIVEAUX[Math.round((rang - 1) * 3 / (n - 1))] || '';
+}
+// Rang (1…n) du niveau positionné pour chaque compétence : { code : rang }.
+/** @param {any} json @param {{ cle: string }[]} echelle */
+export function rangsPositionnement(json, echelle) {
+  /** @type {Record<string, number>} */
+  const r = {};
+  for (const [code, x] of Object.entries(lirePositionnement(json))) {
+    const i = echelle.findIndex(e => norm(e.cle) === norm(x.niveau));
+    if (i >= 0) r[code] = i + 1;
+  }
+  return r;
 }

@@ -1,16 +1,20 @@
-﻿Rubrique,Competence,Nature,Texte,Auteur,Validee,Ordre
-seance,,Autre,"La séance débute par trois questions flash portant sur des thèmes variés, suivies d'une correction appuyée sur les démarches des élèves.",Julie Moreau,true,10
-seance,,Point fort,Il est laissé suffisamment de temps aux élèves pour s'engager dans une réflexion.,Thomas Girard,true,20
-entretien,,Point fort,{civilite} {nom} adopte durant l'entretien une posture réflexive et analyse avec lucidité les moments de la séance.,Claire Fontaine,true,30
-entretien,,Conseil,L'erreur pourrait être davantage exploitée comme point d'appui : analyser collectivement une production erronée aide à lever un obstacle.,Claire Fontaine,true,40
-entretien,,Vigilance,La part de l'institutionnalisation doit rester suffisante : prévoir le temps de fixer par écrit ce qui a été appris.,Bruno Leroy,true,50
-competences,P1,Point fort,maîtrise solide des notions enseignées ; les explications sont rigoureuses et claires.,Nadia Benali,true,60
-competences,P1,Vigilance,"la trace écrite gagnerait à distinguer plus nettement le statut des énoncés (définition, propriété, exemple).",Nadia Benali,true,70
-competences,P2,Point fort,langage précis et adapté au niveau des élèves.,Bruno Leroy,true,80
-competences,P3,Point fort,situations variées qui favorisent l'engagement de tous les élèves.,Claire Fontaine,true,90
-competences,P4,Point fort,climat de confiance ; la parole est distribuée équitablement.,Julie Moreau,true,100
-competences,P5,Conseil,intégrer des évaluations courtes et régulières à visée formative.,Thomas Girard,true,110
-preconclusion,,Point fort,La séance observée s'inscrit dans une progression cohérente et permet d'engager les élèves dans une activité mathématique effective dans un climat de travail serein.,Claire Fontaine,true,120
-conseils,,Conseil,Ritualiser un temps d'automatismes en début de séance.,Julie Moreau,true,130
-conseils,,Conseil,Faire verbaliser les démarches lors des mises en commun.,Inès Robert,true,140
-conseils,,Conseil,Proposer une question d'algorithmique ou de programmation dans chaque séquence.,Inès Robert,false,150
+﻿Rubrique,Competence,Niveau,Nature,Texte,Auteur,Validee,Ordre
+seance,,,Autre,"La séance débute par trois questions flash portant sur des thèmes variés, suivies d'une correction appuyée sur les démarches des élèves.",Julie Moreau,true,10
+seance,,,Point fort,Il est laissé suffisamment de temps aux élèves pour s'engager dans une réflexion.,Thomas Girard,true,20
+entretien,,,Point fort,{civilite} {nom} adopte durant l'entretien une posture réflexive et analyse avec lucidité les moments de la séance.,Claire Fontaine,true,30
+entretien,,,Conseil,L'erreur pourrait être davantage exploitée comme point d'appui : analyser collectivement une production erronée aide à lever un obstacle.,Claire Fontaine,true,40
+entretien,,,Vigilance,La part de l'institutionnalisation doit rester suffisante : prévoir le temps de fixer par écrit ce qui a été appris.,Bruno Leroy,true,50
+competences,P1,4,Point fort,maîtrise solide des notions enseignées ; les explications sont rigoureuses et claires.,Nadia Benali,true,60
+competences,P1,2,Vigilance,"la trace écrite gagnerait à distinguer plus nettement le statut des énoncés (définition, propriété, exemple).",Nadia Benali,true,70
+competences,P2,3,Point fort,langage précis et adapté au niveau des élèves.,Bruno Leroy,true,80
+competences,P3,4,Point fort,situations variées qui favorisent l'engagement de tous les élèves.,Claire Fontaine,true,90
+competences,P4,3,Point fort,climat de confiance ; la parole est distribuée équitablement.,Julie Moreau,true,100
+competences,P5,2,Conseil,intégrer des évaluations courtes et régulières à visée formative.,Thomas Girard,true,110
+competences,P1,1,Vigilance,des erreurs mathématiques non repérées (au tableau ou dans les réponses des élèves) installent des conceptions erronées.,Bruno Leroy,true,120
+competences,P3,1,Vigilance,la séance ne laisse pas aux élèves le temps de chercher : l'enseignant·e fait à leur place.,Claire Fontaine,true,130
+competences,P4,2,Conseil,les règles de fonctionnement de la classe sont à expliciter et à faire respecter avec constance.,Julie Moreau,true,140
+competences,P5,3,Point fort,"des évaluations régulières, en lien avec les objectifs travaillés.",Thomas Girard,true,150
+preconclusion,,,Point fort,La séance observée s'inscrit dans une progression cohérente et permet d'engager les élèves dans une activité mathématique effective dans un climat de travail serein.,Claire Fontaine,true,160
+conseils,,,Conseil,Ritualiser un temps d'automatismes en début de séance.,Julie Moreau,true,170
+conseils,,,Conseil,Faire verbaliser les démarches lors des mises en commun.,Inès Robert,true,180
+conseils,,,Conseil,Proposer une question d'algorithmique ou de programmation dans chaque séquence.,Inès Robert,false,190

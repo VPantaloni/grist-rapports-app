@@ -272,9 +272,15 @@
         },
         {
           "id": "Positionnement",
-          "libelle": "Positionnement MD",
+          "libelle": "Positionnement",
           "type": "Bool",
-          "role": "onglet de positionnement sur les compétences (jamais imprimé dans le rapport)"
+          "role": "onglet de positionnement sur une grille de compétences (MD, PSTG) : outil interne, jamais imprimé dans le rapport"
+        },
+        {
+          "id": "Echelle",
+          "libelle": "Échelle",
+          "type": "Text",
+          "role": "niveaux du positionnement, du plus faible au plus fort, un par ligne « Niveau : description » ; vide = Parametres.echelle_md"
         },
         {
           "id": "Ordre",
@@ -369,6 +375,12 @@
           ]
         },
         {
+          "id": "Niveau",
+          "libelle": "Niveau",
+          "type": "Numeric",
+          "role": "rang du niveau (1 = le plus faible) : proposée d'office quand la compétence est positionnée à ce niveau ; vide = tous niveaux"
+        },
+        {
           "id": "Nature",
           "libelle": "Nature",
           "type": "Choice",
@@ -406,7 +418,7 @@
     },
     {
       "id": "Competences_MD",
-      "role": "grille de positionnement des maître·sses délégué·es (MD) : compétences et descripteurs par niveau",
+      "role": "grilles de positionnement (MD : 3 compétences ; PSTG : P1 à P5) : compétences et descripteurs par niveau",
       "affichee": "Code",
       "colonnes": [
         {
@@ -414,13 +426,19 @@
           "libelle": "Code",
           "type": "Text",
           "obligatoire": true,
-          "role": "unique : MD1, MD2…"
+          "role": "unique : MD1, MD2…, P1…P5 (= Phrases.Competence)"
         },
         {
           "id": "Libelle",
           "libelle": "Compétence",
           "type": "Text",
           "obligatoire": true
+        },
+        {
+          "id": "Types",
+          "libelle": "Types de rapport",
+          "type": "RefList:Types_rapport",
+          "role": "grille du ou des types ; vide = grille des MD"
         },
         {
           "id": "Descripteurs",
@@ -573,7 +591,7 @@
           "id": "Positionnement",
           "libelle": "Positionnement MD",
           "type": "Text",
-          "role": "JSON { code compétence : niveau } — chiffré"
+          "role": "JSON { code compétence : { niveau, phrase } } (MD, PSTG) — chiffré, jamais imprimé dans le rapport"
         },
         {
           "id": "Commentaires",

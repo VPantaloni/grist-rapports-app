@@ -31,7 +31,7 @@ Page d'accueil : https://grist-rapports-app.vercel.app/
 | Administration | `https://grist-rapports-app.vercel.app/admin/` | Mon compte ; comptes, rôles, permissions, contrôles (admins) |
 | Plan d'inspection | `https://grist-rapports-app.vercel.app/plan/` | Visites à faire par CMi (IA-IPR), suivi des visites et des validations ; « Mes visites » avec les contacts des établissements (CMi) |
 | Rapports | `https://grist-rapports-app.vercel.app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
-| Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types, grille MD, paramètres |
+| Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types, grilles de positionnement (MD, PSTG), paramètres |
 | Annuaire | `https://grist-rapports-app.vercel.app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
 
 ## 2. Installation rapide (modèle .grist)
@@ -109,7 +109,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Code` | Texte | unique : CLASSIQUE, PSTG, MD |
 | `Libelle` | Texte | « Visite d'accompagnement (titulaire) »… |
 | `Titre` | Texte | « RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS » |
-| `Positionnement` | Booléen | onglet de positionnement sur les compétences (jamais imprimé dans le rapport) |
+| `Positionnement` | Booléen | onglet de positionnement sur une grille de compétences (MD, PSTG) : outil interne, jamais imprimé dans le rapport |
+| `Echelle` | Texte | niveaux du positionnement, du plus faible au plus fort, un par ligne « Niveau : description » ; vide = Parametres.echelle_md |
 | `Ordre` | Numérique | Ordre |
 
 #### `Rubriques` — rubriques des rapports, dans l'ordre ; une rubrique sert à un ou plusieurs types
@@ -132,18 +133,20 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 |---|---|---|
 | `Rubrique` | Référence → Rubriques | Rubrique |
 | `Competence` | Choix | Compétence |
+| `Niveau` | Numérique | rang du niveau (1 = le plus faible) : proposée d'office quand la compétence est positionnée à ce niveau ; vide = tous niveaux |
 | `Nature` | Choix | Nature |
 | `Texte` | Texte | {nom}, {civilite}, {prenom} remplacés à l'insertion |
 | `Auteur` | Référence → Personnes | Auteur·e |
 | `Validee` | Booléen | phrase proposée par un·e CMi : visible de tous après validation |
 | `Ordre` | Numérique | Ordre |
 
-#### `Competences_MD` — grille de positionnement des maître·sses délégué·es (MD) : compétences et descripteurs par niveau
+#### `Competences_MD` — grilles de positionnement (MD : 3 compétences ; PSTG : P1 à P5) : compétences et descripteurs par niveau
 
 | Colonne | Type | Rôle |
 |---|---|---|
-| `Code` | Texte | unique : MD1, MD2… |
+| `Code` | Texte | unique : MD1, MD2…, P1…P5 (= Phrases.Competence) |
 | `Libelle` | Texte | Compétence |
+| `Types` | Liste de références → Types_rapport | grille du ou des types ; vide = grille des MD |
 | `Descripteurs` | Texte | aide au positionnement : un paragraphe par niveau, commençant par « Niveau : » (ex. « À consolider : … ») |
 | `Phrases_types` | Texte | une phrase par niveau, « Niveau : phrase » : proposée quand on choisit ce niveau, modifiable dans le rapport |
 | `Domaine` | Texte | Domaine |
@@ -178,7 +181,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Theme` | Texte | Thème |
 | `Contenu` | Texte | JSON { code de rubrique : texte } — chiffré |
 | `Structure` | Texte | JSON des rubriques (titres, ordre, forme) figé à la création : un modèle modifié ne change pas les anciens rapports |
-| `Positionnement` | Texte | JSON { code compétence : niveau } — chiffré |
+| `Positionnement` | Texte | JSON { code compétence : { niveau, phrase } } (MD, PSTG) — chiffré, jamais imprimé dans le rapport |
 | `Commentaires` | Texte | JSON { code de rubrique : commentaire } — chiffré |
 | `Statut` | Choix | Statut |
 | `Auteur` | Référence → Personnes | portée « Limité » des CMi |

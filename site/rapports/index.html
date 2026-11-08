@@ -86,6 +86,12 @@
   .md .niveaux { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; }
   .md .niveau { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; cursor: pointer; }
   .md .niveau.choisi { border-color: var(--accent); background: var(--sel); }
+  .md .niveau[style*="--niv"] { border-left: 5px solid var(--niv); }
+  .md .niveau.choisi[style*="--niv"] { border-color: var(--niv); border-left-width: 5px; background: color-mix(in srgb, var(--niv) 16%, transparent); }
+  .md .niveaux.compact { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .echelle { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; margin: 6px 0 10px; }
+  .pastille { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,.15); }
+  .phrase[style*="--niv"] { border-left: 4px solid var(--niv); }
   .signature img { max-width: 260px; max-height: 100px; background: #fff; border: 1px solid var(--border); border-radius: 4px; }
 
   dialog { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-width: 520px; width: calc(100% - 32px);
@@ -144,10 +150,10 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
-  redigeParIpr, peutValiderSeul, niveauxMd, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
+  redigeParIpr, peutValiderSeul, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
-  lirePositionnement, positionner, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre,
+  lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre,
   diffMots } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
@@ -159,7 +165,7 @@ let moi = null, droits = droitsTable(null, TABLE);
 let sel = Number(pref.lire('Sel', '0')) || 0;
 let creation = null;     // { q, uai, prof, typeCode, date, heure, classe, effectif, theme, valideur, auteur, visite }
 let onglet = 'redaction';
-let rubriqueActive = '', competenceFiltre = '', champActif = null;
+let rubriqueActive = '', competenceFiltre = '', champActif = null, tousNiveaux = false;
 let brouillon = null;    // saisie en cours du rapport affiché : { id, champs }, envoyée ≈ 1 s après la dernière frappe
 let minuterie = null, envoiEnCours = false;
 // Chiffrement (SPEC § 5.8) : sans la clé, contenu vide et aucune écriture dans Rapports.
@@ -399,13 +405,13 @@ function afficherFiche() {
     </div></div>
     <div class="onglets">
       <button data-onglet="redaction" class="${onglet === 'redaction' ? 'actif' : ''}">Rédaction</button>
-      ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences : jamais imprimé dans le rapport">Positionnement MD</button>` : ''}
+      ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences : outil interne, jamais imprimé dans le rapport">Positionnement</button>` : ''}
       <button data-onglet="apercu" class="${onglet === 'apercu' ? 'actif' : ''}" title="Le rapport mis en page, comme imprimé ; ${redige ? 'texte modifiable sur place' : 'lecture seule'}">Aperçu${redige ? ' et retouches' : ''}</button>
       <button data-onglet="historique" class="${onglet === 'historique' ? 'actif' : ''}">Historique</button>
     </div>
     <div id="corps">${onglet === 'apercu' ? `<p class="muted petit">${redige ? 'Clique dans un paragraphe pour le corriger : la modification est enregistrée et reprise dans l\'onglet Rédaction. Les titres non imprimés apparaissent au survol.' : 'Lecture seule.'}</p>
       <iframe id="apercu" title="Aperçu du rapport" style="width:100%;height:75vh;border:1px solid var(--border);border-radius:6px;background:#fff"></iframe>`
-      : onglet === 'md' ? corpsMd(r, redige) : onglet === 'historique' ? corpsHistorique(r) : `${legendeRelecture(bilanRel, relit, repond)}${structure.map(x => { const n = rel[x.code] || { c: '' }; return `
+      : onglet === 'md' ? corpsPositionnement(r, t, redige) : onglet === 'historique' ? corpsHistorique(r) : `${legendeRelecture(bilanRel, relit, repond)}${structure.map(x => { const n = rel[x.code] || { c: '' }; return `
       <div class="rubrique" data-rubrique="${esc(x.code)}">
         <h3>${esc(x.titre)} ${x.forme === 'Puces' ? '<span class="forme">(une ligne = une puce)</span>' : ''}${x.imprimee === false ? '<span class="forme">(non imprimée)</span>' : ''}</h3>
         ${consigne(x.code) && (redige || relit) ? `<details class="consigne"><summary>Consigne</summary><p>${esc(consigne(x.code))}</p></details>` : ''}
@@ -427,21 +433,30 @@ function afficherFiche() {
   afficherPhrases();
 }
 
-function corpsMd(r, redige) {
-  const niveaux = niveauxMd(D.params.echelle_md);
+// Onglet Positionnement : grille du type (MD : 3 compétences, niveau et phrase ; PSTG : P1-P5 sur 4 niveaux colorés).
+function corpsPositionnement(r, t, redige) {
+  const echelle = echellePour(t, D.params), niveaux = echelle.map(e => e.cle);
   const p = lirePositionnement(r.Positionnement);
-  const comps = [...D.competences].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
-  return `<p class="muted">Positionnement du ou de la maître·sse délégué·e : pour chaque compétence, un niveau et une phrase. Enregistré avec le rapport, <strong>jamais imprimé dans le rapport</strong>.</p>
-    ${D.params.aide_md ? `<div class="alerte petit">${esc(D.params.aide_md)}</div>` : ''}
-    ${comps.length > 3 ? `<div class="alerte petit">La grille compte ${comps.length} compétences : Modèles &amp; phrases → Grille MD pour ne garder que les trois du positionnement.</div>` : ''}
+  const comps = grillePour(t, D.competences);
+  const md = String(t.Code || '').toUpperCase() === 'MD';
+  const couleur = n => couleurNiveau(niveaux.indexOf(n) + 1, niveaux.length);
+  const avecPhrase = k => md || String(k.Phrases_types || '').trim() || (p[k.Code] && p[k.Code].phrase);
+  const decrits = echelle.some(e => e.desc);
+  return `<p class="muted">${md ? 'Positionnement du ou de la maître·sse délégué·e : pour chaque compétence, un niveau et une phrase.'
+      : 'Positionnement sur chaque compétence ; les phrases types proposées pour une compétence suivent son niveau (les autres restent accessibles).'}
+      Enregistré avec le rapport, <strong>jamais imprimé dans le rapport</strong>.</p>
+    ${md && D.params.aide_md ? `<div class="alerte petit">${esc(D.params.aide_md)}</div>` : ''}
+    ${decrits ? `<div class="echelle">${echelle.map(e => `<span><span class="pastille" style="background:${couleur(e.cle)}"></span><strong>${esc(e.cle)}</strong> : ${esc(e.desc)}</span>`).join('')}</div>` : ''}
+    ${!comps.length ? `<div class="alerte">Aucune compétence pour le type ${esc(t.Code || '')} : Modèles &amp; phrases → Grilles de positionnement (colonne « Types de rapport »).</div>` : ''}
+    ${md && comps.length > 3 ? `<div class="alerte petit">La grille compte ${comps.length} compétences : Modèles &amp; phrases → Grilles de positionnement pour ne garder que les trois du positionnement.</div>` : ''}
     ${comps.map(k => { const d = descripteurs(k.Descripteurs, niveaux), x = p[k.Code] || { niveau: '', phrase: '' };
-      return `<div class="bloc md"><h3 style="font-size:14px;margin:0 0 6px">${esc(k.Libelle)}</h3>
-      <div class="niveaux">${niveaux.map(n => `<label class="niveau ${x.niveau === n ? 'choisi' : ''}"><span><input type="radio" name="md-${esc(k.Code)}"
+      return `<div class="bloc md"><h3 style="font-size:14px;margin:0 0 6px">${md ? '' : `${esc(k.Code)} · `}${esc(k.Libelle)}</h3>
+      <div class="niveaux ${Object.keys(d).length ? '' : 'compact'}">${niveaux.map(n => `<label class="niveau ${x.niveau === n ? 'choisi' : ''}" style="--niv:${couleur(n)}" title="${esc((echelle.find(e => e.cle === n) || {}).desc || '')}"><span><input type="radio" name="md-${esc(k.Code)}"
         data-md="${esc(k.Code)}" value="${esc(n)}" ${x.niveau === n ? 'checked' : ''} ${redige ? '' : 'disabled'}> <strong>${esc(n)}</strong></span>
         ${d[n] ? `<span class="petit">${esc(d[n])}</span>` : ''}</label>`).join('')}</div>
-      <label class="champ" style="margin-top:6px"><span>Phrase${redige ? ' (proposée selon le niveau, modifiable)' : ''}</span>${redige
+      ${avecPhrase(k) ? `<label class="champ" style="margin-top:6px"><span>Phrase${redige ? ' (proposée selon le niveau, modifiable)' : ''}</span>${redige
         ? `<textarea data-md-phrase="${esc(k.Code)}" rows="2" placeholder="Choisir un niveau : une phrase d'illustration est proposée">${esc(x.phrase)}</textarea>`
-        : `<div>${esc(x.phrase) || '<span class="muted">—</span>'}</div>`}</label></div>`; }).join('')}
+        : `<div>${esc(x.phrase) || '<span class="muted">—</span>'}</div>`}</label>` : ''}</div>`; }).join('')}
     <div class="actions"><button id="imprimer-md">Imprimer le positionnement</button></div>`;
 }
 function corpsHistorique(r) {
@@ -541,7 +556,8 @@ function brancherFiche(r) {
     await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: traiter(x.Commentaires, b.dataset.traiter, b.dataset.ok === '1') }]], b.dataset.ok === '1' ? 'Commentaire traité' : 'Commentaire à reprendre');
     afficherFiche();
   }));
-  const illustrations = code => descripteurs((D.competences.find(k => k.Code === code) || {}).Phrases_types, niveauxMd(D.params.echelle_md));
+  const echelleR = echellePour(typeDe(r), D.params).map(e => e.cle);
+  const illustrations = code => descripteurs((D.competences.find(k => k.Code === code) || {}).Phrases_types, echelleR);
   fiche.querySelectorAll('[data-md]').forEach(i => i.addEventListener('change', () => {
     i.closest('.niveaux').querySelectorAll('.niveau').forEach(l => l.classList.toggle('choisi', l.contains(i)));
     r.Positionnement = positionner(r.Positionnement, i.dataset.md, { niveau: i.value }, illustrations(i.dataset.md));
@@ -552,8 +568,8 @@ function brancherFiche(r) {
   fiche.querySelectorAll('[data-md-phrase]').forEach(t => t.addEventListener('input', () => {
     r.Positionnement = positionner(r.Positionnement, t.dataset.mdPhrase, { phrase: t.value }); noter(r.id, { Positionnement: r.Positionnement });
   }));
-  if ($('imprimer-md')) $('imprimer-md').addEventListener('click', () => ouvrirOnglet(htmlPositionnement(r, D.competences,
-    niveauxMd(D.params.echelle_md), `Positionnement MD – ${r.Prof_nom} ${r.Prof_prenom}`), 'positionnement'));
+  if ($('imprimer-md')) $('imprimer-md').addEventListener('click', () => ouvrirOnglet(htmlPositionnement(r, grillePour(typeDe(r), D.competences),
+    echelleR, `Positionnement ${typeDe(r).Code || ''} – ${r.Prof_nom} ${r.Prof_prenom}`), 'positionnement'));
   const qui = initialesMoi() || (moi && moi.Email) || '';
   if ($('b-soumettre')) $('b-soumettre').addEventListener('click', async () => {
     if (masque()) return toast(TIP_MASQUE + '.', true);
@@ -602,19 +618,31 @@ function afficherPhrases() {
   const code = rubriqueActive || (lireStructure(r.Structure)[0] || {}).code || '';
   const rub = D.rubriques.find(x => x.Code === code);
   if (!rub) { panneau.innerHTML = '<p class="muted">Clique dans une rubrique pour voir ses phrases types.</p>'; return; }
-  const liste_ = phrasesPour(D.phrases, rub.id, { competence: competenceFiltre, recherche: $('ph-q') ? $('ph-q').value : '', moi: moiPers() });
+  const echelle = typeDe(r).Positionnement ? echellePour(typeDe(r), D.params) : [];
+  const rangs = echelle.length ? rangsPositionnement(r.Positionnement, echelle) : {};
+  const positionne = Object.keys(rangs).length > 0;
+  const liste_ = phrasesPour(D.phrases, rub.id, { competence: competenceFiltre, recherche: $('ph-q') ? $('ph-q').value : '', moi: moiPers(),
+    niveaux: positionne && !tousNiveaux ? rangs : {} });
+  const nbNiv = Math.max(4, ...D.phrases.map(p => Number(p.Niveau) || 0));
+  const libNiv = n => (echelle[n - 1] || {}).cle || `niveau ${n}`;
+  const avecNiveaux = D.phrases.some(p => p.Rubrique === rub.id && p.Competence && Number(p.Niveau));
   const comps = [...new Set(D.phrases.filter(p => p.Rubrique === rub.id && p.Competence).map(p => p.Competence))].sort();
   const v = { civilite: r.Prof_civilite, nom: r.Prof_nom, prenom: r.Prof_prenom };
   const q = $('ph-q') ? $('ph-q').value : '';
   panneau.innerHTML = `<h2>Phrases types — ${esc(rub.Titre)}</h2>
     <input type="search" id="ph-q" placeholder="Filtrer…" value="${esc(q)}" style="width:100%;margin-bottom:6px">
-    ${comps.length ? `<div class="filtres"><button data-comp="" class="${competenceFiltre ? '' : 'actif'}">Toutes</button>${comps.map(c => `<button data-comp="${esc(c)}" class="${c === competenceFiltre ? 'actif' : ''}">${esc(c)}</button>`).join('')}</div>` : ''}
-    ${liste_.length ? liste_.map(p => `<div class="phrase" data-phrase="${p.id}" title="Insérer à la position du curseur">${esc(remplirChamps(p.Texte, v))}
-      <span class="meta">${esc([p.Nature, p.Competence, p.Validee ? '' : 'proposée, non validée'].filter(Boolean).join(' · '))}</span></div>`).join('')
+    ${comps.length ? `<div class="filtres"><button data-comp="" class="${competenceFiltre ? '' : 'actif'}">Toutes</button>${comps.map(c => `<button data-comp="${esc(c)}" class="${c === competenceFiltre ? 'actif' : ''}"
+      ${rangs[c] ? `title="Positionné·e : ${esc(libNiv(rangs[c]))}"` : ''}>${rangs[c] ? `<span class="pastille" style="background:${couleurNiveau(rangs[c], echelle.length)}"></span>` : ''}${esc(c)}</button>`).join('')}</div>` : ''}
+    ${positionne && avecNiveaux ? `<label class="petit" style="display:block;margin-bottom:6px"><input type="checkbox" id="ph-tous" ${tousNiveaux ? 'checked' : ''}> Tous les niveaux
+      <span class="muted">(sinon, pour une compétence positionnée, seules les phrases de son niveau)</span></label>` : ''}
+    ${liste_.length ? liste_.map(p => { const n = Number(p.Niveau) || 0; return `<div class="phrase" data-phrase="${p.id}" title="Insérer à la position du curseur"
+      ${n && p.Competence ? `style="--niv:${couleurNiveau(n, echelle.length || nbNiv)}"` : ''}>${esc(remplirChamps(p.Texte, v))}
+      <span class="meta">${esc([p.Nature, p.Competence, n && p.Competence ? libNiv(n) : '', p.Validee ? '' : 'proposée, non validée'].filter(Boolean).join(' · '))}</span></div>`; }).join('')
       : '<p class="muted">Aucune phrase pour cette rubrique.</p>'}`;
   const champ = $('ph-q');
   champ.addEventListener('input', () => { const pos = champ.selectionStart; afficherPhrases(); const c2 = $('ph-q'); c2.focus(); c2.setSelectionRange(pos, pos); });
   panneau.querySelectorAll('[data-comp]').forEach(b => b.addEventListener('click', () => { competenceFiltre = b.dataset.comp; afficherPhrases(); }));
+  if ($('ph-tous')) $('ph-tous').addEventListener('change', e => { tousNiveaux = e.target.checked; afficherPhrases(); });
   panneau.querySelectorAll('[data-phrase]').forEach(d => d.addEventListener('click', () => {
     const p = D.phrases.find(x => x.id === Number(d.dataset.phrase));
     const t = champActif && document.body.contains(champActif) ? champActif : $('fiche').querySelector(`[data-texte="${CSS.escape(code)}"], [data-sugg="${CSS.escape(code)}"]`);

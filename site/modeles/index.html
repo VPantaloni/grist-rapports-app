@@ -113,7 +113,7 @@ function afficherFiche() {
   $('fiche').innerHTML = `<h1>${nouveau ? 'Nouvelle ligne' : esc(o.titre(l))}</h1><p class="note">${esc(o.aide)}</p>
     ${o.cle === 'phrases' && !nouveau ? `<p class="petit muted">Auteur·e : ${esc(affiche('Personnes', 'Nom_complet', l.Auteur) || '—')}</p>` : ''}
     ${cols.map(c => champ(c, f[c.id], actif && !(c.validation && !peutValider(d)))).join('')}
-    ${o.colonnes.some(c => c.facultative && !(COLS[o.table] || []).includes(c.id)) ? '<p class="petit muted">Colonne facultative absente du document (Rubriques.Titre_imprime ou Competences_MD.Descripteurs) : l\'écran Installer (« Créer la structure ») l\'ajoute.</p>' : ''}
+    ${o.colonnes.some(c => c.facultative && !(COLS[o.table] || []).includes(c.id)) ? '<p class="petit muted">Colonne facultative absente du document (par exemple Phrases.Niveau, Types_rapport.Echelle ou Competences_MD.Types) : l\'écran Installer (« Créer la structure ») l\'ajoute.</p>' : ''}
     <ul class="erreurs" id="erreurs"></ul>
     <div class="actions">${actif ? '<button id="ok" class="primary">Enregistrer</button>' : '<span class="muted">Lecture seule.</span>'}
       ${nouveau ? '<button id="annuler">Annuler</button>' : peutSupprimer(o.table, d, moi, l) ? '<button id="suppr" class="danger" title="Double clic">Supprimer</button>' : ''}</div>`;

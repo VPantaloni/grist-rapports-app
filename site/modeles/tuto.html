@@ -36,8 +36,9 @@
   </ul>
   <h2>Types de rapport, grille MD, paramètres</h2>
   <ul>
-    <li><strong>Types</strong> : libellé et titre imprimé ; « Positionnement MD » ajoute l'onglet de positionnement. Les codes CLASSIQUE, PSTG et MD sont reconnus pour le type proposé d'office.</li>
-    <li><strong>Grille MD</strong> : les compétences du positionnement ; les niveaux sont dans le paramètre <code>echelle_md</code> (séparés par « ; »).</li>
+    <li><strong>Types</strong> : libellé et titre imprimé ; « Positionnement » ajoute l'onglet de positionnement (jamais imprimé) ; <em>Échelle</em> : un niveau par ligne, du plus faible au plus fort (PSTG : <code>1 (NA) : …</code> à <code>4 (TS) : …</code>, couleurs rouge, orange, vert clair, vert vif). Les codes CLASSIQUE, PSTG et MD sont reconnus pour le type proposé d'office.</li>
+    <li><strong>Grilles de positionnement</strong> : les compétences de chaque type (colonne <em>Types de rapport</em> : PSTG pour P1 à P5 ; aucun type = MD). Les niveaux viennent de l'échelle du type, sinon du paramètre <code>echelle_md</code> (séparés par « ; »).</li>
+    <li><strong>Phrases types</strong> : la colonne <em>Niveau</em> (1 à 4) rattache une phrase de compétence à un niveau ; à la rédaction d'un PSTG positionné, seules les phrases du niveau choisi sont proposées d'office.</li>
     <li><strong>Paramètres</strong> : <code>discipline</code>, <code>entete</code> (lignes de l'en-tête), <code>secretariat</code> (destinataire), <code>mail_objet</code> et <code>mail_texte</code> (champs <code>{etablissement}</code>, <code>{professeur}</code>, <code>{auteur}</code>, <code>{date}</code>). Les IA-IPR en copie des rapports de stagiaires se règlent dans l'<strong>Annuaire</strong>.</li>
   </ul>
 </main>

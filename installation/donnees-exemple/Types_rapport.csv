@@ -1,4 +1,7 @@
-﻿Code,Libelle,Titre,Positionnement,Ordre
-CLASSIQUE,Visite d'accompagnement (titulaire),"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",false,10
-PSTG,Visite de professeur·e stagiaire,"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",false,20
-MD,Visite de maître·sse délégué·e (privé),"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",true,30
+﻿Code,Libelle,Titre,Positionnement,Echelle,Ordre
+CLASSIQUE,Visite d'accompagnement (titulaire),"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",false,,10
+PSTG,Visite de professeur·e stagiaire,"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",true,"1 (NA) : Compétence non acquise qui crée une difficulté importante dans l'exercice quotidien du métier
+2 (F) : Compétence fragile
+3 (S) : Compétence suffisamment développée
+4 (TS) : Compétence bien maîtrisée",20
+MD,Visite de maître·sse délégué·e (privé),"RAPPORT DE VISITE, D'ACCOMPAGNEMENT ET DE CONSEILS",true,,30
