@@ -153,7 +153,7 @@ import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneM
   compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
 import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
   statutStagiaire, tuteursDe, filtrerStagiaires, anneesStagiaires, manques, validerStagiaire, csvModele, lireCsvStagiaires,
-  preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
+  preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, champsStagiaire, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
 import { telechargerFichier } from '../commun/export.js';
 import { TABLE_RETOURS, TABLE_GRILLES, COLONNES, AVIS, AVIS_TITULARISATION, SITUATIONS, COULEURS_TITULARISATION, ECHELLES, colonne,
   prioritaires, competencesDe, echelleDe, descripteur, couleur, rangAvis, retoursDe, synthese, lignesPstg, validerRetour, libNiveau, prevue } from './pstg.js';
@@ -673,8 +673,7 @@ function dessinerStagiaire(nouveau, ecrit) {
   });
   if ($('s-ok')) $('s-ok').addEventListener('click', async () => {
     lire();
-    const champs = { ...x };
-    delete champs.id; delete champs.Libelle; delete champs.manualSort;
+    const champs = champsStagiaire(x);   // colonnes saisies seulement (jamais Libelle ni gristHelper_…)
     const pb = validerStagiaire(champs);
     if (pb) return toast(pb, true);
     if (nouveau && D.stagiaires.some(y => y.Annee === champs.Annee && norm(y.Nom) === norm(champs.Nom) && norm(y.Prenom) === norm(champs.Prenom)))

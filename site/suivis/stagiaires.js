@@ -164,6 +164,12 @@ export function manques(s, tuteurs, visites = []) {
   return m;
 }
 
+// Colonnes saisies d'une fiche, seules écrites à l'enregistrement : une ligne lue de Grist contient aussi des colonnes
+// calculées (Libelle, gristHelper_Display… des références) que Grist refuse d'écrire.
+export const COLONNES_STAGIAIRE = ['Annee', 'Professeur', 'Civilite', 'Nom', 'Prenom', 'Email', 'UAI', 'Etab_nom', 'Etab_commune',
+  'Corps', 'Concours', 'Quotite', 'Sans_tuteur', 'Situation', 'Suivi', 'Motif', 'Notes'];
+/** @param {Ligne} x @returns {Ligne} */
+export const champsStagiaire = x => Object.fromEntries(COLONNES_STAGIAIRE.filter(c => c in x).map(c => [c, x[c] ?? (c === 'Professeur' ? 0 : '')]));
 // Contrôle d'une fiche.
 /** @param {Ligne} s */
 export function validerStagiaire(s) {
