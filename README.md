@@ -132,8 +132,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | Colonne | Type | Rôle |
 |---|---|---|
 | `Rubrique` | Référence → Rubriques | Rubrique |
-| `Competence` | Choix | Compétence |
-| `Niveau` | Numérique | rang du niveau (1 = le plus faible) : proposée d'office quand la compétence est positionnée à ce niveau ; vide = tous niveaux |
+| `Competence` | Choix | P1-P5 (Classique, PSTG) ou MD1-MD3 (MD) : code de la grille de positionnement |
+| `Niveau` | Numérique | rang du niveau (1 = le plus faible ; PSTG 1-4, MD 1-3) : proposée d'office quand la compétence est positionnée à ce niveau ; vide = tous niveaux |
 | `Nature` | Choix | Nature |
 | `Texte` | Texte | {nom}, {civilite}, {prenom} remplacés à l'insertion |
 | `Auteur` | Référence → Personnes | Auteur·e |

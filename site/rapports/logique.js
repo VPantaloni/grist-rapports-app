@@ -471,13 +471,24 @@ export function echellePour(type, params) {
   if (lignes.length) return lignes.map(l => { const m = /^([^:]{1,30}?)\s*:\s*(.*)$/.exec(l); return m ? { cle: m[1].trim(), desc: m[2].trim() } : { cle: l, desc: '' }; });
   return niveauxMd(params && params.echelle_md).map(cle => ({ cle, desc: '' }));
 }
-// Couleur d'un niveau (rang 1 = le plus faible) : rouge, orange, vert clair, vert vif.
+// Couleur d'un niveau (rang 1 = le plus faible) : quatre niveaux (PSTG) rouge, orange, vert clair, vert vif ;
+// trois niveaux (MD) rouge, orange, vert vif.
 const COULEURS_NIVEAUX = ['#dc2626', '#f59e0b', '#86efac', '#16a34a'];
 /** @param {number} rang @param {number} n nombre de niveaux */
 export function couleurNiveau(rang, n) {
-  if (!rang || !n) return '';
+  if (!rang || !n || rang > n) return '';
   if (n === 1) return COULEURS_NIVEAUX[3];
+  if (n === 3) return COULEURS_NIVEAUX[[0, 1, 3][rang - 1]];
   return COULEURS_NIVEAUX[Math.round((rang - 1) * 3 / (n - 1))] || '';
+}
+// Onglet ouvert d'office : Positionnement tant que la grille du type n'est pas entièrement positionnée, sinon Rédaction.
+/** @param {Ligne | undefined} type @param {Ligne[]} competences @param {any} json */
+export function ongletParDefaut(type, competences, json) {
+  if (!type || !type.Positionnement) return 'redaction';
+  const grille = grillePour(type, competences);
+  if (!grille.length) return 'redaction';
+  const p = lirePositionnement(json);
+  return grille.every(k => p[String(k.Code)] && p[String(k.Code)].niveau) ? 'redaction' : 'md';
 }
 // Rang (1…n) du niveau positionné pour chaque compétence : { code : rang }.
 /** @param {any} json @param {{ cle: string }[]} echelle */

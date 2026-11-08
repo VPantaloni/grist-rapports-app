@@ -371,14 +371,18 @@
             "P2",
             "P3",
             "P4",
-            "P5"
-          ]
+            "P5",
+            "MD1",
+            "MD2",
+            "MD3"
+          ],
+          "role": "P1-P5 (Classique, PSTG) ou MD1-MD3 (MD) : code de la grille de positionnement"
         },
         {
           "id": "Niveau",
           "libelle": "Niveau",
           "type": "Numeric",
-          "role": "rang du niveau (1 = le plus faible) : proposée d'office quand la compétence est positionnée à ce niveau ; vide = tous niveaux"
+          "role": "rang du niveau (1 = le plus faible ; PSTG 1-4, MD 1-3) : proposée d'office quand la compétence est positionnée à ce niveau ; vide = tous niveaux"
         },
         {
           "id": "Nature",

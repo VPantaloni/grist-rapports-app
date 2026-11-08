@@ -10,7 +10,7 @@ import { liste, norm } from '../commun/donnees.js';
  * @typedef {{ cle: string, libelle: string, table: string, colonnes: Colonne[], titre: (l: Ligne) => string,
  *   detail?: (l: Ligne) => string, aide: string }} Onglet
  */
-export const COMPETENCES = ['P1', 'P2', 'P3', 'P4', 'P5'];
+export const COMPETENCES = ['P1', 'P2', 'P3', 'P4', 'P5', 'MD1', 'MD2', 'MD3'];
 export const NATURES = ['Point fort', 'Conseil', 'Vigilance', 'Autre'];
 
 /** @type {Onglet[]} */
@@ -37,7 +37,7 @@ export const ONGLETS = [
       { id: 'Rubrique', lib: 'Rubrique', type: 'ref', cible: 'Rubriques', affichee: 'Titre', obligatoire: true },
       { id: 'Competence', lib: 'Compétence', type: 'choix', choix: ['', ...COMPETENCES] },
       { id: 'Niveau', lib: 'Niveau (rang, 1 = le plus faible)', type: 'nombre', facultative: true,
-        aide: 'Pour une phrase de compétence : proposée d\'office quand la compétence est positionnée à ce niveau (PSTG : 1 NA, 2 F, 3 S, 4 TS). Vide = tous niveaux.' },
+        aide: 'Pour une phrase de compétence : proposée d\'office quand la compétence est positionnée à ce niveau (PSTG : 1 NA, 2 F, 3 S, 4 TS ; MD : 1 À consolider, 2 Satisfaisant, 3 Très satisfaisant). Vide = tous niveaux.' },
       { id: 'Nature', lib: 'Nature', type: 'choix', choix: ['', ...NATURES] },
       { id: 'Validee', lib: 'Validée (visible de tous)', type: 'case', validation: true },
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },

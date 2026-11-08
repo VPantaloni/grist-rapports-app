@@ -15,6 +15,14 @@
   .outils .ligne { display: flex; gap: 6px; }
   .outils input, .outils select { flex: 1; min-width: 0; }
   #liste { flex: 1; overflow-y: auto; }
+  /* Liste repliable : repliée d'office à l'ouverture ou à la création d'un rapport */
+  #menu .bande { display: none; }
+  #menu.replie { width: 38px; }
+  #menu.replie .outils, #menu.replie #liste { display: none; }
+  #menu.replie .bande { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; height: 100%; }
+  #menu .bande button { width: 28px; padding: 3px 0; }
+  #menu .bande .vertical { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+  .outils .tete { display: flex; gap: 6px; } .outils .tete .primary { flex: 1; }
   .groupe > button { width: 100%; text-align: left; border: none; border-radius: 0; background: var(--bg2);
     border-bottom: 1px solid var(--border); border-left: 4px solid var(--border); font-weight: 600; padding: 6px 8px; }
   .groupe > button .nb { color: var(--muted); font-weight: normal; }
@@ -104,6 +112,8 @@
 
   @media (max-width: 900px) { #phrases { display: none; } }
   @media (max-width: 640px) {
+    #menu.replie { width: auto; } #menu.replie .bande { flex-direction: row; height: auto; padding: 4px 8px; }
+    #menu .bande .vertical { writing-mode: horizontal-tb; transform: none; }
     body.plein-ecran { overflow: auto; height: auto; }
     #app, #zone { flex-direction: column; }
     #menu { width: auto; border-right: none; border-bottom: 1px solid var(--border); }
@@ -116,8 +126,13 @@
 <div id="msg">Chargement…</div>
 <div id="app" hidden>
   <aside id="menu">
+    <div class="bande">
+      <button id="deplier" title="Afficher la liste des rapports">»</button>
+      <button id="nouveau-bande" class="primary" title="Créer un rapport">+</button>
+      <span class="vertical" id="deplier-texte" title="Afficher la liste des rapports">Liste des rapports</span>
+    </div>
     <div class="outils">
-      <button id="nouveau" class="primary">+ Nouveau rapport</button>
+      <div class="tete"><button id="nouveau" class="primary">+ Nouveau rapport</button><button id="replier" title="Replier la liste : plus de place pour le rapport">«</button></div>
       <div class="ligne">
         <input id="recherche" type="search" placeholder="Filtrer les rapports existants…" title="Filtre la liste des rapports déjà créés (professeur·e, établissement, thème). Pour en créer un : + Nouveau rapport">
         <button id="recharger" title="Relire les tables">↻</button>
@@ -153,7 +168,7 @@ import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, date
   redigeParIpr, peutValiderSeul, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
-  lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre,
+  lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, ongletParDefaut, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre,
   diffMots } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
@@ -184,6 +199,10 @@ const moiPers = () => (moi && moi.Personne) || 0;
 const initialesMoi = () => { const p = personne(moiPers()); return (p && p.Initiales) || ''; };
 const rapportSel = () => D.rapports.find(r => r.id === sel);
 function choisir(id) { sel = id; pref.ecrire('Sel', String(id)); }
+// Liste de gauche : repliée dès qu'on ouvre ou crée un rapport ; « » » la déplie.
+function replier(oui) { $('menu').classList.toggle('replie', oui); }
+// Onglet ouvert d'office pour un rapport : Positionnement d'abord (PSTG, MD) tant qu'il n'est pas complet.
+function ongletDe(id) { const r = D.rapports.find(x => x.id === id); return r ? ongletParDefaut(typeDe(r), D.competences, r.Positionnement) : 'redaction'; }
 
 // --- Écriture (chiffrée) ---
 async function ecrireRapport(actions, ok) {
@@ -344,8 +363,8 @@ async function creer() {
   // Plan d'inspection : relier la visite (demandée depuis le plan, sinon celle prévue pour ce·tte professeur·e).
   const v = id ? visiteAssociee(D.visites, { visite: c.visite, prof: p.id, auteur }) : null;
   if (v) await ecrire([['UpdateRecord', 'Visites', v.id, { Rapport: id, ...(v.Date_prevue ? {} : { Date_prevue: champs.Date_visite }) }]], 'Visite du plan reliée');
-  creation = null; onglet = 'redaction';
-  if (id) choisir(id);
+  creation = null; onglet = id ? ongletDe(id) : 'redaction';
+  if (id) { choisir(id); replier(true); }
   afficherListe(); afficherFiche();
 }
 
@@ -404,8 +423,8 @@ function afficherFiche() {
       <div class="large">${ch('Theme', 'Thème de la séance', r.Theme)}</div>
     </div></div>
     <div class="onglets">
-      <button data-onglet="redaction" class="${onglet === 'redaction' ? 'actif' : ''}">Rédaction</button>
-      ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences : outil interne, jamais imprimé dans le rapport">Positionnement</button>` : ''}
+      ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences, à faire d'abord : outil interne, jamais imprimé dans le rapport">1. Positionnement</button>` : ''}
+      <button data-onglet="redaction" class="${onglet === 'redaction' ? 'actif' : ''}">${t.Positionnement ? '2. ' : ''}Rédaction</button>
       <button data-onglet="apercu" class="${onglet === 'apercu' ? 'actif' : ''}" title="Le rapport mis en page, comme imprimé ; ${redige ? 'texte modifiable sur place' : 'lecture seule'}">Aperçu${redige ? ' et retouches' : ''}</button>
       <button data-onglet="historique" class="${onglet === 'historique' ? 'actif' : ''}">Historique</button>
     </div>
@@ -781,6 +800,7 @@ const charger = sansChevauchement(async () => {
   const demande = demandeConteneur();   // venue du Plan d'inspection, prise une seule fois
   if (!change([T.Rapports.lignes, T.Phrases.lignes, T.Rubriques.lignes, T.Personnes.lignes, T.Signatures.lignes, sel, !!cle, moi && moi.Droits]) && !$('app').hidden) { traiterDemande(demande); return; }
   message('');
+  if ($('app').hidden && sel) { onglet = ongletDe(sel); replier(true); }   // premier affichage : rapport repris, liste repliée
   $('app').hidden = false;
   afficherListe();
   if (!occupe()) afficherFiche();
@@ -790,13 +810,13 @@ const charger = sansChevauchement(async () => {
 async function traiterDemande(d) {
   if (!d) return;
   if (d.rapport && D.rapports.some(r => r.id === d.rapport)) {
-    await envoyer(); creation = null; onglet = 'redaction'; choisir(d.rapport); afficherListe(); afficherFiche(); return;
+    await envoyer(); creation = null; onglet = ongletDe(d.rapport); choisir(d.rapport); replier(true); afficherListe(); afficherFiche(); return;
   }
   const v = d.visite && D.visites.find(x => x.id === d.visite);
   if (!v) return;
   if (v.Rapport) { traiterDemande({ rapport: v.Rapport }); return; }
   if (!peutCreer(droits, moi)) { toast('Création de rapport impossible : ton compte n\'a pas ce droit.', true); return; }
-  await envoyer();
+  await envoyer(); replier(true);
   const prof = D.profs.find(x => x.id === v.Professeur);
   const a = personne(v.CMi) || personne(moiPers());
   creation = { q: prof ? '' : [v.Prof_nom, v.Prof_prenom].filter(Boolean).join(' '), uai: prof ? '' : v.UAI || '', prof: prof ? prof.id : 0,
@@ -818,12 +838,16 @@ if (await initialiserGrist()) {
   if (CHIFFREMENT) suivreCle(k => { cle = k; cacheChiffre.clear(); charger().then(() => { if (!brouillon) afficherFiche(); }); });
   $('nouveau').addEventListener('click', async () => {
     if ($('nouveau').classList.contains('inactif')) { toast($('nouveau').title + '.', true); return; }
-    await envoyer();
+    await envoyer(); replier(true);
     const a = personne(moiPers());
     creation = { q: '', uai: '', prof: 0, typeCode: 'CLASSIQUE', date: new Date().toISOString().slice(0, 10), heure: '', classe: '', effectif: '',
       theme: '', valideur: (a && a.Fonction === 'IA-IPR' ? a.id : a && a.Referent) || 0, auteur: a ? a.id : 0 };
     afficherFiche();
   });
+  $('replier').addEventListener('click', () => replier(true));
+  $('deplier').addEventListener('click', () => replier(false));
+  $('deplier-texte').addEventListener('click', () => replier(false));
+  $('nouveau-bande').addEventListener('click', () => $('nouveau').click());
   $('liste').addEventListener('click', async e => {
     const g = e.target.closest('[data-groupe]');
     if (g) { const k = g.dataset.groupe; ouverts.has(k) ? ouverts.delete(k) : ouverts.add(k); pref.ecrire('Ouverts', JSON.stringify([...ouverts])); afficherListe(); return; }
@@ -831,8 +855,8 @@ if (await initialiserGrist()) {
     if (!li) return;
     await envoyer();
     creation = null; rubriqueActive = ''; champActif = null;
-    if (Number(li.dataset.id) !== sel) onglet = 'redaction';
-    choisir(Number(li.dataset.id));
+    if (Number(li.dataset.id) !== sel) onglet = ongletDe(Number(li.dataset.id));
+    choisir(Number(li.dataset.id)); replier(true);
     afficherListe(); afficherFiche();
   });
   $('sig-ok').addEventListener('click', validerSignature);
