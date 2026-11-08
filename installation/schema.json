@@ -1,5 +1,5 @@
 {
-  "$description": "Structure du document Grist de l'application (SPEC § 4.2) : source unique des tables, colonnes, types, références et formules. Lue par tests/donnees.js (CSV chargés comme dans Grist) et par scripts/schema.js (vérification des CSV, blocs de documentation). Types Grist : Text, Numeric, Int, Bool, Date, Choice, ChoiceList, Ref:<Table>, RefList:<Table>, Any. Une colonne a soit des données (CSV), soit une formule (formule, ou fichier .py), soit une formule d'initialisation (initialisation). Rapports d'inspection : APP § 4.",
+  "$description": "Structure du document Grist de l'application (SPEC § 4.2) : source unique des tables, colonnes, types, références et formules. Lue par tests/donnees.js (CSV chargés comme dans Grist) et par scripts/schema.js (vérification des CSV, blocs de documentation). Types Grist : Text, Numeric, Int, Bool, Date, Choice, ChoiceList, Ref:<Table>, RefList:<Table>, Any. Une colonne a soit des données (CSV), soit une formule (formule, ou fichier .py), soit une formule d'initialisation (initialisation). Rapports et suivis : APP § 4.",
   "tables": [
     {
       "id": "Personnes",

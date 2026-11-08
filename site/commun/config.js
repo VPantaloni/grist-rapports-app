@@ -9,7 +9,7 @@ export const PREFIXE = 'rapports';
 // champs : { Table: { Colonne: 'texte' | 'nombre' | 'liste' } } ; codes : { Table: colonne du pseudonyme « C-0417 » }
 // (facultatif : désigne une ligne tant que ses champs sont masqués ; colonne affichée des références vers la table).
 // Exemple : { champs: { Personnes: { Email: 'texte', Telephone: 'texte' } }, codes: { Personnes: 'Code' } }
-// Rapports d'inspection (2026-11-07, APP § 11) : texte des rubriques, commentaires de relecture, positionnement MD et
+// Rapports et suivis (2026-11-07, APP § 11) : texte des rubriques, commentaires de relecture, positionnement MD et
 // signatures recopiées dans les rapports. Le nom du ou de la professeur·e reste lisible (liste des rapports sans la clé).
 /** @type {import('./chiffrement.js').DeclarationChiffrement | null} */
 export const CHIFFREMENT = {

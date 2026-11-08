@@ -137,7 +137,7 @@ export const IMPORT = {
 // Onglet Export (SPEC § 4.6, commun/export.js) : une archive .zip avec un CSV lisible par table, import.csv
 // (réimportable par l'onglet Import, si `reimport` et IMPORT sont déclarés) et LISEZMOI.txt. null = pas d'onglet.
 /** @type {{ application: string, prefixe: string, tables: string[], reimport: boolean } | null} */
-export const EXPORT = { application: "Rapports d'inspection", prefixe: PREFIXE, tables: TABLES_DONNEES.filter(t => t !== 'Signatures'), reimport: false };
+export const EXPORT = { application: "Rapports et suivis", prefixe: PREFIXE, tables: TABLES_DONNEES.filter(t => t !== 'Signatures'), reimport: false };
 
 // Onglet Campagnes (SPEC § 5.5, commun/campagnes.js) : une campagne par période (année scolaire), une seule active.
 // null = pas d'onglet. Exemple (recensement annuel) :

@@ -1,4 +1,4 @@
-# Rapports d'inspection pour Grist
+# Rapports et suivis pour Grist
 
 [Une phrase : ce que l'application permet de faire, et pour qui.]
 

@@ -2,7 +2,7 @@
    Chargement : <link rel="stylesheet" href="../commun/style.css"> (accueil : commun/style.css). */
 
 /* ===== À ADAPTER : couleur d'accent de l'application (clair, puis sombre), aussi dans favicon.svg. =====
-   Rapports d'inspection : violet #5b21a3 (APP § 11) ; en sombre, un violet clair lisible sur fond foncé. */
+   Rapports et suivis : violet #5b21a3 (APP § 11) ; en sombre, un violet clair lisible sur fond foncé. */
 :root {
   --accent: #5b21a3; --accent-fg: #ffffff; --sel: #f1eafa;
 }
