@@ -39,6 +39,11 @@
   #menu button.cadenas { margin-left: auto; border: 1px solid var(--border); }
   #menu button.cadenas.ouvert { border-color: var(--warn); background: var(--warn-bg); }
   #menu button.cadenas + select.voir { margin-left: 8px; }
+  #menu .bascule { display: flex; gap: 2px; padding: 2px; margin-left: auto; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); flex: none; }
+  #menu .cadenas ~ .bascule, #menu select.voir ~ .bascule { margin-left: 8px; }
+  #menu .bascule button { padding: 3px 9px; font-size: 12px; }
+  #menu .bascule button.actif { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
   dialog#phrase { border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; max-width: 420px; width: calc(100% - 32px);
     background: var(--bg); color: var(--fg); }
   dialog#phrase::backdrop { background: rgba(0, 0, 0, .35); }
@@ -71,7 +76,7 @@ import { $, esc, installerBulles, preferences, toast } from '../commun/interface
 import { initialiserGrist, lireTable, avecDelai, origineGrist, basculerPleinEcranNavigateur } from '../commun/grist.js';
 import { classerErreur } from '../commun/journal.js';
 import { ECRANS, MENU_DEFAUT, TABLES_STABLES, ANCIENS_NOMS_RELAIS, compteMenu, menuVisible, ajouterMonCompte, adressePageGrist, adresseDocument,
-  sectionDuConteneur, lienVoirEnTantQue, adresseEcran, lienConnexion, pagesDuSite, lienAccueil } from './logique.js';
+  sectionDuConteneur, lienVoirEnTantQue, lienMode, modeDepuisReferent, adresseEcran, lienConnexion, pagesDuSite, lienAccueil } from './logique.js';
 import { creerRelais } from './relais.js';
 import { TABLE_CHIFFREMENT, DUREE_MS, ETAT_CLE, ligneChiffrementValide, signatureChiffrement, ouvrirAvecPhrase, rangerCle,
   reprendreCle, oublierCle, nettoyerCles, cryptoDisponible } from '../commun/chiffrement.js';
@@ -171,7 +176,35 @@ function afficherMenu() {
       ${e.cle === courant ? 'aria-current="page"' : ''} title="${esc(e.libelle)}">
       <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[e.cle] || ''}</svg><span>${esc(e.libelle)}</span></button>`).join('')
     + boutonCadenas()
-    + listeVoirEnTantQue();
+    + listeVoirEnTantQue()
+    + basculeMode();
+}
+
+// --- Bascule App / Grist : recharge la page Grist (même onglet) avec ou sans ?style=singlePage ---
+// Le widget ne lit pas l'adresse de la fenêtre Grist : mode tiré du référent s'il le dit, sinon du dernier choix
+// (mémorisé juste avant de basculer), sinon « App » (la page Application s'ouvre en mode épuré).
+// Icônes Lucide « app-window » et « panel-left » (https://lucide.dev, licence ISC)
+const IC_APP = '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>';
+const IC_GRIST = '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>';
+function modeActuel() { return modeDepuisReferent(document.referrer) || pref.lire('Mode', 'app'); }
+function basculeMode() {
+  if (!adressePage) return '';
+  const app = modeActuel() === 'app';
+  const bouton = (mode, ic, libelle, titre) => `<button type="button" data-mode="${mode}" class="${(mode === 'app') === app ? 'actif' : ''}"
+      ${(mode === 'app') === app ? 'aria-pressed="true"' : 'aria-pressed="false"'} title="${titre}">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${libelle}</span></button>`;
+  return `<div class="bascule" role="group" aria-label="Affichage">`
+    + bouton('app', IC_APP, 'App', "Application seule, sans l'interface de Grist")
+    + bouton('grist', IC_GRIST, 'Grist', "Avec l'interface de Grist (pages, tables, partage)")
+    + '</div>';
+}
+function basculer(mode) {
+  if (!adressePage) return;   // même mode : recharge la page (utile si le mode supposé était faux)
+  pref.ecrire('Mode', mode);
+  const a = document.createElement('a');
+  a.href = lienMode(adressePage, mode === 'app');
+  a.target = '_top';
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 // --- Chiffrement (SPEC § 5.8) : le conteneur tient la clé et la donne aux écrans (état partagé ETAT_CLE) ---
@@ -332,6 +365,8 @@ if (await initialiserGrist()) {
     const b = e.target.closest('[data-ecran]');
     if (b) ouvrir(b.dataset.ecran);
     if (e.target.closest('#cadenas')) { if (cleActive) masquer(); else ouvrirPhrase(); }
+    const m = e.target.closest('[data-mode]');
+    if (m) basculer(m.dataset.mode);
   });
   // Chiffrement : fenêtre de la phrase, activité, échéance, clé définie par un écran (Administration → Chiffrement).
   $('phrase-form').addEventListener('submit', e => { e.preventDefault(); validerPhrase(); });

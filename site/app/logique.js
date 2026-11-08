@@ -164,6 +164,20 @@ export function lienVoirEnTantQue(adresse, email) {
   return adresse + '?style=singlePage' + (email ? '&aclAsUser_=' + encodeURIComponent(email) : '');
 }
 
+// Bascule App / Grist : même page, en mode épuré (?style=singlePage) ou avec l'interface de Grist.
+/** @param {string} adresse @param {boolean} app @returns {string} */
+export function lienMode(adresse, app) {
+  return String(adresse).split(/[?#]/)[0] + (app ? '?style=singlePage' : '');
+}
+// Mode de la page d'après l'adresse de la fenêtre Grist (document.referrer, souvent réduit à l'origine) :
+// 'app', 'grist' ou '' (inconnu : se fier au dernier choix mémorisé).
+/** @param {string} referent @returns {'app'|'grist'|''} */
+export function modeDepuisReferent(referent) {
+  const r = String(referent || '');
+  if (/[?&]style=singlePage\b/.test(r)) return 'app';
+  return /\/p\/\d+/.test(r) ? 'grist' : '';
+}
+
 // Adresse d'un widget du même site, marquée comme hébergée par le conteneur.
 /** @param {string} origine @param {string} cle @returns {string} */
 export function adresseEcran(origine, cle) {
