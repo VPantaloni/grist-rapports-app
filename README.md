@@ -269,6 +269,10 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Concours` | Choix | Concours |
 | `Quotite` | Choix | Quotité |
 | `Sans_tuteur` | Booléen | agrégation interne et quelques autres cas |
+| `Situation` | Choix | Situation |
+| `Avis` | Choix | avis de l'IA-IPR en fin d'année |
+| `Avis_le` | Date | Avis donné le |
+| `Avis_par` | Référence → Personnes | IA-IPR |
 | `Suivi` | Choix | Écarté·e : repéré·e dans le fichier mais pas suivi·e (motif) |
 | `Motif` | Texte | pourquoi écarté·e |
 | `Notes` | Texte | Notes |
@@ -287,6 +291,33 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `UAI` | Texte | UAI |
 | `Etab_nom` | Texte | Établissement |
 | `Ordre` | Numérique | 1 = tuteur·trice principal·e, 2 = co-tuteur·trice |
+| `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
+#### `Grilles_PSTG` — compétences des fiches du suivi des stagiaires (auto-positionnement, bilans intermédiaire et final) et descripteurs d'aide par niveau
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Code` | Texte | unique : P1…P5, CC1…CC14 |
+| `Libelle` | Texte | Compétence |
+| `Groupe` | Choix | P : compétences communes à tous les professeurs ; CC : à tous les professeurs et personnels d'éducation |
+| `Auto_positionnement` | Booléen | figure dans la fiche d'auto-positionnement (octobre) |
+| `Bilans` | Booléen | figure dans les fiches de bilan intermédiaire et final |
+| `Descripteurs` | Texte | aide au positionnement : un paragraphe par niveau, du plus faible au plus fort, « I : … », « AD : … », « S : … », « R : … » |
+| `Ordre` | Numérique | Ordre |
+
+#### `Retours_PSTG` — retours sur un·e stagiaire au fil de l'année : tuteur·trice, auto-positionnement, bilans, visites (INSPÉ, CMi, IA-IPR) saisies à la main ; les visites tirées des rapports de l'application ne sont pas recopiées
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Stagiaire` | Référence → Stagiaires | Stagiaire |
+| `Type` | Choix | Type |
+| `Date` | Date | Date |
+| `Par` | Texte | nom libre (tuteur·trice, formateur·trice INSPÉ…) |
+| `Personne` | Référence → Personnes | CMi ou IA-IPR de l'annuaire |
+| `Avis` | Choix | retours simples (3 couleurs) |
+| `Positionnement` | Texte | JSON { code compétence : rang 1-4 } — chiffré |
+| `Dispositif` | Booléen | auto-positionnement : accompagnement par un dispositif particulier envisagé |
+| `Commentaire` | Texte | chiffré |
 | `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
 
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit

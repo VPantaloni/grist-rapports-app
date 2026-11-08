@@ -14,6 +14,8 @@ Administrateur·trice,Maitres_delegues,Oui,Oui,Oui,Oui
 Administrateur·trice,Bilans_MD,Oui,Oui,Oui,Oui
 Administrateur·trice,Stagiaires,Oui,Oui,Oui,Oui
 Administrateur·trice,Tutorats,Oui,Oui,Oui,Oui
+Administrateur·trice,Grilles_PSTG,Oui,Oui,Oui,Oui
+Administrateur·trice,Retours_PSTG,Oui,Oui,Oui,Oui
 IA-IPR,Personnes,Oui,Non,Limité,Non
 IA-IPR,Etablissements,Oui,Non,Non,Non
 IA-IPR,Professeurs,Oui,Non,Non,Non
@@ -29,6 +31,8 @@ IA-IPR,Maitres_delegues,Oui,Oui,Oui,Oui
 IA-IPR,Bilans_MD,Oui,Oui,Oui,Oui
 IA-IPR,Stagiaires,Oui,Oui,Oui,Oui
 IA-IPR,Tutorats,Oui,Oui,Oui,Oui
+IA-IPR,Grilles_PSTG,Oui,Oui,Oui,Oui
+IA-IPR,Retours_PSTG,Oui,Oui,Oui,Oui
 CMi,Personnes,Oui,Non,Limité,Non
 CMi,Etablissements,Oui,Non,Non,Non
 CMi,Professeurs,Oui,Non,Non,Non
@@ -44,3 +48,5 @@ CMi,Maitres_delegues,Non,Non,Non,Non
 CMi,Bilans_MD,Non,Non,Non,Non
 CMi,Stagiaires,Oui,Non,Non,Non
 CMi,Tutorats,Oui,Non,Non,Non
+CMi,Grilles_PSTG,Oui,Non,Non,Non
+CMi,Retours_PSTG,Oui,Non,Non,Non

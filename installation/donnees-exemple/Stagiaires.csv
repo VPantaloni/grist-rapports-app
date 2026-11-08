@@ -1,4 +1,4 @@
-﻿Annee,Professeur,Civilite,Nom,Prenom,Email,UAI,Etab_nom,Etab_commune,Corps,Concours,Quotite,Sans_tuteur,Suivi,Motif,Notes
-2026-2027,GALOIS Évariste – 0360525A,M.,GALOIS,Évariste,evariste.galois@ac-exemple.example,0360525A,Collège Alain Fournier,Valençay,CERT,Externe,50 %,false,À suivre,,
-2026-2027,PASCAL Blaise – 0280658N,M.,PASCAL,Blaise,blaise.pascal@ac-exemple.example,0280658N,Collège Albert Camus,Dreux,AGREG,Interne,100 %,true,À suivre,,
-2026-2027,,Mme,HOPPER,Grace,grace.hopper@ac-exemple.example,0450061X,Collège Alfred de Musset,Patay,CERT,3e voie,100 %,false,À suivre,,Nommée après la rentrée (absente du fichier des professeur·es).
+﻿Annee,Professeur,Civilite,Nom,Prenom,Email,UAI,Etab_nom,Etab_commune,Corps,Concours,Quotite,Sans_tuteur,Situation,Suivi,Motif,Notes
+2026-2027,GALOIS Évariste – 0360525A,M.,GALOIS,Évariste,evariste.galois@ac-exemple.example,0360525A,Collège Alain Fournier,Valençay,CERT,Externe,50 %,false,1re année,À suivre,,
+2026-2027,PASCAL Blaise – 0280658N,M.,PASCAL,Blaise,blaise.pascal@ac-exemple.example,0280658N,Collège Albert Camus,Dreux,AGREG,Interne,100 %,true,1re année,À suivre,,
+2026-2027,,Mme,HOPPER,Grace,grace.hopper@ac-exemple.example,0450061X,Collège Alfred de Musset,Patay,CERT,3e voie,100 %,false,Renouvellement,À suivre,,Nommée après la rentrée (absente du fichier des professeur·es).

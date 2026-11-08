@@ -16,6 +16,7 @@ export const CHIFFREMENT = {
   champs: {
     Rapports: { Contenu: 'texte', Commentaires: 'texte', Positionnement: 'texte', Signature_cmi: 'texte', Signature_ipr: 'texte' },
     Bilans_MD: { Positionnement: 'texte' },
+    Retours_PSTG: { Positionnement: 'texte', Commentaire: 'texte' },
   },
   codes: {},
 };

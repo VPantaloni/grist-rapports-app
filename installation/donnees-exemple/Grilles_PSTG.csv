@@ -1,0 +1,77 @@
+﻿Code,Libelle,Groupe,Auto_positionnement,Bilans,Descripteurs,Ordre
+P1,Maîtriser les savoirs disciplinaires et leur didactique,P,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",10
+P2,Maîtriser la langue française dans le cadre de son enseignement,P,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",20
+P3,"Construire, mettre en œuvre et animer des situations d'enseignement et d'apprentissage prenant en compte la diversité des élèves",P,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",30
+P4,Organiser et assurer un mode de fonctionnement du groupe favorisant l'apprentissage et la socialisation des élèves,P,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",40
+P5,Évaluer les progrès et les acquisitions des élèves,P,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",50
+CC1,Faire partager les valeurs de la République,CC,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",110
+CC2,Inscrire son action dans le cadre des principes fondamentaux du système éducatif et dans le cadre réglementaire de l'école,CC,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",120
+CC3,Connaître les élèves et les processus d'apprentissage,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",130
+CC4,Prendre en compte la diversité des élèves,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",140
+CC5,Accompagner les élèves dans leur parcours de formation,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",150
+CC6,Agir en éducateur responsable et selon des principes éthiques,CC,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",160
+CC7,Maîtriser la langue française à des fins de communication,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",170
+CC8,Utiliser une langue vivante étrangère dans les situations exigées par son métier,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",180
+CC9,Intégrer les éléments de la culture numérique nécessaires à l'exercice de son métier,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",190
+CC10,Coopérer au sein d'une équipe,CC,true,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",200
+CC11,Contribuer à l'action de la communauté éducative,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",210
+CC12,Coopérer avec les parents d'élèves,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",220
+CC13,Coopérer avec les partenaires de l'école,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",230
+CC14,S'engager dans une démarche individuelle et collective de développement professionnel,CC,false,true,"I : Compétence non maîtrisée qui crée une difficulté dans l'exercice du métier.
+AD : Compétence fragile qui doit être travaillée.
+S : Compétence acquise, maîtrisée.
+R : Compétence très bien maîtrisée, point fort de la professionnalité.",240

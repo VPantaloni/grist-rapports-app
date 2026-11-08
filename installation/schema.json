@@ -1008,6 +1008,39 @@
           "role": "agrégation interne et quelques autres cas"
         },
         {
+          "id": "Situation",
+          "libelle": "Situation",
+          "type": "Choice",
+          "choix": [
+            "1re année",
+            "Renouvellement",
+            "Prolongation"
+          ]
+        },
+        {
+          "id": "Avis",
+          "libelle": "Avis de titularisation",
+          "type": "Choice",
+          "choix": [
+            "Favorable",
+            "Défavorable",
+            "Renouvellement",
+            "Prolongation"
+          ],
+          "role": "avis de l'IA-IPR en fin d'année"
+        },
+        {
+          "id": "Avis_le",
+          "libelle": "Avis donné le",
+          "type": "Date"
+        },
+        {
+          "id": "Avis_par",
+          "libelle": "Avis donné par",
+          "type": "Ref:Personnes",
+          "role": "IA-IPR"
+        },
+        {
           "id": "Suivi",
           "libelle": "Suivi",
           "type": "Choice",
@@ -1102,6 +1135,140 @@
       ]
     },
     {
+      "id": "Grilles_PSTG",
+      "role": "compétences des fiches du suivi des stagiaires (auto-positionnement, bilans intermédiaire et final) et descripteurs d'aide par niveau",
+      "affichee": "Code",
+      "colonnes": [
+        {
+          "id": "Code",
+          "libelle": "Code",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique : P1…P5, CC1…CC14"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Compétence",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Groupe",
+          "libelle": "Groupe",
+          "type": "Choice",
+          "choix": [
+            "P",
+            "CC"
+          ],
+          "role": "P : compétences communes à tous les professeurs ; CC : à tous les professeurs et personnels d'éducation"
+        },
+        {
+          "id": "Auto_positionnement",
+          "libelle": "Auto-positionnement",
+          "type": "Bool",
+          "role": "figure dans la fiche d'auto-positionnement (octobre)"
+        },
+        {
+          "id": "Bilans",
+          "libelle": "Bilans",
+          "type": "Bool",
+          "role": "figure dans les fiches de bilan intermédiaire et final"
+        },
+        {
+          "id": "Descripteurs",
+          "libelle": "Descripteurs",
+          "type": "Text",
+          "role": "aide au positionnement : un paragraphe par niveau, du plus faible au plus fort, « I : … », « AD : … », « S : … », « R : … »"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric"
+        }
+      ]
+    },
+    {
+      "id": "Retours_PSTG",
+      "role": "retours sur un·e stagiaire au fil de l'année : tuteur·trice, auto-positionnement, bilans, visites (INSPÉ, CMi, IA-IPR) saisies à la main ; les visites tirées des rapports de l'application ne sont pas recopiées",
+      "affichee": "Libelle",
+      "colonnes": [
+        {
+          "id": "Stagiaire",
+          "libelle": "Stagiaire",
+          "type": "Ref:Stagiaires",
+          "obligatoire": true
+        },
+        {
+          "id": "Type",
+          "libelle": "Type",
+          "type": "Choice",
+          "obligatoire": true,
+          "choix": [
+            "Retour tuteur 1",
+            "Auto-positionnement",
+            "Visite CMi",
+            "Visite INSPÉ",
+            "Bilan intermédiaire",
+            "Visite IA-IPR",
+            "Bilan final"
+          ]
+        },
+        {
+          "id": "Date",
+          "libelle": "Date",
+          "type": "Date"
+        },
+        {
+          "id": "Par",
+          "libelle": "Par",
+          "type": "Text",
+          "role": "nom libre (tuteur·trice, formateur·trice INSPÉ…)"
+        },
+        {
+          "id": "Personne",
+          "libelle": "Personne",
+          "type": "Ref:Personnes",
+          "role": "CMi ou IA-IPR de l'annuaire"
+        },
+        {
+          "id": "Avis",
+          "libelle": "Avis",
+          "type": "Choice",
+          "choix": [
+            "Difficultés importantes",
+            "Points de vigilance",
+            "Satisfaisant"
+          ],
+          "role": "retours simples (3 couleurs)"
+        },
+        {
+          "id": "Positionnement",
+          "libelle": "Positionnement",
+          "type": "Text",
+          "role": "JSON { code compétence : rang 1-4 } — chiffré"
+        },
+        {
+          "id": "Dispositif",
+          "libelle": "Dispositif particulier",
+          "type": "Bool",
+          "role": "auto-positionnement : accompagnement par un dispositif particulier envisagé"
+        },
+        {
+          "id": "Commentaire",
+          "libelle": "Commentaire",
+          "type": "Text",
+          "role": "chiffré"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "formule": "f\"{$Type} – {$Stagiaire.Nom} #{$id}\"",
+          "role": "colonne affichée (unique par l'id)"
+        }
+      ]
+    },
+    {
       "id": "Utilisateurs",
       "role": "comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit",
       "administration": true,
@@ -1185,7 +1352,9 @@
             "Maitres_delegues",
             "Bilans_MD",
             "Stagiaires",
-            "Tutorats"
+            "Tutorats",
+            "Grilles_PSTG",
+            "Retours_PSTG"
           ]
         },
         {

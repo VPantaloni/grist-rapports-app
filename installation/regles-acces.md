@@ -170,6 +170,14 @@ Prêtes à copier, une ligne par table de données (générées depuis `installa
 | [ ] | `Tutorats` | `user.Profil and "Tutorats:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
 | [ ] | `Tutorats` | `user.Profil and "Tutorats:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
 | [ ] | `Tutorats` | `user.Profil and "Tutorats:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Grilles_PSTG` | `user.Profil and "Grilles_PSTG:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Grilles_PSTG` | `user.Profil and "Grilles_PSTG:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Grilles_PSTG` | `user.Profil and "Grilles_PSTG:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Grilles_PSTG` | `user.Profil and "Grilles_PSTG:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
 <!-- /schema:matrice -->
 
 - [ ] **Enregistrer.**
