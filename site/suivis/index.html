@@ -31,6 +31,7 @@
   .outils { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; }
   .outils input[type=search] { flex: 1; min-width: 180px; }
   .legende { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); align-items: center; margin-bottom: 8px; }
+  svg.question { width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
   .rond { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: var(--bg2); border: 1px solid rgba(0,0,0,.18); vertical-align: -2px; }
   table.suivi { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.suivi th { position: sticky; top: -12px; background: var(--bg); z-index: 1; text-align: center; font-weight: 600; padding: 6px 4px; border-bottom: 2px solid var(--border); }
@@ -99,7 +100,7 @@ import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffre
 import { aujourdhui, rentreeDe, libelleAnnee, dateFr, dateIso, isoVersGrist } from '../plan/logique.js';
 import { grillePour, echellePour, couleurNiveau, lirePositionnement, positionner, descripteurs } from '../rapports/logique.js';
 import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneMd, mdsAAjouter, anneesSuivi, pastilles, lignesSuivi, filtrerMds,
-  compterEtats, derniereAnnee, validerMd, validerBilan, droitsSuivi } from './logique.js';
+  compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
 
 const pref = preferences('Suivis');
 const D = { mds: [], bilans: [], rapports: [], profs: [], etabs: [], personnes: [], types: [], competences: [], visites: [], params: {} };
@@ -121,8 +122,12 @@ const niveaux = () => echellePour(typeMd(), D.params).map(e => e.cle);
 const personne = id => D.personnes.find(p => p.id === id);
 const nomPers = id => { const p = personne(id); return p ? nomFiche(p) : ''; };
 const nomMd = m => [m.Civilite, m.Nom, m.Prenom].filter(Boolean).join(' ');
-const ronds = (pos, titre) => `<span class="ronds" title="${esc(titre)}">${pastilles(pos, grille(), niveaux()).map(x =>
-  `<span class="rond" style="${x.couleur ? `background:${x.couleur}` : ''}"></span>`).join('')}</span>`;
+// Icône Lucide « circle-question-mark » (https://lucide.dev, licence ISC) : visite notée sans évaluation.
+const IC_QUESTION = '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';
+const ronds = (pos, titre) => { const p = pastilles(pos, grille(), niveaux());
+  return `<span class="ronds" title="${esc(titre)}">${sansEvaluation(p)
+    ? p.map(() => `<svg class="question" viewBox="0 0 24 24" aria-hidden="true">${IC_QUESTION}</svg>`).join('')
+    : p.map(x => `<span class="rond" style="${x.couleur ? `background:${x.couleur}` : ''}"></span>`).join('')}</span>`; };
 function infobulle(c) {
   const p = pastilles(c.positionnement, grille(), niveaux());
   return [`${c.annee} — ${c.source === 'rapport' ? 'rapport' : 'bilan saisi'}${c.visiteur ? ` · ${nomPers(c.visiteur)}` : ''}${c.date ? ` · ${dateFr(c.date)}` : ''}`,
@@ -188,7 +193,7 @@ function afficher() {
     </div>
     <div class="legende"><span>Ronds, dans l'ordre : ${grille().map((k, i) => `<strong>${i + 1}</strong>. ${esc(k.Libelle)}`).join(' · ') || 'grille MD vide'}</span></div>
     <div class="legende">${nv.map((x, i) => `<span><span class="rond" style="background:${couleurNiveau(i + 1, nv.length)}"></span> ${esc(x)}</span>`).join('')}
-      <span><span class="rond"></span> non positionné</span><span><span class="ronds" style="box-shadow:0 0 0 1.5px var(--accent) inset;border-radius:10px;padding:1px 6px">rapport</span> rapport de l'application ; sinon bilan saisi</span>
+      <span><span class="rond"></span> non positionné</span><span><svg class="question" viewBox="0 0 24 24" aria-hidden="true">${IC_QUESTION}</svg> visite sans évaluation</span><span><span class="ronds" style="box-shadow:0 0 0 1.5px var(--accent) inset;border-radius:10px;padding:1px 6px">rapport</span> rapport de l'application ; sinon bilan saisi</span>
       <span>Visite tous les ${PERIODE_ANS} ans.</span></div>
     ${lignes.length ? `<table class="suivi"><thead><tr><th>MD</th>${annees.map(a => `<th class="${a === courante ? 'courante' : ''}">${esc(a.replace(/^20(\d\d)-20(\d\d)$/, '$1-$2'))}</th>`).join('')}
       <th>Dernière visite</th><th>État</th></tr></thead><tbody>
@@ -218,14 +223,16 @@ function ouvrirBilan(mdId, annee) {
   const ecrit = !rapport && !masque() && (saisie ? droits.corriger : droits.saisir);
   const choix = D.personnes.filter(p => ['CMi', 'IA-IPR'].includes(p.Fonction) || p.id === enCours.visiteur).sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
   const pos = rapport ? c.positionnement : lirePositionnement(enCours.pos);
+  const cal = calendrierAnnee(annee);
   $('f-bilan').innerHTML = `
     <h2>${esc(nomMd(md))} — ${esc(annee)}</h2>
     <p class="petit muted">${rapport ? `Bilan tiré du rapport du ${esc(dateFr(c.date))} (${esc(c.rapport.Statut)}), rédigé par ${esc(nomPers(c.visiteur)) || '—'} : lecture seule.`
-      : saisie ? 'Bilan saisi (ancienne visite).' : 'Saisir le bilan d\'une ancienne visite : visiteur·e, niveau de chaque compétence, phrase facultative.'}</p>
+      : saisie ? 'Bilan saisi (ancienne visite).' : 'Noter une ancienne visite : date et visiteur·e ; niveaux et phrases si on les connaît (sinon, « ? » dans le tableau).'}</p>
     ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)}.</div>` : ''}
     ${rapport ? '' : `<div class="grille">
       <label class="champ"><span>Visité·e par</span><select id="b-visiteur" ${ecrit ? '' : 'disabled'}><option value="0">—</option>${choix.map(p => `<option value="${p.id}" ${p.id === enCours.visiteur ? 'selected' : ''}>${esc(nomFiche(p))} (${esc(p.Fonction || '')})</option>`).join('')}</select></label>
-      <label class="champ"><span>Date de la visite (facultative)</span><input type="date" id="b-date" value="${esc(dateIso(enCours.date))}" ${ecrit ? '' : 'disabled'}></label>
+      <label class="champ"><span>Date de la visite</span><input type="date" id="b-date" value="${esc(dateIso(enCours.date))}"
+        min="${cal.min}" max="${cal.max}" ${ecrit ? '' : 'disabled'}></label>
     </div>`}
     ${g.map(k => { const x = pos[k.Code] || { niveau: '', phrase: '' }; const d = descripteurs(k.Descripteurs, nv);
       return `<div class="comp"><h3>${esc(k.Libelle)}</h3>
@@ -249,6 +256,16 @@ function ouvrirBilan(mdId, annee) {
     if (t) t.value = lirePositionnement(enCours.pos)[i.dataset.niv].phrase;
   }));
   f.querySelectorAll('[data-phrase]').forEach(t => t.addEventListener('input', () => { enCours.pos = positionner(enCours.pos, t.dataset.phrase, { phrase: t.value }); }));
+  // Calendrier ouvert sur novembre de l'année de rentrée : date provisoire, retirée si rien n'est choisi.
+  const dt = $('b-date');
+  if (dt && !dt.disabled) {
+    const proposer = () => { if (!dt.value && cal.ouverture) { dt.value = cal.ouverture; dt.dataset.provisoire = '1'; } };
+    dt.addEventListener('pointerdown', proposer);
+    dt.addEventListener('focus', proposer);
+    dt.addEventListener('input', () => { delete dt.dataset.provisoire; });
+    dt.addEventListener('change', () => { delete dt.dataset.provisoire; });
+    dt.addEventListener('blur', () => { if (dt.dataset.provisoire) { dt.value = ''; delete dt.dataset.provisoire; } });
+  }
   if ($('b-rapport')) $('b-rapport').addEventListener('click', () => { const id = c.rapport.id; fermer('dlg-bilan'); ouvrirRapports({ rapport: id }); });
   if ($('b-ok')) $('b-ok').addEventListener('click', enregistrerBilan);
   if ($('b-suppr')) boutonConfirmation($('b-suppr'), 'Confirmer la suppression', async () => {
@@ -262,9 +279,10 @@ async function enregistrerBilan() {
   const b = enCours;
   const visiteur = Number($('b-visiteur').value) || null;
   const pos = lirePositionnement(b.pos);
-  const pb = validerBilan({ annee: b.annee, visiteur, positionnement: pos }, rentree);
+  const dt = $('b-date'), date = dt.dataset.provisoire ? null : isoVersGrist(dt.value) || null;
+  const pb = validerBilan({ annee: b.annee, visiteur, date, positionnement: pos }, rentree);
   if (pb) return toast(pb, true);
-  const champs = { MD: b.md.id, Annee: b.annee, Visiteur: visiteur, Date_visite: isoVersGrist($('b-date').value) || null, Positionnement: JSON.stringify(pos) };
+  const champs = { MD: b.md.id, Annee: b.annee, Visiteur: visiteur, Date_visite: date, Positionnement: JSON.stringify(pos) };
   fermer('dlg-bilan');
   await ecrireBilans([b.bilan ? ['UpdateRecord', TABLE_BILANS, b.bilan.id, champs] : ['AddRecord', TABLE_BILANS, null, champs]], 'Bilan enregistré');
 }

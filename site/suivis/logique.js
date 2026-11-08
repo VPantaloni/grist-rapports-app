@@ -170,12 +170,24 @@ export function compterEtats(lignes) {
 // Contrôle avant enregistrement.
 /** @param {Ligne} md */
 export const validerMd = md => (!String(md.Nom || '').trim() ? 'Le nom est obligatoire.' : '');
-/** @param {{ annee: string, visiteur: any, positionnement: Record<string, { niveau: string }> }} b @param {number} rentree */
+// Une visite peut être notée sans évaluation (date ou visiteur·e seulement) : ronds remplacés par des « ? ».
+/** @param {{ annee: string, visiteur: any, date?: any, positionnement: Record<string, { niveau: string }> }} b @param {number} rentree */
 export function validerBilan(b, rentree) {
   if (!b.annee) return 'Année scolaire attendue (ex. 2024-2025).';
   if (rentreeAnnee(b.annee) > rentree) return 'Année à venir : un bilan se saisit après la visite.';
-  if (!Object.values(b.positionnement).some(x => x && x.niveau)) return 'Indiquer au moins un niveau.';
+  if (!b.date && !b.visiteur && !Object.values(b.positionnement).some(x => x && x.niveau))
+    return 'Indiquer au moins la date, la personne qui a visité ou un niveau.';
+  if (b.date) { const r = rentreeDe(b.date); if (r && r !== rentreeAnnee(b.annee)) return `La date n'est pas dans l'année scolaire ${b.annee}.`; }
   return '';
+}
+// Visite sans aucun niveau positionné (évaluation non renseignée).
+/** @param {{ rang: number }[]} p pastilles */
+export const sansEvaluation = p => !p.some(x => x.rang);
+// Bornes du calendrier d'une année scolaire, et mois proposé à l'ouverture (novembre de l'année de rentrée).
+/** @param {string} annee « 2024-2025 » */
+export function calendrierAnnee(annee) {
+  const a = rentreeAnnee(annee);
+  return a ? { min: `${a}-08-01`, max: `${a + 1}-07-31`, ouverture: `${a}-11-01` } : { min: '', max: '', ouverture: '' };
 }
 
 // Droits : écran réservé aux comptes qui lisent Maitres_delegues (IA-IPR, admins).
