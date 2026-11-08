@@ -292,7 +292,7 @@ export function bilanParCmi(lignes, horsPlan, personnes) {
 // Rapports de l'année scolaire sans visite au plan.
 /** @param {Ligne[]} rapports @param {Ligne[]} visites @param {number} rentree */
 export const rapportsHorsPlan = (rapports, visites, rentree) => rapports
-  .filter(r => rentreeDe(r.Date_visite) === rentree && !visites.some(v => v.Rapport === r.id));
+  .filter(r => r.Importe !== true && rentreeDe(r.Date_visite) === rentree && !visites.some(v => v.Rapport === r.id));   // anciens rapports importés : jamais hors plan
 // Visite à ajouter au plan d'après un rapport hors plan (période = mois de la visite, date calée = date de la visite).
 /** @param {Ligne} r */
 export function visiteDepuisRapport(r) {

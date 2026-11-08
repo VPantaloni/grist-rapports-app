@@ -190,7 +190,7 @@ export const peutCreer = (droits, moi) => droits.C === 'Oui' || (droits.C === 'L
 // brouillon ou à reprendre.
 /** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
 export function peutRediger(droits, moi, r) {
-  if (droits.M === 'Oui') return r.Statut !== 'Transmis' || estAdmin(moi);
+  if (droits.M === 'Oui') return r.Statut !== 'Transmis' || estAdmin(moi) || r.Importe === true;   // ancien rapport importé : retouches de mise en page
   return droits.M === 'Limité' && !!personne(moi) && r.Auteur === personne(moi) && STATUTS_REDACTION.includes(r.Statut);
 }
 // Rapport rédigé par un·e IA-IPR seul·e (auteur·e de fonction IA-IPR) : pas de CMi, pas de relecture ; l'auteur·e
@@ -211,7 +211,10 @@ export const peutRelire = (droits, moi, r) => droits.M === 'Oui' && (estAdmin(mo
   && r.Statut === 'Soumis';
 /** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
 export const peutTransmettre = (droits, moi, r) => droits.M === 'Oui' && (estAdmin(moi) || (estIpr(moi) && r.Valideur === personne(moi)))
-  && r.Statut === 'Validé';
+  && r.Statut === 'Validé' && r.Importe !== true;
+// Importer un ancien rapport (copier-coller) : IA-IPR ou admin qui peut créer des rapports.
+/** @param {DroitsTable | { C: string }} droits @param {Ligne | null | undefined} moi */
+export const peutImporter = (droits, moi) => droits.C === 'Oui' && (estAdmin(moi) || estIpr(moi));
 /** @param {DroitsTable | { S: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
 export const peutSupprimer = (droits, moi, r) => droits.S === 'Oui'
   || (droits.S === 'Limité' && !!personne(moi) && r.Auteur === personne(moi) && r.Statut === 'Brouillon');

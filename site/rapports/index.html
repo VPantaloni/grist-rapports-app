@@ -156,6 +156,7 @@
     </div>
     <div class="outils">
       <div class="tete"><button id="nouveau" class="primary">+ Nouveau rapport</button><button id="replier" title="Replier la liste : plus de place pour le rapport">«</button></div>
+      <button id="importer" hidden title="IA-IPR : coller le texte d'un ancien rapport (Word, PDF) pour le verser dans l'application, déjà transmis">⤓ Importer un ancien rapport</button>
       <div class="ligne">
         <input id="recherche" type="search" placeholder="Filtrer les rapports existants…" title="Filtre la liste des rapports déjà créés (professeur·e, établissement, thème). Pour en créer un : + Nouveau rapport">
         <button id="recharger" title="Relire les tables">↻</button>
@@ -186,7 +187,7 @@
 </dialog>
 
 <script type="module">
-import { liste, nomFiche } from '../commun/donnees.js';
+import { liste, nomFiche, norm } from '../commun/donnees.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
@@ -198,7 +199,8 @@ import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, date
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
   lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, ongletParDefaut, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre, annoter, changerNote, occurrence, vueRelue,
-  diffMots } from './logique.js';
+  diffMots, peutImporter } from './logique.js';
+import { lireCollage, lireNomPrenom, lireEtab, lireDate, typeImporte, repartir, contenuImporte, trouverPersonne, candidatsProf, validerImport } from './import.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
 const pref = preferences('Rapports');
@@ -207,6 +209,7 @@ const pref = preferences('Rapports');
 const D = { rapports: [], types: [], rubriques: [], phrases: [], personnes: [], profs: [], etabs: [], params: {}, competences: [], signatures: [], visites: [] };
 let moi = null, droits = droitsTable(null, TABLE);
 let sel = Number(pref.lire('Sel', '0')) || 0;
+let importation = null;  // ancien rapport collé : { etape: 'coller' | 'verifier', texte, f (champs), blocs, codes, alertes }
 let creation = null;     // { q, uai, prof, typeCode, date, heure, classe, effectif, theme, valideur, auteur, visite }
 let onglet = 'redaction';
 let enteteOuvert = pref.lire('Entete', '0') === '1';            // bandeau d'en-tête déplié
@@ -282,6 +285,7 @@ function afficherListe() {
   }).join('') : '<p class="vide">Aucun rapport.</p>';
   // Toujours visible : inactif, il dit pourquoi (info-bulle, et message au clic).
   const pb = pourquoiPasCreer();
+  $('importer').hidden = !peutImporter(droits, moi);
   $('nouveau').classList.toggle('inactif', !!pb);
   $('nouveau').title = pb || 'Créer un rapport';
 }
@@ -400,6 +404,114 @@ async function creer() {
   afficherListe(); afficherFiche();
 }
 
+// --- Import d'un ancien rapport (IA-IPR) : coller, vérifier, enregistrer (transmis d'office) ---
+function analyserImport() {
+  const i = importation;
+  const l = lireCollage(i.texte);
+  const c = l.champs, np = lireNomPrenom(c.prof || ''), et = lireEtab(c.etab || '');
+  const uai = c.uai || et.uai;
+  const etab = D.etabs.find(e => uai && e.UAI === uai) || D.etabs.find(e => et.nom && norm(e.Nom) === norm(et.nom) && (!et.commune || norm(e.Commune) === norm(et.commune)));
+  const typeCode = typeImporte(c.statut || '', i.texte);
+  const cmi = trouverPersonne(c.cmi || '', D.personnes), ipr = trouverPersonne(c.ipr || '', D.personnes);
+  const cands = candidatsProf({ nom: np.nom, prenom: np.prenom, uai: uai || (etab && etab.UAI) || '' }, D.profs);
+  i.f = { typeCode, civilite: np.civilite || c.civilite || '', nom: np.nom, prenom: np.prenom,
+    statut: [c.statut, c.echelon ? `échelon ${c.echelon}` : ''].filter(Boolean).join(' · '),
+    prof: cands.length === 1 ? cands[0].id : 0, uai: uai || (etab && etab.UAI) || '', etabNom: (etab && etab.Nom) || et.nom, commune: (etab && etab.Commune) || et.commune,
+    date: lireDate(c.date || ''), heure: c.heure || '', classe: c.classe || '', effectif: (c.effectif || '').replace(/\D/g, ''), theme: c.theme || '',
+    cmi: cmi ? cmi.id : 0, ipr: ipr ? ipr.id : (personne(moiPers()) && personne(moiPers()).Fonction === 'IA-IPR' ? moiPers() : 0),
+    cmiLu: c.cmi || '', iprLu: c.ipr || '' };
+  i.blocs = l.blocs;
+  i.alertes = [...l.alertes,
+    ...(c.cmi && !cmi ? [`CMi « ${c.cmi} » absent·e de l'annuaire : la créer dans l'Annuaire, ou choisir « aucun·e ».`] : []),
+    ...(c.ipr && !ipr ? [`IA-IPR « ${c.ipr} » absent·e de l'annuaire : la créer dans l'Annuaire, ou choisir un·e IA-IPR.`] : []),
+    ...(cands.length > 1 ? [`${cands.length} professeur·es du fichier portent ce nom : choisir le bon lien (ou aucun).`] : [])];
+  i.codes = repartir(i.blocs, rubriquesImport(typeCode));
+  i.etape = 'verifier';
+}
+const rubriquesImport = code => { const t = D.types.find(x => x.Code === code); return t ? structureDe(rubriquesDuType(D.rubriques, t.id)) : []; };
+function afficherImport() {
+  const i = importation;
+  $('phrases').hidden = true;
+  if (i.etape === 'coller') {
+    $('fiche').innerHTML = `<h2>Importer un ancien rapport</h2>
+      <p class="muted">Dans Word (ou le PDF), tout sélectionner (Ctrl + A), copier, puis coller ci-dessous. L'en-tête (professeur·e, date,
+        CMi, IA-IPR, classe…) et le texte sont lus ; vous vérifiez tout avant d'enregistrer. Le rapport est versé <strong>déjà transmis</strong>,
+        sans signature, et ne pourra pas être retransmis. Un rapport à la fois.</p>
+      ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)} : impossible d'enregistrer un rapport sans révéler les données.</div>` : ''}
+      <textarea id="i-texte" rows="18" style="width:100%" placeholder="Coller ici le texte du rapport…">${esc(i.texte)}</textarea>
+      <div class="actions"><button id="i-lire" class="primary">Analyser</button><button id="i-annuler">Annuler</button></div>`;
+    $('i-texte').focus();
+    $('i-lire').addEventListener('click', () => { i.texte = $('i-texte').value; if (!i.texte.trim()) return toast('Coller d\'abord le texte du rapport.', true); analyserImport(); afficherImport(); });
+    $('i-annuler').addEventListener('click', () => { importation = null; afficherFiche(); });
+    return;
+  }
+  const f = i.f, rub = rubriquesImport(f.typeCode);
+  const cands = candidatsProf({ nom: f.nom, prenom: f.prenom, uai: f.uai }, D.profs);
+  const pers = fonction => D.personnes.filter(p => p.Fonction === fonction || p.id === (fonction === 'CMi' ? f.cmi : f.ipr)).sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
+  const ch = (id, lib, v, type = 'text', extra = '') => `<label class="champ"><span>${lib}</span><input type="${type}" id="i-${id}" value="${esc(v)}" ${extra}></label>`;
+  $('fiche').innerHTML = `<h2>Importer un ancien rapport — vérification</h2>
+    <p class="muted">Corriger ce qui a été mal lu, puis choisir la rubrique de chaque bloc. Le texte est gardé tel quel.</p>
+    ${i.alertes.length ? `<div class="alerte"><ul style="margin:0;padding-left:18px">${i.alertes.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
+    <div class="bloc"><h3 style="margin:0 0 6px;font-size:14px">Professeur·e (au jour de la visite)</h3><div class="grille">
+      <label class="champ"><span>Type</span><select id="i-type">${D.types.map(t => `<option value="${esc(t.Code)}" ${t.Code === f.typeCode ? 'selected' : ''}>${esc(t.Code)} — ${esc(t.Libelle || '')}</option>`).join('')}</select></label>
+      <label class="champ"><span>Civilité</span><select id="i-civilite">${['', 'M.', 'Mme'].map(c => `<option ${c === f.civilite ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      ${ch('nom', 'Nom', f.nom)}${ch('prenom', 'Prénom', f.prenom)}
+      <div class="large">${ch('statut', 'Statut affiché (tel que dans le rapport)', f.statut)}</div>
+      <label class="champ large"><span>Lien avec le fichier des professeur·es de l'année (facultatif)</span><select id="i-prof">
+        <option value="0">— aucun lien (identité du rapport seulement)</option>${cands.map(p => `<option value="${p.id}" ${p.id === f.prof ? 'selected' : ''}>${esc(p.Libelle || `${p.Nom} ${p.Prenom}`)} — ${esc([p.Grade, p.Statut].filter(Boolean).join(' · '))}</option>`).join('')}</select></label>
+      <div class="large">${ch('etabNom', 'Établissement', f.etabNom)}</div>${ch('commune', 'Commune', f.commune)}${ch('uai', 'UAI', f.uai)}
+    </div></div>
+    <div class="bloc"><h3 style="margin:0 0 6px;font-size:14px">Visite</h3><div class="grille">
+      ${ch('date', 'Date de la visite', f.date, 'date')}${ch('heure', 'Heure', f.heure)}${ch('classe', 'Classe', f.classe)}${ch('effectif', 'Effectif', f.effectif)}
+      <div class="large">${ch('theme', 'Thème', f.theme)}</div>
+      <label class="champ"><span>CMi${f.cmiLu ? ` (lu : ${esc(f.cmiLu)})` : ''}</span><select id="i-cmi"><option value="0">— aucun·e (IA-IPR seul·e)</option>
+        ${pers('CMi').map(p => `<option value="${p.id}" ${p.id === f.cmi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
+      <label class="champ"><span>IA-IPR${f.iprLu ? ` (lu : ${esc(f.iprLu)})` : ''}</span><select id="i-ipr"><option value="0">—</option>
+        ${pers('IA-IPR').map(p => `<option value="${p.id}" ${p.id === f.ipr ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
+    </div></div>
+    <h3 style="font-size:14px;margin:14px 0 4px">Texte : ${i.blocs.length} bloc${i.blocs.length > 1 ? 's' : ''}</h3>
+    ${i.blocs.map((b, k) => `<div class="bloc"><label class="champ" style="max-width:420px"><span>Rubrique</span><select data-bloc="${k}">
+        <option value="">— ignorer ce bloc</option>${rub.map(r => `<option value="${esc(r.code)}" ${r.code === i.codes[k] ? 'selected' : ''}>${esc(r.titre)}</option>`).join('')}</select></label>
+      ${b.titre ? `<div class="petit muted">Titre lu : « ${esc(b.titre)} »</div>` : ''}
+      <textarea data-texte-bloc="${k}" rows="${Math.min(14, Math.max(3, b.texte.split('\n').length + Math.round(b.texte.length / 110)))}" style="width:100%">${esc(b.texte)}</textarea></div>`).join('')}
+    <ul class="erreurs" id="i-erreurs"></ul>
+    <div class="actions"><button id="i-ok" class="primary" ${masque() ? 'disabled' : ''}>Enregistrer le rapport importé (transmis)</button>
+      <button id="i-retour">← Recoller</button><button id="i-annuler">Annuler</button></div>`;
+  const lire = () => {
+    for (const k of ['nom', 'prenom', 'statut', 'etabNom', 'commune', 'uai', 'date', 'heure', 'classe', 'effectif', 'theme']) f[k] = $(`i-${k}`).value.trim();
+    f.civilite = $('i-civilite').value; f.prof = Number($('i-prof').value) || 0; f.cmi = Number($('i-cmi').value) || 0; f.ipr = Number($('i-ipr').value) || 0;
+    $('fiche').querySelectorAll('[data-bloc]').forEach(s => { i.codes[Number(s.dataset.bloc)] = s.value; });
+    $('fiche').querySelectorAll('[data-texte-bloc]').forEach(t => { i.blocs[Number(t.dataset.texteBloc)].texte = t.value; });
+  };
+  $('i-type').addEventListener('change', () => { lire(); f.typeCode = $('i-type').value; i.codes = repartir(i.blocs, rubriquesImport(f.typeCode)); afficherImport(); });
+  $('i-uai').addEventListener('change', () => { const e = D.etabs.find(x => x.UAI === $('i-uai').value.trim().toUpperCase()); if (e) { $('i-etabNom').value = e.Nom || ''; $('i-commune').value = e.Commune || ''; } });
+  $('i-retour').addEventListener('click', () => { lire(); i.etape = 'coller'; afficherImport(); });
+  $('i-annuler').addEventListener('click', () => { importation = null; afficherFiche(); });
+  $('i-ok').addEventListener('click', async () => { lire(); await enregistrerImport(); });
+}
+async function enregistrerImport() {
+  const i = importation, f = i.f, t = D.types.find(x => x.Code === f.typeCode);
+  const erreurs = validerImport({ nom: f.nom, date: f.date, type: t ? t.Code : '', ipr: f.ipr });
+  if (f.effectif && !/^\d+$/.test(f.effectif)) erreurs.push('Effectif : un nombre entier.');
+  $('i-erreurs').innerHTML = erreurs.map(e => `<li>${esc(e)}</li>`).join('');
+  if (erreurs.length) return;
+  const rub = structureDe(rubriquesDuType(D.rubriques, t.id));
+  const champs = {
+    Type: t.id, Professeur: f.prof || null, Prof_civilite: f.civilite, Prof_nom: f.nom.toUpperCase(), Prof_prenom: f.prenom, Prof_statut: f.statut,
+    Stagiaire_hors_liste: false, UAI: f.uai.toUpperCase(), Etab_nom: f.etabNom, Etab_commune: f.commune, Date_visite: isoVersGrist(f.date),
+    Heure: f.heure, Classe: f.classe, Effectif: f.effectif ? Number(f.effectif) : null, Theme: f.theme,
+    Contenu: JSON.stringify(contenuImporte(i.blocs, i.codes, rub)), Structure: JSON.stringify(rub), Positionnement: '', Commentaires: '',
+    Statut: 'Transmis', Auteur: f.cmi || f.ipr, Valideur: f.ipr, Importe: true,
+    Historique: ajouterHistorique('[]', initialesMoi() || (moi && moi.Email) || '', 'ancien rapport importé (copier-coller), transmis d\'office'),
+  };
+  const res = await ecrireRapport([['AddRecord', TABLE, null, champs]], 'Ancien rapport importé');
+  if (!res) return;
+  const id = res.retValues && res.retValues[0];
+  importation = null;
+  if (id) { choisir(id); onglet = 'apercu'; replier(true); }
+  afficherListe(); afficherFiche();
+}
+
 // --- Fiche ---
 // Relecture : texte du rapport → suggestion, mot à mot (ajouts <ins>, suppressions <del>).
 function htmlDiff(a, b) {
@@ -413,6 +525,7 @@ function legendeRelecture(b, relit, repond) {
     <span class="muted">${esc(etat || 'aucune suggestion pour l\'instant')}${relit ? ' — vos modifications restent des suggestions ; elles s\'appliquent si vous validez' : repond && b.suggestions ? ' — accepter ou refuser chaque suggestion' : ''}</span></div>`;
 }
 function afficherFiche() {
+  if (importation) return afficherImport();
   if (creation) return afficherCreation();
   const r = rapportSel();
   if (!r) {
@@ -440,7 +553,7 @@ function afficherFiche() {
     <div class="entete">
       <h1>${esc([r.Prof_civilite, r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '))}
         <span class="sous">${esc(t.Libelle || t.Code || '')} · ${esc(r.Etab_nom)} (${esc(r.Etab_commune)}) · visite du ${esc(dateFr(r.Date_visite))}</span></h1>
-      <span class="statut">${esc(r.Statut || '')}</span>
+      <span class="statut">${esc(r.Statut || '')}</span>${r.Importe ? '<span class="statut" title="Ancien rapport versé par copier-coller : déjà transmis, sans signature ; retouches de mise en page possibles (IA-IPR)">importé</span>' : ''}
     </div>
     ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)}.</div>` : ''}
     ${r.Stagiaire_hors_liste ? '<div class="alerte">⚠ PSTG hors liste : pas dans la liste des stagiaires de Siiprien.</div>' : ''}
@@ -1001,7 +1114,7 @@ function preparerMail(r) {
 
 // --- Chargement ---
 const change = detecteurChangement();
-const occupe = () => !!brouillon || envoiEnCours || !!creation || $('dlg-signature').open
+const occupe = () => !!brouillon || envoiEnCours || !!creation || !!importation || $('dlg-signature').open
   || (document.activeElement && $('fiche').contains(document.activeElement) && /TEXTAREA|INPUT|IFRAME/.test(document.activeElement.tagName));
 const charger = sansChevauchement(async () => {
   const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs', 'Visites'];
@@ -1069,6 +1182,7 @@ if (await initialiserGrist()) {
     afficherFiche();
   });
   $('replier').addEventListener('click', () => replier(true));
+  $('importer').addEventListener('click', async () => { await envoyer(); creation = null; importation = { etape: 'coller', texte: '' }; replier(true); afficherFiche(); });
   $('fiche').addEventListener('click', e => {
     const b = e.target.closest('[data-trancher], [data-traiter], [data-note-ok], [data-note-suppr], [data-annuler-sugg]');
     if (b) actionRelecture(b);

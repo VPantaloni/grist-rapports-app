@@ -193,6 +193,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Valide_le` | Date | Validé le |
 | `Transmis_le` | Date | Transmis le |
 | `Historique` | Texte | JSON [{ date, qui, action }] |
+| `Importe` | Booléen | ancien rapport importé par copier-coller (IA-IPR) : transmis d'office, jamais retransmis, retouchable par les IA-IPR |
 | `Annee` | Texte (formule) | Année scolaire |
 | `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
 

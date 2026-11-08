@@ -663,6 +663,12 @@
           "role": "JSON [{ date, qui, action }]"
         },
         {
+          "id": "Importe",
+          "libelle": "Importé",
+          "type": "Bool",
+          "role": "ancien rapport importé par copier-coller (IA-IPR) : transmis d'office, jamais retransmis, retouchable par les IA-IPR"
+        },
+        {
           "id": "Annee",
           "libelle": "Année scolaire",
           "type": "Text",
