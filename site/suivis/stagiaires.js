@@ -288,10 +288,43 @@ export function preparerImportStagiaires(lignes, D) {
   });
 }
 
-// Stagiaires de l'année à suivre sans aucune visite au plan.
+// Visites du plan déjà saisies (avant la liste des stagiaires) à relier à leur stagiaire : visite sans lien, de la même
+// année scolaire (début de période ou date calée ; sans date : gardée), même professeur·e ou mêmes nom et prénom.
+/** @param {Ligne[]} stagiaires @param {Ligne[]} visites @param {string} annee @returns {{ visite: Ligne, stagiaire: Ligne }[]} */
+export function visitesARelier(stagiaires, visites, annee) {
+  const liste = stagiaires.filter(s => s.Annee === annee);
+  /** @type {{ visite: Ligne, stagiaire: Ligne }[]} */
+  const r = [];
+  for (const v of visites) {
+    if (v.Stagiaire) continue;
+    const d = v.Mois_debut || v.Date_prevue;
+    if (typeof d === 'number' && d) { const x = new Date(d * 1000), a = x.getUTCFullYear() - (x.getUTCMonth() < 7 ? 1 : 0); if (`${a}-${a + 1}` !== annee) continue; }
+    const s = liste.find(y => (v.Professeur && y.Professeur === v.Professeur) || cle(y.Nom, y.Prenom) === cle(v.Prof_nom, v.Prof_prenom));
+    if (s) r.push({ visite: v, stagiaire: s });
+  }
+  return r;
+}
+// Cases vides d'un·e stagiaire complétées d'après l'ancien statut libre du plan (« AGREG int 50% », « CAPES 100 % »).
+/** @param {Ligne} st ligne de Stagiaires @param {any} statutPlan @returns {Ligne} champs à écrire (cases vides seulement) */
+export function completerDepuisPlan(st, statutPlan) {
+  const t = String(statutPlan || '');
+  if (!t.trim()) return {};
+  const n = norm(t);
+  /** @type {Ligne} */
+  const c = {};
+  const corps = /agreg/.test(n) ? 'AGREG' : /plp/.test(n) ? 'PLP' : /capes|cert/.test(n) ? 'CERT' : '';
+  const concours = /\bint(erne)?\b/.test(n) ? 'Interne' : /\bext(erne)?\b/.test(n) ? 'Externe' : /3e|troisi/.test(n) ? '3e voie' : '';
+  const quotite = /\b50\s*%?/.test(n) ? '50 %' : /\b100\s*%?/.test(n) ? '100 %' : '';
+  if (corps && !st.Corps) c.Corps = corps;
+  if (concours && !st.Concours) c.Concours = concours;
+  if (quotite && !st.Quotite) c.Quotite = quotite;
+  return c;
+}
+// Stagiaires de l'année à suivre sans aucune visite au plan (ni reliée, ni à relier).
 /** @param {Ligne[]} stagiaires @param {Ligne[]} visites @param {string} annee */
 export const sansVisite = (stagiaires, visites, annee) => stagiaires
-  .filter(s => s.Annee === annee && s.Suivi !== 'Écarté·e' && !visites.some(v => v.Stagiaire === s.id))
+  .filter(s => s.Annee === annee && s.Suivi !== 'Écarté·e' && !visites.some(v => v.Stagiaire === s.id)
+    && !visitesARelier([s], visites, annee).length)
   .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr'));
 // Visite au plan pour un·e stagiaire et un·e CMi (période à caler dans l'écran Plan).
 /** @param {Ligne} s @param {number} cmi */

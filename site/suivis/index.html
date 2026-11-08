@@ -153,7 +153,7 @@ import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneM
   compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
 import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
   statutStagiaire, tuteursDe, filtrerStagiaires, anneesStagiaires, manques, validerStagiaire, csvModele, lireCsvStagiaires,
-  preparerImportStagiaires, sansVisite, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
+  preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
 import { telechargerFichier } from '../commun/export.js';
 import { TABLE_RETOURS, TABLE_GRILLES, COLONNES, AVIS, AVIS_TITULARISATION, SITUATIONS, COULEURS_TITULARISATION, ECHELLES, colonne,
   prioritaires, competencesDe, echelleDe, descripteur, couleur, rangAvis, retoursDe, synthese, lignesPstg, validerRetour, libNiveau } from './pstg.js';
@@ -230,11 +230,35 @@ const charger = sansChevauchement(async () => {
   D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
   if (!change([T[TABLE].lignes, T[TABLE_BILANS].lignes, T[TABLE_STAGIAIRES].lignes, T[TABLE_TUTORATS].lignes, T[TABLE_RETOURS].lignes, T[TABLE_GRILLES].lignes, T.Rapports.lignes, T.Visites.lignes, moi && moi.Droits, !!cle]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
+  if (await relierAuPlan()) return;
   if (!occupe()) afficher();
 });
 async function ecrireBilans(actions, ok) {
   if (masque()) { toast(TIP_MASQUE + '.', true); return null; }
   return ecrire(await chiffrerActions(cle, actions, CHIFFREMENT), ok, charger);
+}
+
+// Visites du plan saisies avant la liste des stagiaires : reliées d'office à leur stagiaire (même professeur·e ou mêmes nom
+// et prénom, même année), pour que le statut, le suivi et « Mettre au plan » les voient (droit de modifier le plan requis).
+let reliage = false;
+async function relierAuPlan() {
+  if (reliage || erreurStg || droitsTable(moi, 'Visites').M !== 'Oui') return false;
+  const a = visitesARelier(D.stagiaires, D.visites, anneeStg());
+  if (!a.length) return false;
+  reliage = true;
+  try {
+    // appelée pendant la lecture : pas de relecture attendue ici (elle s'attendrait elle-même), une relecture est relancée
+    // cases vides du ou de la stagiaire complétées d'après l'ancien statut libre du plan (« AGREG 50% »)
+    const compl = new Map();
+    for (const x of a) { const c = completerDepuisPlan({ ...x.stagiaire, ...(compl.get(x.stagiaire.id) || {}) }, x.visite.Statut_plan);
+      if (Object.keys(c).length) compl.set(x.stagiaire.id, { ...(compl.get(x.stagiaire.id) || {}), ...c }); }
+    const modifStg = droitsStg.modifier ? [...compl].map(([id, c]) => ['UpdateRecord', TABLE_STAGIAIRES, id, c]) : [];
+    const ok = await ecrire([...a.map(x => ['UpdateRecord', 'Visites', x.visite.id, { Stagiaire: x.stagiaire.id }]), ...modifStg],
+      `${a.length} visite${a.length > 1 ? 's' : ''} du plan reliée${a.length > 1 ? 's' : ''} à la liste des stagiaires`);
+    if (!ok) return false;
+    charger();
+  } finally { reliage = false; }
+  return true;
 }
 
 // --- Affichage ---
