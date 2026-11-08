@@ -70,6 +70,7 @@ svg.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor
 #bulle-aide { position: fixed; z-index: 20; max-width: 260px; padding: 6px 8px; border-radius: 6px;
   background: var(--fg); color: var(--bg); font-size: 12px; line-height: 1.4; box-shadow: 0 2px 6px rgba(0,0,0,.2);
   pointer-events: none; opacity: 0; transition: opacity .15s; }
+#bulle-aide.longue { max-width: 380px; }
 #bulle-aide.visible { opacity: 1; }
 
 /* Textes et tableaux */

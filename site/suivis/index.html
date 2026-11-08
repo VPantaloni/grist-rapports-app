@@ -92,7 +92,7 @@
   td.cel { cursor: pointer; min-width: 54px; } td.cel:hover { outline: 2px solid var(--accent); outline-offset: -2px; } td.cel.lecture { cursor: default; } td.cel.lecture:hover { outline: none; }
   .r20 { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0,0,0,.18);
     font-size: 10.5px; font-weight: 700; color: #fff; margin: 0 1px; vertical-align: middle; background: var(--bg2); }
-  .r20.clair { color: #14532d; } .r20.encours { outline: 2px dashed var(--accent); outline-offset: 1px; }
+  .r20.clair { color: #14532d; } .r20.prevue { background: transparent; border: 2px dashed var(--muted); } .r20.encours { outline: 2px dashed var(--accent); outline-offset: 1px; }
   .av { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .av.fav { background: #dcfce7; color: #166534; } .av.def { background: #fee2e2; color: #991b1b; } .av.ren, .av.pro { background: #fef3c7; color: #92400e; }
   #bulle-pstg { position: fixed; z-index: 50; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
@@ -156,7 +156,7 @@ import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, co
   preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
 import { telechargerFichier } from '../commun/export.js';
 import { TABLE_RETOURS, TABLE_GRILLES, COLONNES, AVIS, AVIS_TITULARISATION, SITUATIONS, COULEURS_TITULARISATION, ECHELLES, colonne,
-  prioritaires, competencesDe, echelleDe, descripteur, couleur, rangAvis, retoursDe, synthese, lignesPstg, validerRetour, libNiveau } from './pstg.js';
+  prioritaires, competencesDe, echelleDe, descripteur, couleur, rangAvis, retoursDe, synthese, lignesPstg, validerRetour, libNiveau, prevue } from './pstg.js';
 import { etat as etatVisite } from '../plan/logique.js';
 
 const pref = preferences('Suivis');
@@ -327,7 +327,7 @@ function afficherPstg() {
   const ecartes = tous.filter(s => s.Suivi === 'Écarté·e').length;
   const aAjouter = annee === courante && droitsStg.ajouter
     ? stagiairesAAjouter({ stagiaires: D.stagiaires, profs: D.profs, etabs: D.etabs, codes: codes(), annee }) : [];
-  const auPlan = peutPlanifier ? sansVisite(D.stagiaires, D.visites, annee) : [];
+  const auPlan = peutPlanifier ? sansVisite(D.stagiaires, D.visites, annee, D.retours) : [];
   $('contenu').innerHTML = `
     ${aAjouter.length ? `<div class="ajouter"><span class="noms"><strong>${aAjouter.length} stagiaire${aAjouter.length > 1 ? 's' : ''} du fichier des professeur·es
       (${esc(codes().map(c => c.toUpperCase()).join(', '))}) pas encore dans la liste</strong> :
@@ -370,6 +370,7 @@ function rond(r, ref) {
   const clair = x.couleur === couleur(3, 4);
   const encours = r.source === 'rapport' && !['Validé', 'Transmis'].includes(r.statut);
   const chiffre = !x.vide && x.faibles && Object.keys(r.pos).length > 1 ? x.faibles : '';
+  if (prevue(r)) return `<span class="r20 prevue" data-ret="${esc(ref)}"></span>`;   // visite prévue : rond vide en pointillés
   return `<span class="r20 ${clair ? 'clair' : ''} ${encours ? 'encours' : ''}" data-ret="${esc(ref)}" style="${x.couleur ? `background:${x.couleur}` : ''}">${x.vide ? '?' : chiffre}</span>`;
 }
 function afficherSuiviPstg() {
@@ -393,7 +394,7 @@ function afficherSuiviPstg() {
     </div>
     <div class="legende"><span>Grilles :</span>${[1, 2, 3, 4].map(r => `<span><span class="rond" style="background:${couleur(r, 4)}"></span> ${esc(ECHELLES.auto[r - 1].cle)} / ${r}</span>`).join('')}
       <span>· Avis :</span>${AVIS.map((a, i) => `<span><span class="rond" style="background:${couleur(i + 1, 3)}"></span> ${esc(a)}</span>`).join('')}
-      <span>· chiffre : compétences à I-AD / 1-2 · couleur : la plus faible des prioritaires (${esc(prio().join(', '))}) · pointillés : rapport pas encore validé · survol : détail, clic : saisie</span></div>
+      <span>· chiffre : compétences à I-AD / 1-2 · couleur : la plus faible des prioritaires (${esc(prio().join(', '))}) · contour pointillé : rapport pas encore validé · rond vide pointillé : visite prévue · survol : détail, clic : saisie</span></div>
     ${lignes.length ? `<table class="pstg"><thead><tr><th>Stagiaire</th>${COLONNES.map(c => `<th title="${esc(c.aide)}">${esc(c.titre)}</th>`).join('')}<th>Avis</th></tr></thead><tbody>
       ${lignes.map(l => { const s = l.s;
         return `<tr><td class="nom sig-${l.signal}" data-detail="${s.id}" title="Fiche détaillée : tous les retours">
@@ -424,7 +425,7 @@ function bulle(ref, e) {
   const b = $('bulle-pstg');
   if (!x || !x.r) { b.hidden = true; return; }
   const { r } = x, col = colonne(x.cle);
-  b.innerHTML = `<strong>${esc(r.type)}</strong>${r.date ? ` · ${esc(dateFr(r.date))}` : ''}${r.par ? ` · ${esc(r.par)}` : ''}
+  b.innerHTML = `<strong>${esc(r.type)}${prevue(r) ? ' prévue' : ''}</strong>${r.date ? ` · ${esc(dateFr(r.date))}` : ''}${r.par ? ` · ${esc(r.par)}` : ''}
     ${r.source === 'rapport' ? `<div class="muted">Rapport de l'application (${esc(r.statut)})</div>` : ''}
     ${r.avis ? `<div><span class="rond" style="background:${couleur(rangAvis(r.avis), 3)}"></span> ${esc(r.avis)}</div>` : ''}
     ${blocs(r, col)}${r.dispositif ? '<div><strong>Dispositif particulier envisagé</strong></div>' : ''}
@@ -605,7 +606,7 @@ function dessinerStagiaire(nouveau, ecrit) {
       <input type="search" id="s-tq" placeholder="Nom du ou de la professeur·e…"></label><div id="s-tsugg"></div>` : ''}
     ${nouveau ? '' : `<h3 style="font-size:14px;margin:12px 0 2px">Visites au plan</h3>
     <div class="tuteurs-liste">${visitesEtats(x).map(y => `<div><span>${esc(nomPers(y.v.CMi) || 'sans CMi')} <span class="muted">— ${esc(y.e.libelle)}${y.v.Date_prevue ? ' · le ' + esc(dateFr(y.v.Date_prevue)) : ''}</span></span></div>`).join('') || '<span class="muted petit">Aucune.</span>'}</div>
-    ${peutPlanifier ? `<div class="outils"><select id="s-cmi-visite"><option value="0">Ajouter une visite au plan avec…</option>${cmis().map(p => `<option value="${p.id}">${esc(nomFiche(p))}</option>`).join('')}</select>
+    ${peutPlanifier ? `<div class="outils"><select id="s-cmi-visite">${optionsVisiteurs('Ajouter une visite avec…')}</select>
       <button type="button" id="s-visite">+ Visite</button></div>` : ''}`}
     <label class="champ"><span>Notes</span><textarea id="s-Notes" ${dis}>${esc(x.Notes || '')}</textarea></label>
     <div class="actions">
@@ -657,8 +658,9 @@ function dessinerStagiaire(nouveau, ecrit) {
   }
   if ($('s-visite')) $('s-visite').addEventListener('click', async () => {
     const cmi = Number($('s-cmi-visite').value) || 0;
-    if (!cmi) return toast('Choisir le ou la CMi de la visite.', true);
-    const res = await ecrire([['AddRecord', 'Visites', null, visitePour(x, cmi)]], `Visite ajoutée au plan (${nomPers(cmi)}) : période à caler dans l'écran Plan`, charger);
+    if (!cmi) return toast('Choisir le ou la CMi (ou l\'IA-IPR) de la visite.', true);
+    const ipr = iprs().some(p => p.id === cmi);
+    const res = await ecrire([actionVisite(x, cmi)], ipr ? `Visite IA-IPR notée dans le suivi PSTG (${nomPers(cmi)})` : `Visite ajoutée au plan (${nomPers(cmi)}) : période à caler dans l'écran Plan`, charger);
     if (res) { lire(); dessinerStagiaire(nouveau, ecrit); }
   });
   $('s-tuteurs').addEventListener('click', e => {
@@ -735,21 +737,29 @@ async function importerCsv(fichier) {
 }
 
 // Mise au plan des stagiaires sans visite : un·e CMi à choisir pour chacun·e (vide = plus tard).
+// Choix du visiteur ou de la visiteuse : CMi (visite au plan d'inspection) ou IA-IPR (visite notée dans le suivi PSTG seulement).
+const iprs = () => D.personnes.filter(p => p.Fonction === 'IA-IPR').sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
+const optionsVisiteurs = vide => `<option value="0">${esc(vide)}</option><optgroup label="CMi (plan d'inspection)">${cmis().map(p => `<option value="${p.id}">${esc(nomFiche(p))}</option>`).join('')}</optgroup>`
+  + (droitsRet.C === 'Oui' ? `<optgroup label="IA-IPR (suivi PSTG seulement)">${iprs().map(p => `<option value="${p.id}">${esc(nomFiche(p))}</option>`).join('')}</optgroup>` : '');
+const actionVisite = (s, id) => (iprs().some(p => p.id === id)
+  ? ['AddRecord', TABLE_RETOURS, null, { Stagiaire: s.id, Type: 'Visite IA-IPR', Personne: id, Par: nomPers(id) }]
+  : ['AddRecord', 'Visites', null, visitePour(s, id)]);
 function ouvrirMiseAuPlan() {
-  const liste = sansVisite(D.stagiaires, D.visites, anneeStg());
+  const liste = sansVisite(D.stagiaires, D.visites, anneeStg(), D.retours);
   enCours = { plan: liste };
   $('f-plan').innerHTML = `<h2>Mettre au plan d'inspection</h2>
     <p class="petit muted">Une visite par stagiaire avec le ou la CMi choisi·e (laisser vide pour plus tard). D'autres visites, avec d'autres CMi,
-      s'ajoutent depuis la fiche du ou de la stagiaire ou dans l'écran Plan, où se cale aussi la période.</p>
+      s'ajoutent depuis la fiche du ou de la stagiaire ou dans l'écran Plan, où se cale aussi la période. Une visite d'<strong>IA-IPR</strong> est
+      notée dans le suivi PSTG seulement (colonne IA-IPR), pas dans le plan des CMi.</p>
     <div class="apercu-import"><table><tbody>${liste.map(x => `<tr><td>${esc(nomStg(x))}<span class="alerte-l" style="color:var(--muted)">${esc([x.Etab_nom, statutStagiaire(x)].filter(Boolean).join(' · '))}</span></td>
-      <td><select data-plan="${x.id}"><option value="0">—</option>${cmis().map(p => `<option value="${p.id}">${esc(nomFiche(p))}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>
+      <td><select data-plan="${x.id}">${optionsVisiteurs('—')}</select></td></tr>`).join('')}</tbody></table></div>
     <div class="actions"><button type="button" id="p-ok" class="primary">Créer les visites</button><button type="button" id="p-fermer">Fermer</button></div>`;
   $('p-ok').addEventListener('click', async () => {
     const actions = [...$('f-plan').querySelectorAll('[data-plan]')].filter(x => Number(x.value))
-      .map(x => ['AddRecord', 'Visites', null, visitePour(liste.find(y => y.id === Number(x.dataset.plan)), Number(x.value))]);
-    if (!actions.length) return toast('Choisir au moins un·e CMi.', true);
+      .map(x => actionVisite(liste.find(y => y.id === Number(x.dataset.plan)), Number(x.value)));
+    if (!actions.length) return toast('Choisir au moins un·e CMi ou IA-IPR.', true);
     fermer('dlg-plan');
-    await ecrire(actions, `${actions.length} visite${actions.length > 1 ? 's' : ''} ajoutée${actions.length > 1 ? 's' : ''} au plan (période à caler dans l'écran Plan)`, charger);
+    await ecrire(actions, `${actions.length} visite${actions.length > 1 ? 's' : ''} ajoutée${actions.length > 1 ? 's' : ''} (CMi : au plan, période à caler dans l'écran Plan ; IA-IPR : dans le suivi PSTG)`, charger);
   });
   $('p-fermer').addEventListener('click', () => fermer('dlg-plan'));
   $('dlg-plan').showModal();

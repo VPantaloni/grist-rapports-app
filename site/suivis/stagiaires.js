@@ -320,11 +320,12 @@ export function completerDepuisPlan(st, statutPlan) {
   if (quotite && !st.Quotite) c.Quotite = quotite;
   return c;
 }
-// Stagiaires de l'année à suivre sans aucune visite au plan (ni reliée, ni à relier).
-/** @param {Ligne[]} stagiaires @param {Ligne[]} visites @param {string} annee */
-export const sansVisite = (stagiaires, visites, annee) => stagiaires
+// Stagiaires de l'année à suivre sans aucune visite au plan (ni reliée, ni à relier) ni visite IA-IPR prévue.
+// Une visite d'IA-IPR notée dans le suivi PSTG (Retours_PSTG, hors plan des CMi) compte aussi.
+/** @param {Ligne[]} stagiaires @param {Ligne[]} visites @param {string} annee @param {Ligne[]} [retours] lignes de Retours_PSTG */
+export const sansVisite = (stagiaires, visites, annee, retours = []) => stagiaires
   .filter(s => s.Annee === annee && s.Suivi !== 'Écarté·e' && !visites.some(v => v.Stagiaire === s.id)
-    && !visitesARelier([s], visites, annee).length)
+    && !visitesARelier([s], visites, annee).length && !retours.some(r => r.Stagiaire === s.id && /^Visite/.test(String(r.Type || ''))))
   .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr'));
 // Visite au plan pour un·e stagiaire et un·e CMi (période à caler dans l'écran Plan).
 /** @param {Ligne} s @param {number} cmi */

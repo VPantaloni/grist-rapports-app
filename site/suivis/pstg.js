@@ -210,12 +210,19 @@ export function lignesPstg(stagiaires, D, f) {
 }
 
 // Contrôle d'un retour saisi.
-/** @param {{ Type?: string, Avis?: string, Positionnement?: Record<string, number> }} r */
+// Une visite (CMi, INSPÉ, IA-IPR) peut être seulement prévue : date ou personne, sans avis ni positionnement.
+/** @param {{ Type?: string, Avis?: string, Positionnement?: Record<string, number>, Date?: any, Personne?: any, Par?: string }} r */
 export function validerRetour(r) {
   if (!TYPES_RETOUR.includes(String(r.Type || ''))) return 'Type de retour inconnu.';
-  if (!r.Avis && !Object.keys(r.Positionnement || {}).length) return 'Choisir un avis ou positionner au moins une compétence.';
+  if (!r.Avis && !Object.keys(r.Positionnement || {}).length) {
+    if (/^Visite/.test(String(r.Type)) && (r.Date || r.Personne || String(r.Par || '').trim())) return '';
+    return /^Visite/.test(String(r.Type)) ? 'Indiquer au moins la date ou qui fera la visite.' : 'Choisir un avis ou positionner au moins une compétence.';
+  }
   return '';
 }
+// Visite prévue (pas encore d'avis ni de positionnement).
+/** @param {Retour} r */
+export const prevue = r => /^Visite/.test(r.type) && !r.avis && !Object.keys(r.pos).length;
 // Colonne d'une case cliquée → type de retour à saisir.
 /** @param {string} cle */
 export const typeDeColonne = cle => (colonne(cle) || { type: '' }).type;

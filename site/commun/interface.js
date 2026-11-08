@@ -54,7 +54,7 @@ export function toast(t, erreur = false) {
 
 // --- Info-bulles maison ---
 // Tout élément avec « title » ou « data-tip » : au survol, le title devient data-tip (plus d'info-bulle native) et la bulle
-// s'affiche sous l'élément (au-dessus si la place manque), 3 s au plus ; elle disparaît aussi en sortant ou au clic.
+// s'affiche sous l'élément (au-dessus si la place manque), 3 s au plus (plus pour un texte long) ; elle disparaît aussi en sortant ou au clic.
 /** @type {HTMLElement | null} */
 let cibleBulle = null;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -64,14 +64,18 @@ export function montrerBulle(el) {
   const t = el && el.dataset.tip;
   if (!t) return;
   const b = element('bulle-aide', 'tooltip');
+  // Dans une fenêtre modale (<dialog>, « couche supérieure ») : la bulle y est déplacée, sinon elle resterait dessous.
+  const hote = el.closest('dialog[open]') || document.body;
+  if (b.parentElement !== hote) hote.appendChild(b);
   b.textContent = t;
+  b.classList.toggle('longue', t.length > 140);
   b.classList.add('visible');
   const r = el.getBoundingClientRect(), l = b.offsetWidth, h = b.offsetHeight;
   const x = Math.max(6, Math.min(window.innerWidth - l - 6, r.left + r.width / 2 - l / 2));
   const y = r.bottom + 6 + h > window.innerHeight ? r.top - h - 6 : r.bottom + 6;
   b.style.left = x + 'px'; b.style.top = Math.max(6, y) + 'px';
   clearTimeout(minuterieBulle);
-  minuterieBulle = setTimeout(cacherBulle, 3000);
+  minuterieBulle = setTimeout(cacherBulle, Math.min(12000, 3000 + t.length * 30));   // texte long (descripteur) : le temps de le lire
 }
 export function cacherBulle() {
   clearTimeout(minuterieBulle);
