@@ -103,6 +103,7 @@
 <dialog id="dlg-md"><form method="dialog" id="f-md"></form></dialog>
 <dialog id="dlg-stg"><form method="dialog" id="f-stg"></form></dialog>
 <dialog id="dlg-import"><form method="dialog" id="f-import"></form></dialog>
+<dialog id="dlg-plan"><form method="dialog" id="f-plan"></form></dialog>
 <input type="file" id="fichier-csv" accept=".csv,.tsv,.txt,text/csv" hidden>
 
 <script type="module">
@@ -119,7 +120,7 @@ import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneM
   compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
 import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
   statutStagiaire, tuteursDe, filtrerStagiaires, anneesStagiaires, manques, validerStagiaire, csvModele, lireCsvStagiaires,
-  preparerImportStagiaires, aMettreAuPlan, droitsStagiaires } from './stagiaires.js';
+  preparerImportStagiaires, sansVisite, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
 import { telechargerFichier } from '../commun/export.js';
 import { etat as etatVisite } from '../plan/logique.js';
 
@@ -243,9 +244,9 @@ const nomStg = x => [x.Civilite, x.Nom, x.Prenom].filter(Boolean).join(' ');
 const cmis = () => D.personnes.filter(p => p.Fonction === 'CMi').sort((a, b) => nomFiche(a).localeCompare(nomFiche(b), 'fr'));
 const anneeStg = () => filtreStg.annee || libelleAnnee(rentree);
 const codes = () => codesStagiaires(D.params);
-// Visites du plan reliées à un·e stagiaire, avec leur état (même calcul que l'écran Plan).
-function visitesDe(s) {
-  return D.visites.filter(v => v.Stagiaire === s.id).map(v => {
+// Visites du plan reliées à un·e stagiaire (une par CMi qui le ou la visite), avec leur état (même calcul que l'écran Plan).
+function visitesEtats(s) {
+  return visitesDe(D.visites, s.id).map(v => {
     const r = v.Rapport ? D.rapports.find(x => x.id === v.Rapport) : null;
     return { v, e: etatVisite(v, r, aujourdhui()) };
   });
@@ -253,19 +254,19 @@ function visitesDe(s) {
 function afficherPstg() {
   if (erreurStg) { $('contenu').innerHTML = `<div class="alerte">${esc(erreurStg)}</div>`; return; }
   const annee = anneeStg(), courante = libelleAnnee(rentree);
-  const lignes = filtrerStagiaires(D.stagiaires, { ...filtreStg, annee }, D.personnes);
+  const lignes = filtrerStagiaires(D.stagiaires, { ...filtreStg, annee }, D.personnes, D.visites);
   const tous = D.stagiaires.filter(s => s.Annee === annee);
   const ecartes = tous.filter(s => s.Suivi === 'Écarté·e').length;
   const aAjouter = annee === courante && droitsStg.ajouter
     ? stagiairesAAjouter({ stagiaires: D.stagiaires, profs: D.profs, etabs: D.etabs, codes: codes(), annee }) : [];
-  const auPlan = peutPlanifier ? aMettreAuPlan(D.stagiaires, D.visites, annee) : [];
+  const auPlan = peutPlanifier ? sansVisite(D.stagiaires, D.visites, annee) : [];
   $('contenu').innerHTML = `
     ${aAjouter.length ? `<div class="ajouter"><span class="noms"><strong>${aAjouter.length} stagiaire${aAjouter.length > 1 ? 's' : ''} du fichier des professeur·es
       (${esc(codes().map(c => c.toUpperCase()).join(', '))}) pas encore dans la liste</strong> :
       ${aAjouter.map(x => `<span style="white-space:nowrap">${esc(nomStg(x.champs))} <button type="button" class="petit" data-ajout="${x.prof.id}" title="Ajouter à la liste">+</button><button type="button" class="petit" data-ecarter="${x.prof.id}" title="Ne pas suivre (motif à indiquer)">×</button></span>`).join(' · ')}</span>
       <button id="stg-ajouter-tous" class="primary">Tout ajouter</button></div>` : ''}
-    ${auPlan.length ? `<div class="ajouter"><span class="noms"><strong>${auPlan.length} stagiaire${auPlan.length > 1 ? 's' : ''} avec un·e CMi, pas encore au plan d'inspection</strong> :
-      ${auPlan.map(x => esc(nomStg(x.stagiaire))).join(', ')}</span><button id="stg-plan" class="primary">Mettre au plan</button></div>` : ''}
+    ${auPlan.length ? `<div class="ajouter"><span class="noms"><strong>${auPlan.length} stagiaire${auPlan.length > 1 ? 's' : ''} sans visite au plan d'inspection</strong> :
+      ${auPlan.map(x => esc(nomStg(x))).join(', ')}</span><button id="stg-plan" class="primary">Mettre au plan…</button></div>` : ''}
     <div class="outils">
       <select id="stg-annee" title="Année scolaire">${anneesStagiaires(D.stagiaires, courante).map(a => `<option ${a === annee ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select>
       <input type="search" id="stg-q" placeholder="Rechercher un·e stagiaire, un établissement, un·e CMi, AGREG…" value="${esc(filtreStg.q)}">
@@ -275,16 +276,16 @@ function afficherPstg() {
       ${droitsStg.ajouter ? '<button id="stg-importer" title="Reverser le fichier CSV complété">⤒ Importer un CSV</button>' : ''}
     </div>
     <p class="petit muted">${tous.length - ecartes} stagiaire${tous.length - ecartes > 1 ? 's' : ''} suivi·e${tous.length - ecartes > 1 ? 's' : ''} en ${esc(annee)}.
-      Statut, établissement et e-mail viennent du fichier des professeur·es à l'ajout ; corps, concours, quotité et tuteur·trices se complètent ici ou par le fichier CSV.</p>
-    ${lignes.length ? `<table class="stg"><thead><tr><th>Stagiaire</th><th>Statut</th><th>Tuteur·trice(s)</th><th>CMi</th><th>Plan</th><th>À compléter</th></tr></thead><tbody>
-      ${lignes.map(s => { const t = tuteursDe(D.tutorats, s.id), m = manques(s, t), vis = visitesDe(s);
+      Statut, établissement et e-mail viennent du fichier des professeur·es à l'ajout ; corps, concours, quotité et tuteur·trices se complètent ici ou par le fichier CSV.
+      Les CMi sont ceux et celles des visites au plan (un·e stagiaire peut être visité·e par plusieurs CMi).</p>
+    ${lignes.length ? `<table class="stg"><thead><tr><th>Stagiaire</th><th>Statut</th><th>Tuteur·trice(s)</th><th>Visites au plan (CMi)</th><th>À compléter</th></tr></thead><tbody>
+      ${lignes.map(s => { const t = tuteursDe(D.tutorats, s.id), vis = visitesEtats(s), m = manques(s, t, vis.map(x => x.v));
         return `<tr class="cliquable ${s.Suivi === 'Écarté·e' ? 'ecarte' : ''}" data-stg="${s.id}">
         <td><strong>${esc(nomStg(s))}</strong>${s.Professeur ? '' : ' <span class="etiquette" title="Absent·e du fichier des professeur·es">hors fichier</span>'}
           <span class="det">${esc([s.Etab_nom, s.Etab_commune].filter(Boolean).join(', ') || s.UAI || '')}</span></td>
         <td>${s.Suivi === 'Écarté·e' ? `<span class="etiquette">écarté·e</span><span class="det">${esc(s.Motif || '')}</span>` : esc(statutStagiaire(s))}</td>
         <td>${s.Sans_tuteur ? '<span class="muted">sans tuteur·trice</span>' : t.map(x => `${esc(`${x.Prenom} ${x.Nom}`)}<span class="det">${esc(x.Etab_nom || x.UAI || '')}${x.UAI && x.UAI !== s.UAI ? ' · autre établissement' : ''}</span>`).join('') || '—'}</td>
-        <td>${esc(s.CMi ? nomPers(s.CMi) : '—')}</td>
-        <td>${vis.length ? vis.map(x => `<span class="etiquette" title="${esc(x.v.Date_prevue ? 'calée le ' + dateFr(x.v.Date_prevue) : 'à caler')}">${esc(x.e.libelle)}</span>`).join(' ') : '<span class="muted">—</span>'}</td>
+        <td>${vis.length ? vis.map(x => `<div>${esc(nomPers(x.v.CMi) || 'sans CMi')} <span class="etiquette" title="${esc(x.v.Date_prevue ? 'calée le ' + dateFr(x.v.Date_prevue) : 'à caler')}">${esc(x.e.libelle)}</span></div>`).join('') : '<span class="muted">—</span>'}</td>
         <td>${m.length ? `<span class="manque">${esc(m.join(', '))}</span>` : ''}</td></tr>`; }).join('')}
       </tbody></table>` : `<p class="muted">${tous.length ? 'Aucun·e stagiaire ne correspond aux filtres.' : `Aucun·e stagiaire dans la liste ${esc(annee)} : « Tout ajouter » depuis le fichier, « + Stagiaire » ou « Importer un CSV ».`}</p>`}`;
 }
@@ -295,7 +296,7 @@ function ouvrirStagiaire(s, depart = {}) {
   if (nouveau ? !droitsStg.ajouter : false) return;
   const ecrit = nouveau ? droitsStg.ajouter : droitsStg.modifier;
   enCours = { stg: { ...(s || { Annee: anneeStg(), Professeur: 0, Civilite: '', Nom: '', Prenom: '', Email: '', UAI: '', Etab_nom: '', Etab_commune: '',
-    Corps: '', Concours: '', Quotite: '', Sans_tuteur: false, CMi: 0, Suivi: 'À suivre', Motif: '', Notes: '' }), ...depart },
+    Corps: '', Concours: '', Quotite: '', Sans_tuteur: false, Suivi: 'À suivre', Motif: '', Notes: '' }), ...depart },
     tuteurs: s && s.id ? tuteursDe(D.tutorats, s.id).map(t => ({ ...t })) : [], retires: [] };
   dessinerStagiaire(nouveau, ecrit);
   $('dlg-stg').showModal();
@@ -316,7 +317,6 @@ function dessinerStagiaire(nouveau, ecrit) {
       ${champ('Nom', 'Nom', x.Nom)}${champ('Prenom', 'Prénom', x.Prenom)}${champ('Email', 'E-mail', x.Email)}
       ${champ('UAI', 'UAI', x.UAI)}${champ('Etab_nom', 'Établissement', x.Etab_nom)}${champ('Etab_commune', 'Commune', x.Etab_commune)}
       ${choix('Corps', 'Corps', CORPS, x.Corps)}${choix('Concours', 'Concours', CONCOURS, x.Concours)}${choix('Quotite', 'Quotité', QUOTITES, x.Quotite)}
-      <label class="champ"><span>CMi</span><select id="s-CMi" ${dis}><option value="0"></option>${cmis().map(p => `<option value="${p.id}" ${p.id === x.CMi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
       ${choix('Suivi', 'Suivi', SUIVIS, x.Suivi || 'À suivre')}
     </div>
     <label class="champ" id="s-motif-l" ${x.Suivi === 'Écarté·e' ? '' : 'hidden'}><span>Motif (écarté·e)</span><input type="text" id="s-Motif" value="${esc(x.Motif || '')}" placeholder="Autre discipline, renouvellement suivi ailleurs…" ${dis}></label>
@@ -327,6 +327,10 @@ function dessinerStagiaire(nouveau, ecrit) {
       ${ecrit && droitsStg.tuteurs ? `<button type="button" class="petit" data-retirer="${i}" title="Retirer">×</button>` : ''}</div>`).join('') || '<span class="muted petit">Aucun·e.</span>'}</div>
     ${ecrit && droitsStg.tuteurs && enCours.tuteurs.length < 2 ? `<label class="champ"><span>Ajouter un·e tuteur·trice (même établissement proposé d'abord)</span>
       <input type="search" id="s-tq" placeholder="Nom du ou de la professeur·e…"></label><div id="s-tsugg"></div>` : ''}
+    ${nouveau ? '' : `<h3 style="font-size:14px;margin:12px 0 2px">Visites au plan</h3>
+    <div class="tuteurs-liste">${visitesEtats(x).map(y => `<div><span>${esc(nomPers(y.v.CMi) || 'sans CMi')} <span class="muted">— ${esc(y.e.libelle)}${y.v.Date_prevue ? ' · le ' + esc(dateFr(y.v.Date_prevue)) : ''}</span></span></div>`).join('') || '<span class="muted petit">Aucune.</span>'}</div>
+    ${peutPlanifier ? `<div class="outils"><select id="s-cmi-visite"><option value="0">Ajouter une visite au plan avec…</option>${cmis().map(p => `<option value="${p.id}">${esc(nomFiche(p))}</option>`).join('')}</select>
+      <button type="button" id="s-visite">+ Visite</button></div>` : ''}`}
     <label class="champ"><span>Notes</span><textarea id="s-Notes" ${dis}>${esc(x.Notes || '')}</textarea></label>
     <div class="actions">
       ${ecrit ? `<button type="button" id="s-ok" class="primary">${nouveau ? 'Ajouter' : 'Enregistrer'}</button>` : ''}
@@ -337,7 +341,7 @@ function dessinerStagiaire(nouveau, ecrit) {
     if (!$('s-Nom')) return;
     for (const k of ['Nom', 'Prenom', 'Email', 'UAI', 'Etab_nom', 'Etab_commune', 'Motif', 'Notes']) x[k] = $(`s-${k}`).value.trim();
     for (const k of ['Civilite', 'Corps', 'Concours', 'Quotite', 'Suivi']) x[k] = $(`s-${k}`).value;
-    x.CMi = Number($('s-CMi').value) || 0; x.Sans_tuteur = $('s-Sans_tuteur').checked; x.UAI = x.UAI.toUpperCase();
+    x.Sans_tuteur = $('s-Sans_tuteur').checked; x.UAI = x.UAI.toUpperCase();
   };
   $('s-Suivi').addEventListener('change', () => { $('s-motif-l').hidden = $('s-Suivi').value !== 'Écarté·e'; });
   if ($('s-UAI') && ecrit) $('s-UAI').addEventListener('change', () => {
@@ -375,6 +379,12 @@ function dessinerStagiaire(nouveau, ecrit) {
       }
     });
   }
+  if ($('s-visite')) $('s-visite').addEventListener('click', async () => {
+    const cmi = Number($('s-cmi-visite').value) || 0;
+    if (!cmi) return toast('Choisir le ou la CMi de la visite.', true);
+    const res = await ecrire([['AddRecord', 'Visites', null, visitePour(x, cmi)]], `Visite ajoutée au plan (${nomPers(cmi)}) : période à caler dans l'écran Plan`, charger);
+    if (res) { lire(); dessinerStagiaire(nouveau, ecrit); }
+  });
   $('s-tuteurs').addEventListener('click', e => {
     const b = e.target.closest('[data-retirer]');
     if (!b) return;
@@ -418,9 +428,11 @@ async function importerCsv(fichier) {
   const l = lireCsvStagiaires(texte);
   if (l.erreur) { toast(l.erreur, true); return; }
   const annee = anneeStg();
-  const prep = preparerImportStagiaires(l.lignes, { stagiaires: D.stagiaires, tutorats: D.tutorats, profs: D.profs, etabs: D.etabs, personnes: D.personnes, annee });
+  const prep = preparerImportStagiaires(l.lignes, { stagiaires: D.stagiaires, tutorats: D.tutorats, profs: D.profs, etabs: D.etabs, personnes: D.personnes, annee, visites: D.visites });
   enCours = { prep };
-  const action = p => p.ignoree ? p.ignoree : p.id ? `compléter${p.tuteurs.length ? ` (+ ${p.tuteurs.length} tuteur·trice${p.tuteurs.length > 1 ? 's' : ''})` : ''}` : `créer${p.tuteurs.length ? ` avec ${p.tuteurs.length} tuteur·trice${p.tuteurs.length > 1 ? 's' : ''}` : ''}`;
+  const plus = p => [p.tuteurs.length ? `${p.tuteurs.length} tuteur·trice${p.tuteurs.length > 1 ? 's' : ''}` : '',
+    p.cmis.length ? (peutPlanifier ? `visite au plan : ${p.cmis.map(nomPers).join(', ')}` : 'visites non créées (pas de droit sur le plan)') : ''].filter(Boolean).join(' ; ');
+  const action = p => p.ignoree ? p.ignoree : `${p.id ? 'compléter' : 'créer'}${plus(p) ? ` (+ ${plus(p)})` : ''}`;
   const utiles = prep.filter(p => !p.ignoree);
   $('f-import').innerHTML = `<h2>Importer les stagiaires ${esc(annee)}</h2>
     <p class="petit muted">${esc(fichier.name)} : ${prep.length} ligne${prep.length > 1 ? 's' : ''}. Une fiche existante n'est que complétée (cases vides) ; rien n'est écrasé.</p>
@@ -436,13 +448,35 @@ async function importerCsv(fichier) {
     if (!res) return;
     const idDe = p => (p.id ? p.id : res.retValues[nouveaux.indexOf(p)]);
     const actions = [...maj.map(p => ['UpdateRecord', TABLE_STAGIAIRES, p.id, p.champs]),
-      ...utiles.flatMap(p => p.tuteurs.map(t => ['AddRecord', TABLE_TUTORATS, null, { ...t, Stagiaire: idDe(p) }]))];
+      ...utiles.flatMap(p => p.tuteurs.map(t => ['AddRecord', TABLE_TUTORATS, null, { ...t, Stagiaire: idDe(p) }])),
+      ...(peutPlanifier ? utiles.flatMap(p => p.cmis.map(c => ['AddRecord', 'Visites', null, visitePour({ ...(p.id ? D.stagiaires.find(y => y.id === p.id) : {}), ...p.champs, id: idDe(p) }, c)])) : [])];
     if (actions.length) await ecrire(actions);
     toast(`${nouveaux.length} stagiaire${nouveaux.length > 1 ? 's' : ''} créé·e${nouveaux.length > 1 ? 's' : ''}, ${maj.length} complété·e${maj.length > 1 ? 's' : ''}`);
     await charger();
   });
   $('i-fermer').addEventListener('click', () => fermer('dlg-import'));
   $('dlg-import').showModal();
+}
+
+// Mise au plan des stagiaires sans visite : un·e CMi à choisir pour chacun·e (vide = plus tard).
+function ouvrirMiseAuPlan() {
+  const liste = sansVisite(D.stagiaires, D.visites, anneeStg());
+  enCours = { plan: liste };
+  $('f-plan').innerHTML = `<h2>Mettre au plan d'inspection</h2>
+    <p class="petit muted">Une visite par stagiaire avec le ou la CMi choisi·e (laisser vide pour plus tard). D'autres visites, avec d'autres CMi,
+      s'ajoutent depuis la fiche du ou de la stagiaire ou dans l'écran Plan, où se cale aussi la période.</p>
+    <div class="apercu-import"><table><tbody>${liste.map(x => `<tr><td>${esc(nomStg(x))}<span class="alerte-l" style="color:var(--muted)">${esc([x.Etab_nom, statutStagiaire(x)].filter(Boolean).join(' · '))}</span></td>
+      <td><select data-plan="${x.id}"><option value="0">—</option>${cmis().map(p => `<option value="${p.id}">${esc(nomFiche(p))}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>
+    <div class="actions"><button type="button" id="p-ok" class="primary">Créer les visites</button><button type="button" id="p-fermer">Fermer</button></div>`;
+  $('p-ok').addEventListener('click', async () => {
+    const actions = [...$('f-plan').querySelectorAll('[data-plan]')].filter(x => Number(x.value))
+      .map(x => ['AddRecord', 'Visites', null, visitePour(liste.find(y => y.id === Number(x.dataset.plan)), Number(x.value))]);
+    if (!actions.length) return toast('Choisir au moins un·e CMi.', true);
+    fermer('dlg-plan');
+    await ecrire(actions, `${actions.length} visite${actions.length > 1 ? 's' : ''} ajoutée${actions.length > 1 ? 's' : ''} au plan (période à caler dans l'écran Plan)`, charger);
+  });
+  $('p-fermer').addEventListener('click', () => fermer('dlg-plan'));
+  $('dlg-plan').showModal();
 }
 
 // --- Fenêtre d'un bilan (case MD × année) ---
@@ -629,15 +663,11 @@ if (await initialiserGrist()) {
       if (a.length) await ecrire(a.map(x => ['AddRecord', TABLE_STAGIAIRES, null, x.champs]), `${a.length} stagiaire${a.length > 1 ? 's' : ''} ajouté·e${a.length > 1 ? 's' : ''} à la liste`, charger);
       return;
     }
-    if (t.closest('#stg-plan')) {
-      const a = aMettreAuPlan(D.stagiaires, D.visites, annee);
-      if (a.length) await ecrire(a.map(x => ['AddRecord', 'Visites', null, x.champs]), `${a.length} visite${a.length > 1 ? 's' : ''} ajoutée${a.length > 1 ? 's' : ''} au plan (période à caler dans l'écran Plan)`, charger);
-      return;
-    }
+    if (t.closest('#stg-plan')) { ouvrirMiseAuPlan(); return; }
     if (t.closest('#stg-nouveau')) { ouvrirStagiaire(null); return; }
     if (t.closest('#stg-modele')) {
       const liste = D.stagiaires.filter(x => x.Annee === annee && x.Suivi !== 'Écarté·e');
-      telechargerFichier(`stagiaires-${annee}.csv`, csvModele(liste, D.tutorats, D.personnes), 'text/csv;charset=utf-8');
+      telechargerFichier(`stagiaires-${annee}.csv`, csvModele(liste, D.tutorats, D.personnes, D.visites), 'text/csv;charset=utf-8');
       return;
     }
     if (t.closest('#stg-importer')) { $('fichier-csv').value = ''; $('fichier-csv').click(); return; }
@@ -656,7 +686,7 @@ if (await initialiserGrist()) {
     if (id === 'f-q') filtre.q = e.target.value; else filtreStg.q = e.target.value;
     const p = e.target.selectionStart; afficher(); $(id).focus(); $(id).setSelectionRange(p, p);
   });
-  ['dlg-bilan', 'dlg-md', 'dlg-stg', 'dlg-import'].forEach(id => $(id).addEventListener('cancel', () => { enCours = null; }));
+  ['dlg-bilan', 'dlg-md', 'dlg-stg', 'dlg-import', 'dlg-plan'].forEach(id => $(id).addEventListener('cancel', () => { enCours = null; }));
   relectureReguliere(charger, occupe);
   await charger();
 }

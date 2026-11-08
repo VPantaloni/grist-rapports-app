@@ -269,7 +269,6 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Concours` | Choix | Concours |
 | `Quotite` | Choix | Quotité |
 | `Sans_tuteur` | Booléen | agrégation interne et quelques autres cas |
-| `CMi` | Référence → Personnes | chargé·e de mission qui suit le ou la stagiaire cette année |
 | `Suivi` | Choix | Écarté·e : repéré·e dans le fichier mais pas suivi·e (motif) |
 | `Motif` | Texte | pourquoi écarté·e |
 | `Notes` | Texte | Notes |

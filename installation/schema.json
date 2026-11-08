@@ -1008,12 +1008,6 @@
           "role": "agrégation interne et quelques autres cas"
         },
         {
-          "id": "CMi",
-          "libelle": "CMi",
-          "type": "Ref:Personnes",
-          "role": "chargé·e de mission qui suit le ou la stagiaire cette année"
-        },
-        {
           "id": "Suivi",
           "libelle": "Suivi",
           "type": "Choice",

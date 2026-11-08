@@ -80,7 +80,7 @@ export function ligneStagiaire(p, etabs, annee) {
   const e = etabs.find(x => String(x.UAI || '').toUpperCase() === String(p.UAI || '').toUpperCase()) || {};
   return { Annee: annee, Professeur: p.id, Civilite: String(p.Civilite || ''), Nom: String(p.Nom || ''), Prenom: String(p.Prenom || ''),
     Email: String(p.Email || ''), UAI: String(p.UAI || ''), Etab_nom: String(e.Nom || ''), Etab_commune: String(e.Commune || ''),
-    Corps: corpsDuGrade(p.Grade), Concours: '', Quotite: '', Sans_tuteur: false, CMi: 0, Suivi: 'À suivre', Motif: '', Notes: '' };
+    Corps: corpsDuGrade(p.Grade), Concours: '', Quotite: '', Sans_tuteur: false, Suivi: 'À suivre', Motif: '', Notes: '' };
 }
 // Champs d'un·e tuteur·trice d'après sa ligne du fichier (ou une saisie libre).
 /** @param {Ligne | null} p @param {Ligne[]} etabs @param {{ nom?: string, prenom?: string, uai?: string }} [libre] */
@@ -127,13 +127,23 @@ export function profDuFichier(x, profs) {
 export const tuteursDe = (tutorats, id) => tutorats.filter(t => t.Stagiaire === id)
   .sort((a, b) => (Number(a.Ordre) || 9) - (Number(b.Ordre) || 9) || a.id - b.id);
 
-// Liste de l'année, triée par nom ; écarté·es masqué·es sauf demande ; recherche (nom, établissement, CMi, statut).
-/** @param {Ligne[]} stagiaires @param {{ annee: string, ecartes?: boolean, q?: string, cmi?: number }} f @param {Ligne[]} [personnes] */
-export function filtrerStagiaires(stagiaires, f, personnes = []) {
+// Visites du plan reliées à un·e stagiaire, et leurs CMi (un·e stagiaire peut être visité·e par plusieurs CMi : le ou la
+// CMi est celui ou celle de chaque visite, pas du ou de la stagiaire).
+/** @param {Ligne[]} visites @param {number} id */
+export const visitesDe = (visites, id) => visites.filter(v => v.Stagiaire === id);
+/** @param {Ligne[]} visites @param {number} id @returns {number[]} */
+export const cmisDe = (visites, id) => [...new Set(visitesDe(visites, id).map(v => Number(v.CMi) || 0).filter(Boolean))];
+
+// Liste de l'année, triée par nom ; écarté·es masqué·es sauf demande ; recherche (nom, établissement, statut, CMi des visites).
+/**
+ * @param {Ligne[]} stagiaires @param {{ annee: string, ecartes?: boolean, q?: string, cmi?: number }} f
+ * @param {Ligne[]} [personnes] @param {Ligne[]} [visites]
+ */
+export function filtrerStagiaires(stagiaires, f, personnes = [], visites = []) {
   const mots = norm(f.q || '').split(/\s+/).filter(Boolean);
   const nomCmi = (/** @type {any} */ id) => { const p = personnes.find(x => x.id === id); return p ? `${p.Prenom} ${p.Nom}` : ''; };
-  return stagiaires.filter(s => s.Annee === f.annee && (f.ecartes || s.Suivi !== 'Écarté·e') && (!f.cmi || s.CMi === f.cmi)
-    && mots.every(m => norm([s.Nom, s.Prenom, s.Etab_nom, s.Etab_commune, s.UAI, nomCmi(s.CMi), statutStagiaire(s)].join(' ')).includes(m)))
+  return stagiaires.filter(s => s.Annee === f.annee && (f.ecartes || s.Suivi !== 'Écarté·e') && (!f.cmi || cmisDe(visites, s.id).includes(f.cmi))
+    && mots.every(m => norm([s.Nom, s.Prenom, s.Etab_nom, s.Etab_commune, s.UAI, ...cmisDe(visites, s.id).map(nomCmi), statutStagiaire(s)].join(' ')).includes(m)))
     .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr') || String(a.Prenom).localeCompare(String(b.Prenom), 'fr'));
 }
 // Années présentes dans la liste (plus l'année en cours), la plus récente d'abord.
@@ -142,15 +152,15 @@ export const anneesStagiaires = (stagiaires, courante) => [...new Set([courante,
   .sort().reverse();
 
 // Points à compléter d'un·e stagiaire suivi·e (affichés dans la liste).
-/** @param {Ligne} s @param {Ligne[]} tuteurs */
-export function manques(s, tuteurs) {
+/** @param {Ligne} s @param {Ligne[]} tuteurs @param {Ligne[]} [visites] ses visites au plan */
+export function manques(s, tuteurs, visites = []) {
   if (s.Suivi === 'Écarté·e') return [];
   const m = [];
   if (!s.Corps) m.push('corps');
   if (!s.Concours) m.push('concours');
   if (!s.Quotite) m.push('quotité');
-  if (!s.CMi) m.push('CMi');
   if (!s.Sans_tuteur && !tuteurs.length) m.push('tuteur·trice');
+  if (!visites.length) m.push('visite au plan');
   return m;
 }
 
@@ -165,16 +175,19 @@ export function validerStagiaire(s) {
 
 // --- Fichier CSV minimal à compléter par les collègues, puis à reverser ---
 export const COLONNES_CSV = ['Nom', 'Prénom', 'UAI', 'Corps', 'Concours', 'Quotité', 'Tuteur·trice 1 nom', 'Tuteur·trice 1 prénom',
-  'Tuteur·trice 1 UAI', 'Tuteur·trice 2 nom', 'Tuteur·trice 2 prénom', 'Tuteur·trice 2 UAI', 'CMi', 'Notes'];
+  'Tuteur·trice 1 UAI', 'Tuteur·trice 2 nom', 'Tuteur·trice 2 prénom', 'Tuteur·trice 2 UAI', 'CMi des visites', 'Notes'];
 // Modèle : en-têtes, une ligne d'exemple, et les stagiaires déjà connu·es de l'année (pour compléter plutôt que ressaisir).
-/** @param {Ligne[]} stagiaires de l'année @param {Ligne[]} tutorats @param {Ligne[]} personnes */
-export function csvModele(stagiaires = [], tutorats = [], personnes = []) {
+// Colonne « CMi des visites » : un·e ou plusieurs CMi (« Prénom NOM », séparé·es par « / ») ; à l'import, une visite au
+// plan est créée pour chaque CMi qui n'en a pas encore avec ce ou cette stagiaire.
+/** @param {Ligne[]} stagiaires de l'année @param {Ligne[]} tutorats @param {Ligne[]} personnes @param {Ligne[]} [visites] */
+export function csvModele(stagiaires = [], tutorats = [], personnes = [], visites = []) {
   const champ = (/** @type {any} */ v) => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const lignes = stagiaires.length ? stagiaires.map(s => {
-    const t = tuteursDe(tutorats, s.id), p = personnes.find(x => x.id === s.CMi);
+    const t = tuteursDe(tutorats, s.id);
+    const c = cmisDe(visites, s.id).map(id => personnes.find(x => x.id === id)).filter(Boolean).map(p => `${p.Prenom} ${p.Nom}`).join(' / ');
     const tu = (/** @type {number} */ i) => (t[i] ? [t[i].Nom, t[i].Prenom, t[i].UAI] : ['', '', '']);
-    return [s.Nom, s.Prenom, s.UAI, s.Corps, s.Concours, s.Quotite, ...tu(0), ...tu(1), p ? `${p.Prenom} ${p.Nom}` : '', s.Notes];
-  }) : [['NOM', 'Prénom', '0450000A', 'CERT', 'Externe', '50 %', 'NOM', 'Prénom', '0450000A', '', '', '', 'Prénom NOM', '']];
+    return [s.Nom, s.Prenom, s.UAI, s.Corps, s.Concours, s.Quotite, ...tu(0), ...tu(1), c, s.Notes];
+  }) : [['NOM', 'Prénom', '0450000A', 'CERT', 'Externe', '50 %', 'NOM', 'Prénom', '0450000A', '', '', '', 'Prénom NOM / Prénom NOM', '']];
   return '\ufeff' + [COLONNES_CSV, ...lignes].map(l => l.map(champ).join(';')).join('\r\n') + '\r\n';
 }
 
@@ -184,7 +197,7 @@ const ENTETES = /** @type {[string, RegExp][]} */ ([
   ['t1nom', /^tut\w*1nom$|^tut\w*(?<!pre)nom$/], ['t1prenom', /^tut\w*1prenom$|^tut\w*prenom$/], ['t1uai', /^tut\w*1(uai|rne)$|^tut\w*(uai|rne)$/],
   ['t2nom', /^tut\w*2nom$|^cotut\w*(?<!pre)nom$/], ['t2prenom', /^tut\w*2prenom$|^cotut\w*prenom$/], ['t2uai', /^tut\w*2(uai|rne)$|^cotut\w*(uai|rne)$/],
   ['nom', /^nom$/], ['prenom', /^prenom$/], ['uai', /^(uai|rne)$/], ['corps', /^corps$/], ['concours', /^concours$/],
-  ['quotite', /^quotite$/], ['cmi', /^cmi$|^chargee?demission$/], ['notes', /^notes?$/],
+  ['quotite', /^quotite$/], ['cmi', /^cmi|^chargee?demission/], ['notes', /^notes?$/],
 ]);
 /** @param {string} ligne @param {string} sep */
 function cases(ligne, sep) {
@@ -228,10 +241,11 @@ export function lireCsvStagiaires(texte) {
   return { lignes, erreur: '' };
 }
 
-// Préparation de l'import : stagiaires à créer ou à compléter (cases vides seulement), tuteur·trices à ajouter.
+// Préparation de l'import : stagiaires à créer ou à compléter (cases vides seulement), tuteur·trices à ajouter, visites
+// au plan à créer (une par CMi de la colonne « CMi des visites » qui n'a pas déjà une visite avec ce ou cette stagiaire).
 /**
  * @param {ReturnType<typeof lireCsvStagiaires>['lignes']} lignes
- * @param {{ stagiaires: Ligne[], tutorats: Ligne[], profs: Ligne[], etabs: Ligne[], personnes: Ligne[], annee: string }} D
+ * @param {{ stagiaires: Ligne[], tutorats: Ligne[], profs: Ligne[], etabs: Ligne[], personnes: Ligne[], annee: string, visites?: Ligne[] }} D
  */
 export function preparerImportStagiaires(lignes, D) {
   const vues = new Set();
@@ -241,12 +255,17 @@ export function preparerImportStagiaires(lignes, D) {
     if (!prof) alertes.push('absent·e du fichier des professeur·es : identité recopiée telle quelle');
     const existant = trouverStagiaire({ professeur: prof ? prof.id : 0, nom: l.nom, prenom: l.prenom }, D.stagiaires, D.annee);
     const k = cle(l.nom, l.prenom);
-    if (vues.has(k)) return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: 'en double dans le fichier', alertes, id: 0, champs: null, tuteurs: [] };
+    if (vues.has(k)) return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: 'en double dans le fichier', alertes, id: 0, champs: null, tuteurs: [], cmis: [] };
     vues.add(k);
-    let cmi = 0;
-    if (l.cmi) { const p = trouverPersonne(l.cmi, D.personnes); if (p) cmi = p.id; else alertes.push(`CMi « ${l.cmi} » introuvable dans l'annuaire`); }
+    /** @type {number[]} */
+    const cmis = [];
+    for (const nom of String(l.cmi || '').split(/\s*[\/;+&]\s*|\s+et\s+/i).map(x => x.trim()).filter(Boolean)) {
+      const p = trouverPersonne(nom, D.personnes);
+      if (!p) alertes.push(`CMi « ${nom} » introuvable dans l'annuaire`);
+      else if (!cmis.includes(p.id) && !(existant && cmisDe(D.visites || [], existant.id).includes(p.id))) cmis.push(p.id);
+    }
     const base = prof ? ligneStagiaire(prof, D.etabs, D.annee) : { ...ligneStagiaire({ id: 0, Nom: l.nom, Prenom: l.prenom, UAI: l.uai }, D.etabs, D.annee) };
-    const saisis = /** @type {Ligne} */ ({ Corps: l.corps, Concours: l.concours, Quotite: l.quotite, CMi: cmi, Notes: l.notes });
+    const saisis = /** @type {Ligne} */ ({ Corps: l.corps, Concours: l.concours, Quotite: l.quotite, Notes: l.notes });
     /** @type {Ligne | null} */
     let champs;
     if (existant) {   // compléter seulement les cases vides : rien de ce qui a été saisi dans l'application n'est écrasé
@@ -263,19 +282,21 @@ export function preparerImportStagiaires(lignes, D) {
       if (!p) alertes.push(`tuteur·trice ${t.nom} ${t.prenom} absent·e du fichier : identité recopiée`);
       return { ...ligneTuteur(p, D.etabs, t), Ordre: deja.length + i + 1 };
     });
-    if (existant && !Object.keys(champs).length && !tuteurs.length) return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: 'déjà à jour', alertes, id: existant.id, champs: null, tuteurs: [] };
+    if (existant && !Object.keys(champs).length && !tuteurs.length && !cmis.length) return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: 'déjà à jour', alertes, id: existant.id, champs: null, tuteurs: [], cmis: [] };
     if (tuteurs.length && (existant ? existant.Sans_tuteur : false)) alertes.push('marqué·e « sans tuteur·trice » : case à revoir');
-    return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: '', alertes, id: existant ? existant.id : 0, champs, tuteurs };
+    return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: '', alertes, id: existant ? existant.id : 0, champs, tuteurs, cmis };
   });
 }
 
-// Visites à mettre au plan : stagiaires de l'année à suivre, avec un·e CMi, sans visite reliée.
+// Stagiaires de l'année à suivre sans aucune visite au plan.
 /** @param {Ligne[]} stagiaires @param {Ligne[]} visites @param {string} annee */
-export function aMettreAuPlan(stagiaires, visites, annee) {
-  return stagiaires.filter(s => s.Annee === annee && s.Suivi !== 'Écarté·e' && s.CMi && !visites.some(v => v.Stagiaire === s.id))
-    .map(s => ({ stagiaire: s, champs: { Professeur: Number(s.Professeur) || 0, Prof_nom: String(s.Nom || ''), Prof_prenom: String(s.Prenom || ''),
-      UAI: String(s.UAI || ''), Etab_nom: String(s.Etab_nom || ''), Stagiaire: s.id, Statut_plan: '', CMi: s.CMi, Notes: '' } }));
-}
+export const sansVisite = (stagiaires, visites, annee) => stagiaires
+  .filter(s => s.Annee === annee && s.Suivi !== 'Écarté·e' && !visites.some(v => v.Stagiaire === s.id))
+  .sort((a, b) => String(a.Nom).localeCompare(String(b.Nom), 'fr'));
+// Visite au plan pour un·e stagiaire et un·e CMi (période à caler dans l'écran Plan).
+/** @param {Ligne} s @param {number} cmi */
+export const visitePour = (s, cmi) => ({ Professeur: Number(s.Professeur) || 0, Prof_nom: String(s.Nom || ''), Prof_prenom: String(s.Prenom || ''),
+  UAI: String(s.UAI || ''), Etab_nom: String(s.Etab_nom || ''), Stagiaire: s.id, Statut_plan: '', CMi: cmi, Notes: '' });
 
 // Droits de l'onglet (Stagiaires et Tutorats, lettres L C M S de droitsTable).
 /** @param {Record<string, string>} dS @param {Record<string, string>} dT */
