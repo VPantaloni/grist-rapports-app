@@ -237,7 +237,7 @@ import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrementValide, signatureChiffrement, tableChiffree,
   dechiffrerLignes, lignesLisibles, chiffrerActions, completerCodes, actionsCodesManquants, regrouperMaj, actionsRechiffrement, nouveauxParametres,
   deriverCle, creerVerificateur, verifierCle, ouvrirAvecPhrase, validerNouvellePhrase, validerChangementPhrase, actionCreerTable, actionsColonnesTable,
-  actionsNouvellePhrase, rangerCle, oublierCle, cleAuDemarrage, suivreCle, definirCle, cryptoDisponible } from '../commun/chiffrement.js';
+  actionsNouvellePhrase, actionsIndice, indiceTropProche, rangerCle, oublierCle, cleAuDemarrage, suivreCle, definirCle, cryptoDisponible } from '../commun/chiffrement.js';
 import { IMPORT, EXPORT, CAMPAGNES, LIEUX, DESCRIPTIONS_ROLES, CONTROLES_FICHES, TABLES_DONNEES, TABLE_FICHES, ROLES, PORTEES, ACTIONS, COLONNES_ACTION, matriceDroits, droitsCalcules,
   niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair, actionsMatriceDefaut } from './logique.js';
 
@@ -1014,10 +1014,17 @@ function afficherChiffrement(forcer = false) {
         <span class="etat-cle ${cle ? 'ouvert' : ''}">${cle ? 'révélées dans cet onglet' : 'masquées'}</span></p>
       ${cle ? '<div class="actions"><button id="chi-masquer">Masquer</button></div>'
         : `<label class="champ"><span>Phrase secrète</span><input type="password" id="chi-phrase" autocomplete="off"></label>
+           ${l.Indice ? `<details class="petit"><summary>Indice</summary>${esc(l.Indice)}</details>` : ''}
            <ul class="erreurs" id="chi-phrase-err" hidden></ul><div class="actions"><button id="chi-reveler" class="primary">Révéler</button></div>`}
       ${enClair.length || sansCode.length ? `<div class="alerte" style="margin-top:10px">${[enClair.length ? `${enClair.length} valeur(s) en clair dans des champs chiffrés` : '',
           sansCode.length ? `${sansCode.length} ligne(s) sans pseudonyme` : ''].filter(Boolean).join(' ; ')} (onglet Contrôles).
         ${cle ? '<div class="actions"><button id="chi-enclair">Chiffrer et attribuer les pseudonymes</button></div>' : ' Révéler pour les chiffrer.'}</div>` : ''}
+      <details style="margin-top:12px"><summary>Indice de la phrase${l.Indice ? ' (renseigné)' : ''}</summary>
+        <p class="petit muted">Petit aide-mémoire montré dans la fenêtre « Révéler » (lien « Indice »). Il est lisible par tous
+          les comptes du document : jamais la phrase elle-même, ni un indice qui la donne à qui ne la connaît pas.</p>
+        <label class="champ"><span>Indice</span><input type="text" id="chi-indice" maxlength="80" value="${esc(l.Indice || '')}"></label>
+        <div class="actions"><button id="chi-indice-ok">Enregistrer l'indice</button></div>
+      </details>
       <details style="margin-top:12px"><summary>Changer la phrase</summary>
         <p class="petit muted">Tout est relu avec la phrase actuelle et rechiffré avec la nouvelle, en un seul envoi. À faire au
           départ d'une personne qui connaissait la phrase.</p>
@@ -1088,10 +1095,19 @@ async function chiffrerEnClair() {
     ...actionsCodesManquants(D.chiffreBrut, CHIFFREMENT)]);
   if (actions.length) await ecrire(actions, `${D.chiffre.enClair.length} valeur(s) chiffrée(s), ${D.chiffre.sansCode.length} pseudonyme(s) attribué(s)`);
 }
+async function enregistrerIndice() {
+  if (!ligneChiffre) return;
+  const indice = $('chi-indice').value.trim();
+  const phrase = ($('chi-ch-ancienne') && $('chi-ch-ancienne').value) || ($('chi-phrase') && $('chi-phrase').value) || '';
+  if (phrase && indiceTropProche(indice, phrase)) return toast('Cet indice donne la phrase : en choisir un autre.', true);
+  if (!(await ecrireGrist(actionsIndice(ligneChiffre, indice, D.chiffre.colonnes || []), indice ? 'Indice enregistré' : 'Indice retiré'))) return;
+  await charger();
+}
 async function changerPhrase() {
   const ancienne = $('chi-ch-ancienne').value, p1 = $('chi-ch-p1').value, p2 = $('chi-ch-p2').value;
   const err = validerChangementPhrase(ancienne, p1, p2);
   if (!$('chi-ch-note').checked) err.push('Cocher « J\'ai noté la phrase… ».');
+  if (ligneChiffre && indiceTropProche(ligneChiffre.Indice, p1)) err.push('L\'indice enregistré donne la nouvelle phrase : le changer d\'abord (« Indice de la phrase »).');
   if (!erreursChi('chi-ch-err', err)) return;
   const c = await lireChiffrement();
   if (c.etat.statut !== 'prete') { erreursChi('chi-ch-err', ['Table Chiffrement non prête : rien n\'a été écrit.']); return; }
@@ -1252,6 +1268,7 @@ if (await initialiserGrist()) {
       if (t.id === 'chi-table') creerTableChiffrement();
       else if (t.id === 'chi-cr-ok') creerPhrase();
       else if (t.id === 'chi-reveler') revelerIci();
+      else if (t.id === 'chi-indice-ok') enregistrerIndice();
       else if (t.id === 'chi-masquer') masquerIci();
       else if (t.id === 'chi-enclair') chiffrerEnClair();
     });

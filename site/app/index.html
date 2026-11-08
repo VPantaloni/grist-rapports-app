@@ -33,6 +33,9 @@
   .connexion .bouton:hover, .connexion .bouton:focus-visible { filter: brightness(1.08); outline: none; }
 
   /* Chiffrement (SPEC § 5.8) : bouton Révéler / Masquer et fenêtre de la phrase */
+  details.indice { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+  details.indice summary { cursor: pointer; display: inline-block; } details.indice span { display: block; margin-top: 3px; padding: 4px 8px;
+    border-radius: 6px; background: var(--bg2); color: var(--fg); }
   #menu button.cadenas { margin-left: auto; border: 1px solid var(--border); }
   #menu button.cadenas.ouvert { border-color: var(--warn); background: var(--warn-bg); }
   #menu button.cadenas + select.voir { margin-left: 8px; }
@@ -54,6 +57,7 @@
     <p>Saisis la phrase secrète de l'application. Les données restent révélées dans cet onglet, jusqu'à 6 heures sans
       activité ou jusqu'à « Masquer ».</p>
     <input type="password" id="phrase-saisie" autocomplete="off" spellcheck="false" aria-label="Phrase secrète">
+    <details id="phrase-indice" class="indice" hidden><summary>Indice</summary><span></span></details>
     <ul class="erreurs" id="phrase-erreur" hidden></ul>
     <div class="actions"><button type="submit" class="primary" id="phrase-ok">Révéler</button>
       <button type="button" id="phrase-annuler">Annuler</button></div>
@@ -211,6 +215,9 @@ async function chargerChiffrement() {
   }
 }
 function ouvrirPhrase() {
+  const indice = String((ligneChiffre && ligneChiffre.Indice) || '').trim();
+  $('phrase-indice').hidden = !indice; $('phrase-indice').open = false;
+  $('phrase-indice').querySelector('span').textContent = indice;
   $('phrase-saisie').value = '';
   $('phrase-erreur').hidden = true;
   $('phrase').showModal();

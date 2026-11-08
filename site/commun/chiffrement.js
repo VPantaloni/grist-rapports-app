@@ -12,7 +12,7 @@ import { lireEtat, ecrireEtat, suivreEtat } from './grist.js';
  * @typedef {object} DeclarationChiffrement
  * @property {Record<string, Record<string, GenreChiffre>>} champs   { Table: { Colonne: genre } }
  * @property {Record<string, string>} [codes]                       { Table: colonne du pseudonyme } (facultatif)
- * @typedef {{ id: number, Sel: string, Iterations: number, Version: number, Verificateur: string, Modifie?: any }} LigneChiffrement
+ * @typedef {{ id: number, Sel: string, Iterations: number, Version: number, Verificateur: string, Modifie?: any, Indice?: string }} LigneChiffrement
  */
 
 export const VERSION = 1;
@@ -26,6 +26,8 @@ export const COLONNES_CHIFFREMENT = [
 ];
 // Date de création ou du dernier changement de la phrase (rien de secret).
 export const COLONNE_MODIFIE = { id: 'Modifie', type: 'Date' };
+// Indice facultatif, affiché dans la fenêtre « Révéler » (lisible de tous les comptes : jamais la phrase elle-même).
+export const COLONNE_INDICE = { id: 'Indice', type: 'Text' };
 // Révélation : 6 heures sans activité (clic ou frappe), puis tout repasse en masqué.
 export const DUREE_MS = 6 * 60 * 60 * 1000;   // 6 heures (APP § 11, 2026-11-07 ; 5 minutes dans le kit)
 
@@ -161,7 +163,7 @@ export const dateGrist = (d = new Date()) => Date.UTC(d.getFullYear(), d.getMont
 export const actionCreerTable = () => ['AddRawTable', TABLE_CHIFFREMENT];
 /** @param {string[]} colonnes colonnes actuelles de la table @returns {any[][]} */
 export function actionsColonnesTable(colonnes) {
-  const voulues = [...COLONNES_CHIFFREMENT, COLONNE_MODIFIE];
+  const voulues = [...COLONNES_CHIFFREMENT, COLONNE_MODIFIE, COLONNE_INDICE];
   return [
     ...voulues.filter(c => !colonnes.includes(c.id)).map(c => ['AddColumn', TABLE_CHIFFREMENT, c.id, { type: c.type, isFormula: false }]),
     ...colonnes.filter(c => c !== 'manualSort' && !/^gristHelper_/.test(c) && !voulues.some(v => v.id === c))
@@ -174,6 +176,15 @@ export const actionsColonneModifie = colonnes => ((colonnes || []).includes(COLO
 /** @param {{ Sel: string, Iterations: number, Version: number }} params @param {string} verificateur @param {string[]} [colonnes] @param {Date} [aujourdhui] */
 export const actionsNouvellePhrase = (params, verificateur, colonnes = [], aujourdhui = new Date()) => [...actionsColonneModifie(colonnes),
   ['AddRecord', TABLE_CHIFFREMENT, null, { ...params, Verificateur: verificateur, [COLONNE_MODIFIE.id]: dateGrist(aujourdhui) }]];
+
+// Enregistrer l'indice (colonne créée si besoin). Refusé s'il contient la phrase (comparée sans casse ni espaces).
+/** @param {LigneChiffrement} ligne @param {string} indice @param {string[]} colonnes */
+export const actionsIndice = (ligne, indice, colonnes) => [
+  ...((colonnes || []).includes(COLONNE_INDICE.id) ? [] : [['AddColumn', TABLE_CHIFFREMENT, COLONNE_INDICE.id, { type: COLONNE_INDICE.type, isFormula: false }]]),
+  ['UpdateRecord', TABLE_CHIFFREMENT, ligne.id, { [COLONNE_INDICE.id]: String(indice || '').trim() }]];
+/** @param {string} indice @param {string} phrase */
+export const indiceTropProche = (indice, phrase) => { const i = normaliserPhrase(indice).toLowerCase().replace(/\s+/g, ''), p = normaliserPhrase(phrase).toLowerCase().replace(/\s+/g, '');
+  return !!i && !!p && (i.includes(p) || (p.length >= 6 && i.length >= 6 && p.includes(i) && i.length >= p.length * 0.8)); };
 
 // --- Champs chiffrés des tables ---
 /** @param {any} v */
