@@ -346,7 +346,10 @@ export function positionner(json, code, x, illustrations = {}) {
 // --- Relecture : suggestions de l'IA-IPR et commentaires, que le ou la CMi accepte ou refuse ---
 // Rapports.Commentaires : { code de rubrique : { c: commentaire, s: texte suggéré, ok: commentaire traité } } ;
 // ancienne forme { code : commentaire } lue aussi.
-/** @typedef {{ c: string, s?: string, ok?: boolean }} NoteRelecture */
+// Commentaire ancré (comme dans Word) : passage cité q (k-ième occurrence dans le texte affiché : texte suggéré s'il y en
+// a un, sinon texte du rapport), commentaire c, auteur·e a, date d (AAAA-MM-JJ), identifiant i, traité ok.
+/** @typedef {{ i: string, q: string, k: number, c: string, a?: string, d?: string, ok?: boolean }} NoteAncree */
+/** @typedef {{ c: string, s?: string, ok?: boolean, n?: NoteAncree[] }} NoteRelecture */
 /** @param {any} json @returns {Record<string, NoteRelecture>} */
 export function lireRelecture(json) {
   /** @type {Record<string, NoteRelecture>} */
@@ -357,6 +360,10 @@ export function lireRelecture(json) {
     const n = { c: String(v.c || '') };
     if (typeof v.s === 'string') n.s = v.s;
     if (v.ok) n.ok = true;
+    const notes = Array.isArray(v.n) ? v.n.filter(x => x && typeof x === 'object' && String(x.q || '') && String(x.c || '').trim())
+      .map(x => /** @type {NoteAncree} */ ({ i: String(x.i || ''), q: String(x.q), k: Number(x.k) || 0, c: String(x.c), ...(x.a ? { a: String(x.a) } : {}),
+        ...(x.d ? { d: String(x.d) } : {}), ...(x.ok ? { ok: true } : {}) })) : [];
+    if (notes.length) n.n = notes;
     o[k] = n;
   }
   return o;
@@ -370,7 +377,8 @@ export function ecrireRelecture(rel) {
     const n = /** @type {NoteRelecture} */ ({ c: String(v.c || '') });
     if (typeof v.s === 'string') n.s = v.s;
     if (v.ok && n.c.trim()) n.ok = true;
-    if (n.c.trim() || typeof n.s === 'string') o[k] = n;
+    if (v.n && v.n.length) n.n = v.n;
+    if (n.c.trim() || typeof n.s === 'string' || n.n) o[k] = n;
   }
   return Object.keys(o).length ? JSON.stringify(o) : '';
 }
@@ -418,8 +426,10 @@ export function appliquerSuggestions(contenuJson, relJson) {
 /** @param {any} relJson */
 export function bilanRelecture(relJson) {
   const rel = Object.values(lireRelecture(relJson));
-  return { suggestions: rel.filter(n => typeof n.s === 'string').length, commentaires: rel.filter(n => n.c.trim() && !n.ok).length,
-    traites: rel.filter(n => n.c.trim() && n.ok).length };
+  const notes = rel.flatMap(n => n.n || []);
+  return { suggestions: rel.filter(n => typeof n.s === 'string').length,
+    commentaires: rel.filter(n => n.c.trim() && !n.ok).length + notes.filter(x => !x.ok).length,
+    traites: rel.filter(n => n.c.trim() && n.ok).length + notes.filter(x => x.ok).length };
 }
 // Le ou la CMi auteur·e répond à la relecture (accepte, refuse, marque traité) : rapport soumis ou à reprendre.
 /** @param {DroitsTable | { M: string }} droits @param {Ligne | null | undefined} moi @param {Ligne} r */
@@ -501,3 +511,80 @@ export function rangsPositionnement(json, echelle) {
   }
   return r;
 }
+
+// --- Commentaires ancrés sur un passage (relecture) ---
+// Rang de l'occurrence de q qui commence à la position pos du texte (0 = première) ; -1 si q n'y est pas.
+/** @param {string} texte @param {string} q @param {number} pos */
+export function occurrence(texte, q, pos) {
+  if (!q) return -1;
+  let k = 0, i = String(texte).indexOf(q);
+  while (i >= 0 && i < pos) { k++; i = texte.indexOf(q, i + 1); }
+  return i === pos ? k : -1;
+}
+// Position du passage commenté dans le texte : k-ième occurrence, sinon la première, sinon -1 (passage modifié).
+/** @param {string} texte @param {string} q @param {number} k */
+export function placer(texte, q, k) {
+  const t = String(texte || '');
+  if (!q) return -1;
+  let i = t.indexOf(q);
+  for (let n = 0; n < k && i >= 0; n++) { const j = t.indexOf(q, i + 1); if (j < 0) break; i = j; }
+  return i;
+}
+/** @param {any} json @param {string} code @param {{ q: string, k: number, c: string, a?: string, d?: string }} note @returns {{ json: string, id: string }} */
+export function annoter(json, code, note) {
+  const rel = lireRelecture(json);
+  const n = rel[code] || { c: '' };
+  const id = `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  n.n = [...(n.n || []), { i: id, q: String(note.q), k: Number(note.k) || 0, c: String(note.c), ...(note.a ? { a: note.a } : {}), ...(note.d ? { d: note.d } : {}) }];
+  rel[code] = n;
+  return { json: ecrireRelecture(rel), id };
+}
+// Modifier (champs donnés) ou retirer (modif = null) un commentaire ancré.
+/** @param {any} json @param {string} code @param {string} id @param {Partial<NoteAncree> | null} modif */
+export function changerNote(json, code, id, modif) {
+  const rel = lireRelecture(json);
+  const n = rel[code];
+  if (!n || !n.n) return ecrireRelecture(rel);
+  n.n = modif === null ? n.n.filter(x => x.i !== id) : n.n.map(x => x.i === id ? { ...x, ...modif } : x);
+  if (!n.n.length) delete n.n;
+  for (const x of n.n || []) if (!x.ok) delete x.ok;
+  return ecrireRelecture(rel);
+}
+const echapper = (/** @type {any} */ t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c);
+// Vue relue d'une rubrique (aperçu, page de lecture) : différence entre le texte et la suggestion (ajouts <ins>, retraits
+// <del>), passages commentés surlignés (<mark data-note>). Les positions des passages sont prises dans le texte affiché
+// (suggestion s'il y en a une), qui se lit en ignorant les retraits. Renvoie aussi les notes dont le passage a disparu.
+/** @param {string} texte @param {string | undefined} suggestion @param {NoteAncree[]} [notes] @returns {{ html: string, perdues: string[] }} */
+export function vueRelue(texte, suggestion, notes = []) {
+  const segs = typeof suggestion === 'string' ? diffMots(texte || '', suggestion) : [{ t: /** @type {'='} */ ('='), x: String(texte || '') }];
+  const affiche = typeof suggestion === 'string' ? suggestion : String(texte || '');
+  /** @type {{ a: number, b: number, i: string, ok: boolean }[]} */
+  const zones = [];
+  const perdues = [];
+  for (const n of notes) {
+    const p = placer(affiche, n.q, n.k);
+    if (p < 0) perdues.push(n.i); else zones.push({ a: p, b: p + n.q.length, i: n.i, ok: !!n.ok });
+  }
+  // Position (dans le texte affiché) de chaque caractère gardé ou ajouté ; les retraits n'avancent pas.
+  let pos = 0;
+  const morceaux = [];
+  for (const sg of segs) {
+    if (sg.t === '-') { morceaux.push(`<del>${echapper(sg.x)}</del>`); continue; }
+    // découper le segment aux bornes des zones commentées
+    let i = 0;
+    while (i < sg.x.length) {
+      const p = pos + i;
+      const dedans = zones.filter(z => z.a <= p && p < z.b);
+      const bornes = zones.flatMap(z => [z.a, z.b]).filter(x => x > p && x < pos + sg.x.length);
+      const fin = (bornes.length ? Math.min(...bornes) : pos + sg.x.length) - pos;
+      let h = echapper(sg.x.slice(i, fin));
+      if (sg.t === '+') h = `<ins>${h}</ins>`;
+      if (dedans.length) { const z = dedans[dedans.length - 1]; h = `<mark data-note="${echapper(z.i)}"${z.ok ? ' class="ok"' : ''}>${h}</mark>`; }
+      morceaux.push(h);
+      i = fin;
+    }
+    pos += sg.x.length;
+  }
+  return { html: morceaux.join(''), perdues };
+}
+

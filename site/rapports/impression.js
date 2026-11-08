@@ -66,13 +66,16 @@ export const identite = r => [String(r.Prof_civilite || '').trim(), prenomCapita
 
 // o.editable : aperçu modifiable (onglet « Aperçu » de l'écran) : mêmes page et police, chaque rubrique et le thème
 // modifiables sur place (contenteditable, texte brut, data-texte = code de la rubrique), rubriques vides comprises.
-/** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @param {{ editable?: boolean }} [o] @returns {string} */
+// o.apercu : onglet « Aperçu » (relecture) : rubriques vides comprises, chacune dans un bloc data-rub suivi d'une zone
+// .notes (suggestions, commentaires) ; l'écran remplit ces blocs (texte relu, passages commentés) — rien n'est imprimé.
+/** @param {Record<string, any>} r ligne de Rapports (déchiffrée) @param {ContexteImpression} c @param {{ editable?: boolean, apercu?: boolean }} [o] @returns {string} */
 export function htmlImpression(r, c, o = {}) {
-  const ed = !!o.editable;
+  const ap = !!o.apercu;
+  const ed = !!o.editable || ap;
   const contenu = lireObjet(r.Contenu);
   const rubriques = lireStructure(r.Structure).filter(x => x.imprimee !== false && (ed || String(contenu[x.code] || '').trim()));
   const bloc = (/** @type {import('./logique.js').RubriqueFigee} */ x) => (ed
-    ? `<div class="ed${x.forme === 'Puces' ? ' puces' : ''}" contenteditable="plaintext-only" spellcheck="true" data-texte="${esc(x.code)}" title="${esc(x.titre)}${x.forme === 'Puces' ? ' — une ligne = une puce' : ''}" data-vide="${esc(x.titre)}…">${esc(contenu[x.code] || '')}</div>`
+    ? `<div class="ed${x.forme === 'Puces' ? ' puces' : ''}" ${o.editable ? 'contenteditable="plaintext-only" ' : ''}spellcheck="true" data-texte="${esc(x.code)}" title="${esc(x.titre)}${x.forme === 'Puces' ? ' — une ligne = une puce' : ''}" data-vide="${esc(x.titre)}…">${esc(contenu[x.code] || '')}</div>`
     : x.forme === 'Puces' ? puces(contenu[x.code]) : paragraphes(contenu[x.code]));
   const { grade, echelon } = gradeEchelon(r.Prof_statut);
   const prof = [r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' ');
@@ -130,6 +133,25 @@ export function htmlImpression(r, c, o = {}) {
   .signatures .t { font-weight: 700; } .signatures img { max-height: ${hSig}mm; max-width: 55mm; display: inline-block; margin-top: 1mm; }
   .signatures .vide { height: ${hSig}mm; }
   @media print { .outil { display: none; } .page { padding: 0; } }
+  .ed:not([contenteditable]) { outline: none; }
+  .ed[contenteditable]:not(:focus) { outline: 1px dashed #c9c9d1; }
+  ins { background: #dbeafe; color: inherit; text-decoration: underline; text-decoration-color: #2563eb; text-underline-offset: 2px; }
+  del { background: #fde2e2; color: #b91c1c; text-decoration: line-through; }
+  mark { background: #fde68a; color: inherit; border-bottom: 2px solid #d97706; cursor: pointer; }
+  mark.ok { background: #e5e7eb; border-bottom-color: #9ca3af; }
+  mark.actif, .note.actif { box-shadow: 0 0 0 2px #d97706; }
+  .notes { font: 12px/1.35 system-ui, sans-serif; margin: 1mm 0 0; }
+  .notes:empty { display: none; }
+  .notes > div { margin-top: 1mm; padding: 1.5mm 2mm; border-radius: 3px; }
+  .notes .sugg { border-left: 3px solid #2563eb; background: #eff6ff; }
+  .notes .note, .notes .glob { border-left: 3px solid #d97706; background: #fff7ed; }
+  .notes .note.ok, .notes .glob.ok { border-left-color: #9ca3af; background: #f3f4f6; color: #6b7280; }
+  .notes .q { font-style: italic; color: #92400e; } .notes .note.ok .q { color: inherit; }
+  .notes .perdu { color: #b91c1c; font-size: 11px; }
+  .notes button { font: 11px system-ui, sans-serif; padding: 1px 7px; margin-left: 4px; border: 1px solid #c9c9d1; border-radius: 4px; background: #fff; cursor: pointer; }
+  .notes button.ok { background: #5b21a3; border-color: #5b21a3; color: #fff; }
+  #commenter { position: absolute; z-index: 5; font: 12px system-ui, sans-serif; padding: 3px 9px; border: 1px solid #d97706; background: #fff7ed;
+    color: #92400e; border-radius: 12px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
 </style></head><body>
 ${ed ? '' : `<div class="outil">Ctrl / Cmd + P → « Enregistrer au format PDF ». Nom proposé : <strong>${esc(c.nomFichier)}.pdf</strong></div>`}
 <div class="page"><table class="mise"><thead><tr><td>${enteteSuite}</td></tr></thead><tbody><tr><td>
@@ -143,9 +165,9 @@ ${enteteUne}
     : `<td>${esc(c.titreCmi)} : ${esc(c.cmi)}</td><td>${esc(c.titreIpr)} : ${esc(c.ipr)}</td>`}</tr>
   <tr><td>Classe : ${esc(r.Classe)}</td><td>Effectif : ${esc(r.Effectif ?? '')}</td><td>Heure : ${esc(r.Heure)}</td></tr>
 </table>
-${ed ? `<div class="theme"><span class="l">Thème :</span> <span class="ed" contenteditable="plaintext-only" data-champ="Theme" data-vide="thème de la séance">${esc(r.Theme || '')}</span></div>`
+${ed ? `<div class="theme"><span class="l">Thème :</span> <span class="ed" ${o.editable ? 'contenteditable="plaintext-only" ' : ''}data-champ="Theme" data-vide="thème de la séance">${esc(r.Theme || '')}</span></div>`
   : String(r.Theme || '').trim() ? `<div class="theme"><span class="l">Thème :</span> ${esc(r.Theme)}</div>` : ''}
-${rubriques.map(x => `<div class="rub">${titreImprime(x) ? `<h2>${esc(x.titre)}</h2>` : ''}${bloc(x)}</div>`).join('\n')}
+${rubriques.map(x => `<div class="rub"${ap ? ` data-rub="${esc(x.code)}"` : ''}>${titreImprime(x) ? `<h2>${esc(x.titre)}</h2>` : ''}${bloc(x)}${ap ? '<div class="notes"></div>' : ''}</div>`).join('\n')}
 <div class="signatures">
   <div class="s"><div class="t">Pris connaissance le,</div><div class="t">${esc(interesse(r.Prof_civilite))} :</div></div>
   ${c.sansCmi ? '' : sig(c.titreCmi, r.Signature_cmi)}

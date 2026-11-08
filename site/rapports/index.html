@@ -72,6 +72,29 @@
   .suggestion .titre button, .commentaire .titre button { font-size: 12px; padding: 1px 8px; }
   .diff { white-space: pre-wrap; margin-top: 3px; }
   .commentaire.traite { border-left-color: var(--muted); background: var(--bg2); color: var(--muted); }
+  /* En-tête repliable (bandeau) */
+  details.entete-bloc > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+  details.entete-bloc > summary::-webkit-details-marker { display: none; }
+  details.entete-bloc > summary::before { content: '▸'; color: var(--muted); } details.entete-bloc[open] > summary::before { content: '▾'; }
+  details.entete-bloc > summary .resume { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  details.entete-bloc[open] > summary .resume { display: none; }
+  details.entete-bloc[open] > summary { margin-bottom: 8px; }
+  details.entete-bloc:not([open]) { padding: 6px 12px; }
+  /* Aperçu : hauteur de la fenêtre ; plein écran */
+  .apercu-outils { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; font-size: 12px; }
+  .apercu-outils .aide { color: var(--muted); flex: 1; min-width: 200px; }
+  .apercu-outils select { width: auto; }
+  #apercu { width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 6px; background: #fff; display: block; }
+  .cadre-apercu.plein { position: fixed; inset: 0; z-index: 40; background: var(--bg); padding: 8px 12px; display: flex; flex-direction: column; }
+  .cadre-apercu.plein #apercu { flex: 1; height: auto !important; }
+  /* Commentaires ancrés (Rédaction) */
+  .notes-red .note { margin-top: 4px; padding: 5px 8px; border-left: 3px solid var(--warn); background: var(--warn-bg); font-size: 13px; }
+  .notes-red .note.ok { border-left-color: var(--muted); background: var(--bg2); color: var(--muted); }
+  .notes-red .q { font-style: italic; } .notes-red .perdu { color: var(--danger); font-size: 12px; }
+  .notes-red button { font-size: 12px; padding: 1px 8px; margin-left: 4px; }
+  .outils-rel { display: flex; justify-content: flex-end; margin-top: 2px; } .outils-rel button { font-size: 12px; padding: 1px 8px; }
+  #note-q { margin: 6px 0; padding: 6px 8px; border-left: 3px solid var(--warn); background: var(--warn-bg); font-style: italic; max-height: 120px; overflow: auto; white-space: pre-wrap; }
+  #note-c { width: 100%; }
   .legende { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 12px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; }
   .legende .c { border-left: 3px solid var(--warn); background: var(--warn-bg); padding: 0 6px; }
   .barre { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 8px 0; display: flex;
@@ -150,6 +173,12 @@
   </div>
 </div>
 
+<dialog id="dlg-note" aria-labelledby="note-titre">
+  <h2 id="note-titre">Commenter le passage</h2>
+  <div id="note-q"></div>
+  <textarea id="note-c" rows="4" placeholder="Commentaire, visible du ou de la CMi"></textarea>
+  <div class="actions"><button id="note-ok" class="primary">Enregistrer</button><button id="note-annuler">Annuler</button></div>
+</dialog>
 <dialog id="dlg-signature" aria-labelledby="sig-titre">
   <h2 id="sig-titre">Signer</h2>
   <div id="sig-corps"></div>
@@ -168,7 +197,7 @@ import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, date
   redigeParIpr, peutValiderSeul, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
-  lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, ongletParDefaut, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre,
+  lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, ongletParDefaut, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre, annoter, changerNote, occurrence, vueRelue,
   diffMots } from './logique.js';
 import { htmlImpression, htmlPositionnement } from './impression.js';
 
@@ -180,6 +209,9 @@ let moi = null, droits = droitsTable(null, TABLE);
 let sel = Number(pref.lire('Sel', '0')) || 0;
 let creation = null;     // { q, uai, prof, typeCode, date, heure, classe, effectif, theme, valideur, auteur, visite }
 let onglet = 'redaction';
+let enteteOuvert = pref.lire('Entete', '0') === '1';            // bandeau d'en-tête déplié
+let zoomApercu = Number(pref.lire('Zoom', '100')) || 100;        // zoom de l'aperçu (%)
+let pleinEcran = false, scrollApercu = 0;                        // aperçu sur tout l'écran ; position de lecture gardée
 let rubriqueActive = '', competenceFiltre = '', champActif = null, tousNiveaux = false;
 let brouillon = null;    // saisie en cours du rapport affiché : { id, champs }, envoyée ≈ 1 s après la dernière frappe
 let minuterie = null, envoiEnCours = false;
@@ -198,7 +230,7 @@ const typeDe = r => D.types.find(t => t.id === r.Type) || {};
 const moiPers = () => (moi && moi.Personne) || 0;
 const initialesMoi = () => { const p = personne(moiPers()); return (p && p.Initiales) || ''; };
 const rapportSel = () => D.rapports.find(r => r.id === sel);
-function choisir(id) { sel = id; pref.ecrire('Sel', String(id)); }
+function choisir(id) { if (id !== sel) scrollApercu = 0; sel = id; pref.ecrire('Sel', String(id)); }
 // Liste de gauche : repliée dès qu'on ouvre ou crée un rapport ; « » » la déplie.
 function replier(oui) { $('menu').classList.toggle('replie', oui); }
 // Onglet ouvert d'office pour un rapport : Positionnement d'abord (PSTG, MD) tant qu'il n'est pas complet.
@@ -413,7 +445,9 @@ function afficherFiche() {
     ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)}.</div>` : ''}
     ${r.Stagiaire_hors_liste ? '<div class="alerte">⚠ PSTG hors liste : pas dans la liste des stagiaires de Siiprien.</div>' : ''}
     ${r.Statut === 'À reprendre' ? '<div class="alerte">Rapport renvoyé : voir les suggestions et commentaires de l\'IA-IPR sous les rubriques.</div>' : ''}
-    <div class="bloc"><h2>En-tête</h2><div class="grille">
+    <details class="bloc entete-bloc" ${enteteOuvert ? 'open' : ''}><summary><strong>En-tête</strong><span class="resume">${esc([r.Prof_statut, r.UAI,
+      parIpr ? '' : nomPers(r.Auteur), nomPers(r.Valideur), dateFr(r.Date_visite), r.Heure, r.Classe, r.Effectif ? `${r.Effectif} élèves` : '', r.Theme]
+      .filter(Boolean).join(' · '))}</span></summary><div class="grille">
       <label class="champ"><span>Statut</span><div>${esc(r.Prof_statut) || '—'}</div></label>
       <label class="champ"><span>UAI</span><div>${esc(r.UAI)}</div></label>
       ${parIpr ? '' : `<label class="champ"><span>CMi</span><div>${esc(nomPers(r.Auteur)) || '—'}</div></label>`}
@@ -421,20 +455,26 @@ function afficherFiche() {
       <label class="champ"><span>Date de la visite</span>${redige ? `<input type="date" data-champ="Date_visite" value="${esc(dateIso(r.Date_visite))}">` : `<div>${esc(dateFr(r.Date_visite))}</div>`}</label>
       ${ch('Heure', 'Heure', r.Heure)}${ch('Classe', 'Classe', r.Classe)}${ch('Effectif', 'Effectif', r.Effectif, 'inputmode="numeric"')}
       <div class="large">${ch('Theme', 'Thème de la séance', r.Theme)}</div>
-    </div></div>
+    </div></details>
     <div class="onglets">
       ${t.Positionnement ? `<button data-onglet="md" class="${onglet === 'md' ? 'actif' : ''}" title="Positionnement sur les compétences, à faire d'abord : outil interne, jamais imprimé dans le rapport">1. Positionnement</button>` : ''}
       <button data-onglet="redaction" class="${onglet === 'redaction' ? 'actif' : ''}">${t.Positionnement ? '2. ' : ''}Rédaction</button>
       <button data-onglet="apercu" class="${onglet === 'apercu' ? 'actif' : ''}" title="Le rapport mis en page, comme imprimé ; ${redige ? 'texte modifiable sur place' : 'lecture seule'}">Aperçu${redige ? ' et retouches' : ''}</button>
       <button data-onglet="historique" class="${onglet === 'historique' ? 'actif' : ''}">Historique</button>
     </div>
-    <div id="corps">${onglet === 'apercu' ? `<p class="muted petit">${redige ? 'Clique dans un paragraphe pour le corriger : la modification est enregistrée et reprise dans l\'onglet Rédaction. Les titres non imprimés apparaissent au survol.' : 'Lecture seule.'}</p>
-      <iframe id="apercu" title="Aperçu du rapport" style="width:100%;height:75vh;border:1px solid var(--border);border-radius:6px;background:#fff"></iframe>`
+    <div id="corps">${onglet === 'apercu' ? `<div class="cadre-apercu ${pleinEcran ? 'plein' : ''}"><div class="apercu-outils">
+        <span class="aide">${relit ? 'Relecture : vos modifications restent des <ins>suggestions</ins> ; sélectionnez un passage pour le <strong>commenter</strong>.'
+          : redige ? 'Cliquez dans un paragraphe pour le corriger (enregistré, repris dans Rédaction).' : repond ? 'Rapport en relecture.' : 'Lecture seule.'}${repond
+          ? ' Sous chaque rubrique : acceptez ou refusez les suggestions, marquez les commentaires traités ; cliquez sur un passage surligné pour voir son commentaire.' : ''}</span>
+        <label>Zoom <select id="zoom">${[70, 85, 100, 115, 130].map(z => `<option value="${z}" ${z === zoomApercu ? 'selected' : ''}>${z} %</option>`).join('')}</select></label>
+        <button id="plein" title="${pleinEcran ? 'Revenir à la fiche (Échap)' : 'Aperçu sur tout l\'écran'}">${pleinEcran ? '✕ Quitter le plein écran' : '⛶ Plein écran'}</button></div>
+      <iframe id="apercu" aria-label="Aperçu du rapport"></iframe></div>`
       : onglet === 'md' ? corpsPositionnement(r, t, redige) : onglet === 'historique' ? corpsHistorique(r) : `${legendeRelecture(bilanRel, relit, repond)}${structure.map(x => { const n = rel[x.code] || { c: '' }; return `
       <div class="rubrique" data-rubrique="${esc(x.code)}">
         <h3>${esc(x.titre)} ${x.forme === 'Puces' ? '<span class="forme">(une ligne = une puce)</span>' : ''}${x.imprimee === false ? '<span class="forme">(non imprimée)</span>' : ''}</h3>
         ${consigne(x.code) && (redige || relit) ? `<details class="consigne"><summary>Consigne</summary><p>${esc(consigne(x.code))}</p></details>` : ''}
         ${relit ? `<textarea data-sugg="${esc(x.code)}" rows="5" title="Vos modifications sont des suggestions : le ou la CMi les accepte ou les refuse ; elles s'appliquent si vous validez.">${esc(typeof n.s === 'string' ? n.s : contenu[x.code] || '')}</textarea>
+          <div class="outils-rel"><button data-commenter="${esc(x.code)}" title="Sélectionner un passage dans le cadre ci-dessus, puis cliquer ici">💬 Commenter la sélection</button></div>
           <div class="suggestion" data-diff="${esc(x.code)}" ${typeof n.s === 'string' ? '' : 'hidden'}><div class="titre">Votre suggestion</div><div class="diff">${typeof n.s === 'string' ? htmlDiff(contenu[x.code] || '', n.s) : ''}</div></div>
           <div class="commentaire">Commentaire de relecture<textarea data-comm="${esc(x.code)}" placeholder="Visible du ou de la CMi">${esc(n.c || '')}</textarea></div>`
         : `${redige ? `<textarea data-texte="${esc(x.code)}" rows="5">${esc(contenu[x.code] || '')}</textarea>`
@@ -442,8 +482,9 @@ function afficherFiche() {
         ${typeof n.s === 'string' ? `<div class="suggestion"><div class="titre">Suggestion de l'IA-IPR${repond ? ` <button data-trancher="${esc(x.code)}" data-ok="1" class="primary">Accepter</button><button data-trancher="${esc(x.code)}" data-ok="0">Refuser</button>` : ''}</div>
           <div class="diff">${htmlDiff(contenu[x.code] || '', n.s)}</div></div>` : ''}
         ${n.c ? `<div class="commentaire ${n.ok ? 'traite' : ''}"><div class="titre">${n.ok ? '✓ Commentaire traité' : 'Commentaire de l\'IA-IPR'}${repond ? ` <button data-traiter="${esc(x.code)}" data-ok="${n.ok ? '0' : '1'}">${n.ok ? 'À reprendre' : 'Marquer traité'}</button>` : ''}</div>${esc(n.c)}</div>` : ''}`}
+        ${(n.n || []).length ? `<div class="notes-red">${htmlNotes(r, x.code, { relit, repond, perdues: vueRelue(contenu[x.code] || '', n.s, n.n).perdues })}</div>` : ''}
       </div>`; }).join('')}`}</div>
-    <div class="bloc signature"><h2>Signatures</h2><div class="grille">
+    <div class="bloc signature" ${onglet === 'apercu' ? 'hidden' : ''}><h2>Signatures</h2><div class="grille">
       ${parIpr ? '' : `<div><span class="muted">${esc((personne(r.Auteur) || {}).Titre_signature || 'CMi')}</span><br>${r.Signature_cmi ? `<img src="${esc(r.Signature_cmi)}" alt="Signature CMi">` : '<span class="muted">non signé</span>'}</div>`}
       <div><span class="muted">${esc((personne(r.Valideur) || {}).Titre_signature || 'IA-IPR')}</span><br>${r.Signature_ipr ? `<img src="${esc(r.Signature_ipr)}" alt="Signature IA-IPR">` : '<span class="muted">non signé</span>'}</div>
     </div></div>
@@ -507,33 +548,216 @@ function boutons(r) {
   return b.join('');
 }
 
-// Aperçu : la page d'impression en mode modifiable, dans un cadre (même origine : srcdoc) ; chaque frappe met à jour le
-// rapport (Contenu, Theme) comme dans l'onglet Rédaction.
-function brancherApercu(r, redige) {
+// --- Relecture : zone sous chaque rubrique (suggestion, commentaire, commentaires ancrés), dans l'onglet Rédaction et
+// dans l'aperçu. Boutons traités par actionRelecture (même code pour la fiche et le cadre de l'aperçu).
+const dateCourte = d => String(d || '').split('-').reverse().join('/');
+function htmlNotes(r, code, o) {
+  const n = lireRelecture(r.Commentaires)[code] || { c: '' };
+  const c = esc(code), parts = [];
+  if (o.apercu && typeof n.s === 'string') parts.push(`<div class="sugg"><strong>${o.relit ? 'Votre suggestion' : 'Suggestion de l\'IA-IPR'}</strong>
+    (ajouts soulignés en bleu, retraits barrés en rouge)${o.repond ? ` <button class="ok" data-trancher="${c}" data-ok="1">Accepter</button><button data-trancher="${c}" data-ok="0">Refuser</button>` : ''}${o.relit ? ` <button data-annuler-sugg="${c}" title="Revenir au texte du rapport">Retirer</button>` : ''}</div>`);
+  if (o.apercu && String(n.c || '').trim()) parts.push(`<div class="glob ${n.ok ? 'ok' : ''}"><strong>${n.ok ? '✓ Commentaire traité' : 'Commentaire'}</strong>${o.repond
+    ? ` <button data-traiter="${c}" data-ok="${n.ok ? '0' : '1'}">${n.ok ? 'À reprendre' : 'Marquer traité'}</button>` : ''}${o.relit ? ' <span class="muted">(modifiable dans Rédaction)</span>' : ''}<br>${esc(n.c)}</div>`);
+  for (const x of n.n || []) parts.push(`<div class="note ${x.ok ? 'ok' : ''}" data-note-id="${esc(x.i)}">${x.ok ? '✓ ' : ''}<span class="q">« ${esc(x.q.length > 90 ? `${x.q.slice(0, 87)}…` : x.q)} »</span>
+    ${esc(x.c)} <span class="muted">— ${esc([x.a, dateCourte(x.d)].filter(Boolean).join(', '))}</span>${(o.perdues || []).includes(x.i) ? ' <span class="perdu">(passage modifié depuis)</span>' : ''}${o.repond
+    ? ` <button data-note-ok="${esc(x.i)}" data-code="${c}">${x.ok ? 'À reprendre' : 'Traité'}</button>` : ''}${o.relit ? ` <button data-note-suppr="${esc(x.i)}" data-code="${c}">Supprimer</button>` : ''}</div>`);
+  return parts.join('');
+}
+async function actionRelecture(b) {
+  await envoyer();
+  const x = rapportSel();
+  if (!x) return;
+  const d = b.dataset;
+  const titre = code => (lireStructure(x.Structure).find(y => y.code === code) || {}).titre || code;
+  const ipr = { Valideur: moiPers() || x.Valideur };
+  if (d.trancher) {
+    const ok = d.ok === '1';
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { ...trancher(x.Contenu, x.Commentaires, d.trancher, ok),
+      Historique: ajouterHistorique(x.Historique, initialesMoi() || '', `suggestion ${ok ? 'acceptée' : 'refusée'} : ${titre(d.trancher)}`) }]], ok ? 'Suggestion acceptée' : 'Suggestion refusée');
+  } else if (d.traiter) {
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: traiter(x.Commentaires, d.traiter, d.ok === '1') }]], d.ok === '1' ? 'Commentaire traité' : 'Commentaire à reprendre');
+  } else if (d.annulerSugg) {
+    const t = lireObjet(x.Contenu)[d.annulerSugg] || '';
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: suggerer(x.Commentaires, d.annulerSugg, t, t), ...ipr }]], 'Suggestion retirée');
+  } else if (d.noteOk) {
+    const n = ((lireRelecture(x.Commentaires)[d.code] || {}).n || []).find(y => y.i === d.noteOk);
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: changerNote(x.Commentaires, d.code, d.noteOk, { ok: !(n && n.ok) }) }]], n && n.ok ? 'Commentaire à reprendre' : 'Commentaire traité');
+  } else if (d.noteSuppr) {
+    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: changerNote(x.Commentaires, d.code, d.noteSuppr, null), ...ipr }]], 'Commentaire supprimé');
+  } else return;
+  afficherFiche();
+}
+// Commentaire ancré : passage [a, b[ du texte affiché de la rubrique (suggestion de l'IA-IPR s'il y en a une).
+let noteEnCours = null;
+function commencerNote(code, texte, a, b) {
+  let q = texte.slice(a, b);
+  const debut = q.length - q.trimStart().length;
+  q = q.trim();
+  if (!q) return toast('Sélectionner d\'abord un passage du texte.', true);
+  const k = occurrence(texte, q, a + debut);
+  noteEnCours = { code, q, k: k < 0 ? 0 : k };
+  $('note-q').textContent = q;
+  $('note-c').value = '';
+  $('dlg-note').showModal();
+  $('note-c').focus();
+}
+async function enregistrerNote() {
+  const c = $('note-c').value.trim();
+  if (!noteEnCours || !c) { $('dlg-note').close(); noteEnCours = null; return; }
+  await envoyer();
+  const x = rapportSel();
+  const { json } = annoter(x.Commentaires, noteEnCours.code, { q: noteEnCours.q, k: noteEnCours.k, c, a: initialesMoi() || '', d: new Date().toISOString().slice(0, 10) });
+  $('dlg-note').close(); noteEnCours = null;
+  await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: json, Valideur: moiPers() || x.Valideur }]], 'Commentaire ajouté');
+  afficherFiche();
+}
+// Aperçu à la hauteur de la fenêtre (sous les outils), ou plein écran.
+function ajusterApercu() {
+  const f = $('apercu');
+  if (!f || pleinEcran) return;
+  const fiche = $('fiche'), barre = fiche.querySelector('.barre');
+  const h = fiche.getBoundingClientRect().bottom - f.getBoundingClientRect().top - (barre ? barre.offsetHeight : 48) - 14;
+  f.style.height = `${Math.max(360, Math.round(h))}px`;
+}
+function basculerPlein(oui) {
+  pleinEcran = oui;
+  const cadre = document.querySelector('.cadre-apercu');
+  if (!cadre) return;
+  cadre.classList.toggle('plein', oui);
+  $('plein').textContent = oui ? '✕ Quitter le plein écran' : '⛶ Plein écran';
+  $('plein').title = oui ? 'Revenir à la fiche (Échap)' : 'Aperçu sur tout l\'écran';
+  if (!oui) ajusterApercu();
+}
+// Position (dans le texte affiché, retraits <del> ignorés) et texte d'une sélection faite dans un bloc de l'aperçu.
+function selectionDans(el, rg) {
+  const doc = el.ownerDocument;
+  const sans = frag => { const d = doc.createElement('div'); d.appendChild(frag); d.querySelectorAll('del').forEach(x => x.remove()); return d.textContent; };
+  const avant = doc.createRange();
+  avant.setStart(el, 0); avant.setEnd(rg.startContainer, rg.startOffset);
+  const a = sans(avant.cloneContents()).length;
+  return { a, b: a + sans(rg.cloneContents()).length };
+}
+// Curseur gardé quand un bloc passe de la vue relue (surlignages, différences) au texte brut à modifier.
+function positionCurseur(el) {
+  const sel = el.ownerDocument.getSelection();
+  if (!sel || !sel.rangeCount || !el.contains(sel.anchorNode)) return -1;
+  return selectionDans(el, sel.getRangeAt(0)).a;
+}
+function placerCurseur(el, pos) {
+  const doc = el.ownerDocument, t = el.firstChild;
+  if (!t || pos < 0) return;
+  const rg = doc.createRange();
+  rg.setStart(t, Math.min(pos, t.textContent.length)); rg.collapse(true);
+  const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(rg);
+}
+
+// Aperçu : la page d'impression dans un cadre (même origine : srcdoc). Chaque rubrique y est montrée relue (suggestion
+// en différence, passages commentés surlignés) et modifiable sur place selon le rôle : texte du rapport (rédaction),
+// suggestion (relecture IA-IPR). Les commentaires ancrés se posent en sélectionnant un passage (IA-IPR).
+function brancherApercu(r) {
   const f = $('apercu');
   if (!f) return;
+  const parIpr = redigeParIpr(r, D.personnes);
+  const redige = peutRediger(droits, moi, r) && !masque();
+  const relit = !parIpr && peutRelire(droits, moi, r) && !masque();
+  const repond = !parIpr && peutRepondre(droits, moi, r) && !masque();
   f.addEventListener('load', () => {
-    const doc = f.contentDocument;
+    const doc = f.contentDocument, win = f.contentWindow;
     if (!doc) return;
-    if (!redige) doc.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+    doc.documentElement.style.zoom = String(zoomApercu / 100);
+    const texte = code => lireObjet(r.Contenu)[code] || '';
+    const sugg = code => { const n = lireRelecture(r.Commentaires)[code]; return n && typeof n.s === 'string' ? n.s : undefined; };
+    const mode = code => relit ? 'ipr' : redige && sugg(code) === undefined ? 'redige' : 'lecture';
+    const affiche = code => mode(code) === 'ipr' ? sugg(code) ?? texte(code) : texte(code);
+    const rendre = code => {
+      const bloc = doc.querySelector(`[data-rub="${CSS.escape(code)}"]`);
+      if (!bloc) return;
+      const el = bloc.querySelector('[data-texte]'), n = lireRelecture(r.Commentaires)[code] || { c: '' };
+      const v = vueRelue(texte(code), n.s, n.n || []);
+      el.innerHTML = v.html;
+      if (mode(code) === 'lecture') el.removeAttribute('contenteditable'); else el.setAttribute('contenteditable', 'plaintext-only');
+      bloc.querySelector('.notes').innerHTML = htmlNotes(r, code, { apercu: true, relit, repond, perdues: v.perdues });
+    };
+    doc.querySelectorAll('[data-rub]').forEach(b => rendre(b.dataset.rub));
+    const theme = doc.querySelector('[data-champ]');
+    if (theme && redige) theme.setAttribute('contenteditable', 'plaintext-only');
+    win.scrollTo(0, scrollApercu);
+    win.addEventListener('scroll', () => { scrollApercu = win.scrollY; });
+    doc.addEventListener('focusin', e => {
+      const el = e.target.closest && e.target.closest('[data-texte]');
+      if (!el || !el.querySelector('*')) return;   // déjà en texte brut
+      const pos = positionCurseur(el);
+      el.textContent = affiche(el.dataset.texte);
+      placerCurseur(el, pos);
+    });
     doc.addEventListener('input', e => {
       const el = e.target.closest && e.target.closest('[data-texte], [data-champ]');
       if (!el) return;
-      const texte = el.innerText.replace(/\n$/, '');
-      if (el.dataset.champ) { r[el.dataset.champ] = texte; noter(r.id, { [el.dataset.champ]: texte }); return; }
-      const o = lireObjet(r.Contenu); o[el.dataset.texte] = texte;
+      const t = el.innerText.replace(/\n$/, '');
+      if (el.dataset.champ) { r[el.dataset.champ] = t; noter(r.id, { [el.dataset.champ]: t }); return; }
+      const code = el.dataset.texte;
+      if (mode(code) === 'ipr') { r.Commentaires = suggerer(r.Commentaires, code, t, texte(code)); noter(r.id, { Commentaires: r.Commentaires, Valideur: moiPers() || r.Valideur }); return; }
+      const o = lireObjet(r.Contenu); o[code] = t;
       r.Contenu = JSON.stringify(o);
       noter(r.id, { Contenu: r.Contenu });
     });
-    doc.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); envoyer(); } });
-    doc.addEventListener('focusout', () => envoyer());
+    doc.addEventListener('focusout', e => {
+      const el = e.target.closest && e.target.closest('[data-texte]');
+      if (el) setTimeout(() => { if (doc.activeElement !== el) rendre(el.dataset.texte); }, 0);
+      envoyer();
+    });
+    doc.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); envoyer(); }
+      if (e.key === 'Escape' && pleinEcran) basculerPlein(false);
+    });
+    // Boutons des zones de relecture ; passage surligné ↔ son commentaire.
+    doc.addEventListener('click', e => {
+      const b = e.target.closest && e.target.closest('[data-trancher], [data-traiter], [data-note-ok], [data-note-suppr], [data-annuler-sugg]');
+      if (b) { e.preventDefault(); actionRelecture(b); return; }
+      const m = e.target.closest && e.target.closest('mark[data-note], .note[data-note-id]');
+      doc.querySelectorAll('.actif').forEach(x => x.classList.remove('actif'));
+      if (!m) return;
+      const id = m.dataset.note || m.dataset.noteId;
+      doc.querySelectorAll(`mark[data-note="${CSS.escape(id)}"], .note[data-note-id="${CSS.escape(id)}"]`).forEach(x => x.classList.add('actif'));
+      const cible = doc.querySelector(m.dataset.note ? `.note[data-note-id="${CSS.escape(id)}"]` : `mark[data-note="${CSS.escape(id)}"]`);
+      if (cible) cible.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    if (!relit) return;
+    // Sélection d'un passage : bouton « Commenter » à côté.
+    const btn = doc.createElement('button');
+    btn.id = 'commenter'; btn.type = 'button'; btn.textContent = '💬 Commenter'; btn.hidden = true;
+    doc.body.appendChild(btn);
+    let choix = null;
+    doc.addEventListener('mouseup', e => { if (e.target === btn) return; setTimeout(() => {
+      const sel = doc.getSelection();
+      choix = null; btn.hidden = true;
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+      const rg = sel.getRangeAt(0);
+      const noeud = n => n && (n.nodeType === 1 ? n : n.parentElement);
+      const el = noeud(rg.startContainer) && noeud(rg.startContainer).closest('[data-texte]');
+      if (!el || !el.contains(rg.endContainer)) return;
+      const { a, b } = selectionDans(el, rg);
+      if (b <= a) return;
+      choix = { code: el.dataset.texte, a, b };
+      const box = rg.getBoundingClientRect();
+      btn.style.left = `${box.left + win.scrollX}px`; btn.style.top = `${box.bottom + win.scrollY + 4}px`;
+      btn.hidden = false;
+    }, 0); });
+    btn.addEventListener('mousedown', e => e.preventDefault());
+    btn.addEventListener('click', () => {
+      btn.hidden = true;
+      if (!choix) return;
+      const el = doc.querySelector(`[data-rub="${CSS.escape(choix.code)}"] [data-texte]`);
+      // texte affiché : brut si le bloc est en cours de saisie, sinon vue relue (retraits ignorés) — même texte.
+      commencerNote(choix.code, el && !el.querySelector('*') ? el.textContent : affiche(choix.code), choix.a, choix.b);
+    });
   });
-  f.srcdoc = htmlImpression(r, contexte(r), { editable: redige });
+  f.srcdoc = htmlImpression(r, contexte(r), { apercu: true });
 }
 
 function brancherFiche(r) {
   const fiche = $('fiche');
-  brancherApercu(r, peutRediger(droits, moi, r) && !masque());
+  brancherApercu(r);
   fiche.querySelectorAll('[data-onglet]').forEach(b => b.addEventListener('click', async () => { await envoyer(); onglet = b.dataset.onglet; afficherFiche(); }));
   fiche.querySelectorAll('[data-champ]').forEach(i => i.addEventListener('input', () => {
     const c = i.dataset.champ;
@@ -561,20 +785,20 @@ function brancherFiche(r) {
     });
     t.addEventListener('focus', () => { champActif = t; if (rubriqueActive !== t.dataset.sugg) { rubriqueActive = t.dataset.sugg; competenceFiltre = ''; afficherPhrases(); } });
   });
-  fiche.querySelectorAll('[data-trancher]').forEach(b => b.addEventListener('click', async () => {
-    await envoyer();
-    const x = rapportSel(), code = b.dataset.trancher, ok = b.dataset.ok === '1';
-    const titre = (lireStructure(x.Structure).find(y => y.code === code) || {}).titre || code;
-    await ecrireRapport([['UpdateRecord', TABLE, x.id, { ...trancher(x.Contenu, x.Commentaires, code, ok),
-      Historique: ajouterHistorique(x.Historique, qui, `suggestion ${ok ? 'acceptée' : 'refusée'} : ${titre}`) }]], ok ? 'Suggestion acceptée' : 'Suggestion refusée');
-    afficherFiche();
-  }));
-  fiche.querySelectorAll('[data-traiter]').forEach(b => b.addEventListener('click', async () => {
-    await envoyer();
-    const x = rapportSel();
-    await ecrireRapport([['UpdateRecord', TABLE, x.id, { Commentaires: traiter(x.Commentaires, b.dataset.traiter, b.dataset.ok === '1') }]], b.dataset.ok === '1' ? 'Commentaire traité' : 'Commentaire à reprendre');
-    afficherFiche();
-  }));
+  fiche.querySelectorAll('[data-commenter]').forEach(b => {
+    b.addEventListener('mousedown', e => e.preventDefault());   // garder la sélection du cadre
+    b.addEventListener('click', () => {
+      const t = fiche.querySelector(`[data-sugg="${CSS.escape(b.dataset.commenter)}"]`);
+      if (!t || t.selectionStart === t.selectionEnd) return toast('Sélectionner d\'abord un passage dans le texte de la rubrique.', true);
+      commencerNote(b.dataset.commenter, t.value, t.selectionStart, t.selectionEnd);
+    });
+  });
+  if ($('zoom')) $('zoom').addEventListener('change', e => { zoomApercu = Number(e.target.value) || 100; pref.ecrire('Zoom', String(zoomApercu));
+    const d = $('apercu') && $('apercu').contentDocument; if (d) d.documentElement.style.zoom = String(zoomApercu / 100); });
+  if ($('plein')) $('plein').addEventListener('click', () => basculerPlein(!pleinEcran));
+  const det = fiche.querySelector('details.entete-bloc');
+  if (det) det.addEventListener('toggle', () => { enteteOuvert = det.open; pref.ecrire('Entete', enteteOuvert ? '1' : '0'); ajusterApercu(); });
+  ajusterApercu();
   const echelleR = echellePour(typeDe(r), D.params).map(e => e.cle);
   const illustrations = code => descripteurs((D.competences.find(k => k.Code === code) || {}).Phrases_types, echelleR);
   fiche.querySelectorAll('[data-md]').forEach(i => i.addEventListener('change', () => {
@@ -845,6 +1069,14 @@ if (await initialiserGrist()) {
     afficherFiche();
   });
   $('replier').addEventListener('click', () => replier(true));
+  $('fiche').addEventListener('click', e => {
+    const b = e.target.closest('[data-trancher], [data-traiter], [data-note-ok], [data-note-suppr], [data-annuler-sugg]');
+    if (b) actionRelecture(b);
+  });
+  $('note-ok').addEventListener('click', enregistrerNote);
+  $('note-annuler').addEventListener('click', () => { noteEnCours = null; $('dlg-note').close(); });
+  $('note-c').addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') enregistrerNote(); });
+  window.addEventListener('resize', () => ajusterApercu());
   $('deplier').addEventListener('click', () => replier(false));
   $('deplier-texte').addEventListener('click', () => replier(false));
   $('nouveau-bande').addEventListener('click', () => $('nouveau').click());
@@ -864,6 +1096,7 @@ if (await initialiserGrist()) {
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); envoyer(); }
     if (e.key === 'Escape' && creation && !$('dlg-signature').open) { creation = null; afficherFiche(); }
+    if (e.key === 'Escape' && pleinEcran && !$('dlg-note').open) basculerPlein(false);
   });
   window.addEventListener('beforeunload', () => { if (brouillon) envoyer(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) envoyer(); else planifier(); });
