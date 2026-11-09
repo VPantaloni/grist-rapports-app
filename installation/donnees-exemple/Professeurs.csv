@@ -1,14 +1,16 @@
-﻿Civilite,Nom,Prenom,Statut,Grade,Echelon,Type_nomination,Discipline,UAI,Email
-Mme,GERMAIN,Sophie,Titulaire,CERT. CL N,7,SER,MATHEMATIQUES,0450939B,sophie.germain@ac-exemple.example
-M.,GALOIS,Évariste,Titulaire,CERT. CL N,1,STG,MATHEMATIQUES,0360525A,evariste.galois@ac-exemple.example
-Mme,DU CHÂTELET,Émilie,Titulaire,AGREGE CLN,9,SER,MATHEMATIQUES,0180592W,emilie.du-chatelet@ac-exemple.example
-M.,POINCARÉ,Henri,Titulaire,AGREGE HC,3,SER,MATHEMATIQUES,0370793L,henri.poincare@ac-exemple.example
-Mme,LOVELACE,Ada,CDD,AC2C1,,,MATHEMATIQUES,0450008P,ada.lovelace@ac-exemple.example
-Mme,NOETHER,Emmy,Titulaire,MD1,5,SER,MATHEMATIQUES,0459999Z,emmy.noether@ac-exemple.example
-M.,PASCAL,Blaise,Titulaire,AGREGE CLN,1,STG,MATHEMATIQUES,0280658N,blaise.pascal@ac-exemple.example
-M.,FERMAT,Pierre,Titulaire,CERT. H CL,2,SER,MATHEMATIQUES,0280866P,pierre.fermat@ac-exemple.example
-Mme,MIRZAKHANI,Maryam,CDI,AC2C1,,,MATHEMATIQUES,0370010K,maryam.mirzakhani@ac-exemple.example
-M.,TURING,Alan,Titulaire,CERT. CL N,4,SER,MATHEMATIQUES,0450061X,alan.turing@ac-exemple.example
-Mme,GERMAIN,Sophie,Titulaire,CERT. CL N,7,SER,MATHEMATIQUES,0450061X,sophie.germain@ac-exemple.example
-M.,RAMANUJAN,Srinivasa,Titulaire,MD1,3,SER,MATHEMATIQUES,0459999Z,srinivasa.ramanujan@ac-exemple.example
-M.,ABEL,Niels,Titulaire,CERT. CL N,1,STR,MATHEMATIQUES,0370793L,niels.abel@ac-exemple.example
+﻿Civilite,Nom,Prenom,Statut,Grade,Echelon,Type_nomination,Entree_grade,Mode_acces,Discipline,UAI,Email
+Mme,GERMAIN,Sophie,Titulaire,CERT. CL N,7,SER,,,MATHEMATIQUES,0450939B,sophie.germain@ac-exemple.example
+M.,GALOIS,Évariste,Titulaire,CERT. CL N,1,STG,,,MATHEMATIQUES,0360525A,evariste.galois@ac-exemple.example
+Mme,DU CHÂTELET,Émilie,Titulaire,AGREGE CLN,9,SER,2015-09-01,CONC INTER,MATHEMATIQUES,0180592W,emilie.du-chatelet@ac-exemple.example
+M.,POINCARÉ,Henri,Titulaire,AGREGE HC,3,SER,2009-09-01,LISTE APTI,MATHEMATIQUES,0370793L,henri.poincare@ac-exemple.example
+Mme,LOVELACE,Ada,CDD,AC2C1,,,,,MATHEMATIQUES,0450008P,ada.lovelace@ac-exemple.example
+Mme,NOETHER,Emmy,Titulaire,MD1,5,SER,,,MATHEMATIQUES,0459999Z,emmy.noether@ac-exemple.example
+M.,PASCAL,Blaise,Titulaire,AGREGE CLN,1,STG,,,MATHEMATIQUES,0280658N,blaise.pascal@ac-exemple.example
+M.,FERMAT,Pierre,Titulaire,CERT. H CL,2,SER,,,MATHEMATIQUES,0280866P,pierre.fermat@ac-exemple.example
+Mme,MIRZAKHANI,Maryam,CDI,AC2C1,,,,,MATHEMATIQUES,0370010K,maryam.mirzakhani@ac-exemple.example
+M.,TURING,Alan,Titulaire,CERT. CL N,4,SER,,,MATHEMATIQUES,0450061X,alan.turing@ac-exemple.example
+Mme,GERMAIN,Sophie,Titulaire,CERT. CL N,7,SER,,,MATHEMATIQUES,0450061X,sophie.germain@ac-exemple.example
+M.,RAMANUJAN,Srinivasa,Titulaire,MD1,3,SER,,,MATHEMATIQUES,0459999Z,srinivasa.ramanujan@ac-exemple.example
+M.,ABEL,Niels,Titulaire,CERT. CL N,1,STR,,,MATHEMATIQUES,0370793L,niels.abel@ac-exemple.example
+Mme,KOVALEVSKAÏA,Sofia,Titulaire,AGREGE CLN,5,SER,2026-09-01,CONC INTER,MATHEMATIQUES,0180592W,sofia.kovalevskaia@ac-exemple.example
+M.,EULER,Leonhard,Titulaire,CERT. CL N,1,AIS,,,MATHEMATIQUES,0280658N,leonhard.euler@ac-exemple.example

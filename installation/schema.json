@@ -210,7 +210,19 @@
           "id": "Type_nomination",
           "libelle": "Type de nomination",
           "type": "Text",
-          "role": "STG = stagiaire, SER = en service"
+          "role": "STG, STR, AIS = stagiaire ; SER = en service"
+        },
+        {
+          "id": "Entree_grade",
+          "libelle": "Entrée dans le grade",
+          "type": "Date",
+          "role": "avec Mode_acces : repère les agrégé·es internes stagiaires (1er septembre de l'année)"
+        },
+        {
+          "id": "Mode_acces",
+          "libelle": "Mode d'accès au grade",
+          "type": "Text",
+          "role": "CONC INTER = concours interne"
         },
         {
           "id": "Discipline",

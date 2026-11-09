@@ -109,7 +109,9 @@ export const IMPORT = {
     statut: { type: 'texte', libelle: 'statut (Titulaire, CDD, CDI)', exemple: 'Titulaire' },
     grade: { type: 'texte', libelle: 'grade', exemple: 'CERT. CL N' },
     echelon: { type: 'entier', min: 0, max: 15, libelle: 'échelon', exemple: '7' },
-    typenomination: { type: 'texte', synonymes: ['type_nomination'], libelle: 'type de nomination (STG = stagiaire)', exemple: 'SER' },
+    typenomination: { type: 'texte', synonymes: ['type_nomination'], libelle: 'type de nomination (STG, STR, AIS = stagiaire)', exemple: 'SER' },
+    entreegrade: { type: 'date', synonymes: ['entree_grade'], libelle: 'entrée dans le grade (agrégé·es internes stagiaires)', exemple: '01/09/2026' },
+    modeacces: { type: 'texte', synonymes: ['mode_acces'], libelle: 'mode d\'accès au grade (CONC INTER = concours interne)', exemple: 'CONC INTER' },
     discipline: { type: 'texte', synonymes: ['nom_disc_affect', 'nomdiscaffect'], libelle: 'discipline d\'affectation', exemple: 'MATHEMATIQUES' },
     email: { type: 'email', synonymes: ['mail_ouvert', 'mailouvert', 'mail'], libelle: 'e-mail', exemple: 'sophie.germain@exemple.example' },
     uai: { type: 'texte', obligatoire: true, synonymes: ['rne'], libelle: 'UAI (Rne) de l\'affectation', exemple: '0450939B' },
@@ -134,7 +136,8 @@ export const IMPORT = {
       Commune: 'etabville', Mel: 'mel', Telephone: 'telephone', Departement: 'etabdepartement', Bassin: 'etabbassin', Lat: 'lat', Lon: 'lon' } },
     // Professeur·es : une ligne par affectation (nom + prénom + UAI) ; le fichier de l'année fait référence.
     { table: 'Professeurs', cle: ['Nom', 'Prenom', 'UAI'], fusion: 'remplacer', champs: { Civilite: 'civilite', Nom: 'nom', Prenom: 'prenom',
-      Statut: 'statut', Grade: 'grade', Echelon: 'echelon', Type_nomination: 'typenomination', Discipline: 'discipline',
+      Statut: 'statut', Grade: 'grade', Echelon: 'echelon', Type_nomination: 'typenomination', Entree_grade: 'entreegrade',
+      Mode_acces: 'modeacces', Discipline: 'discipline',
       UAI: 'uai', Email: 'email' } },
   ],
 };

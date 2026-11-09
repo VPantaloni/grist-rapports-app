@@ -72,6 +72,7 @@
   table.stg tr.ecarte td { color: var(--muted); }
   table.stg .det { display: block; font-size: 12px; color: var(--muted); }
   .manque { color: var(--warn); font-size: 12px; }
+  .oblig { display: inline-block; font-size: 11px; font-weight: 700; color: var(--danger); border: 1px dashed currentColor; border-radius: 10px; padding: 0 6px; white-space: nowrap; }
   .tuteurs-liste { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
   .tuteurs-liste div { display: flex; gap: 8px; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 13px; }
   .tuteurs-liste div span { flex: 1; }
@@ -133,6 +134,7 @@
 <dialog id="dlg-md"><form method="dialog" id="f-md"></form></dialog>
 <dialog id="dlg-stg"><form method="dialog" id="f-stg"></form></dialog>
 <dialog id="dlg-import"><form method="dialog" id="f-import"></form></dialog>
+<dialog id="dlg-coller"><form method="dialog" id="f-coller"></form></dialog>
 <dialog id="dlg-plan"><form method="dialog" id="f-plan"></form></dialog>
 <dialog id="dlg-detail"><form method="dialog" id="f-detail"></form></dialog>
 <dialog id="dlg-retour"><form method="dialog" id="f-retour"></form></dialog>
@@ -153,7 +155,8 @@ import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneM
   compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
 import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
   statutStagiaire, tuteursDe, filtrerStagiaires, anneesStagiaires, manques, validerStagiaire, csvModele, lireCsvStagiaires,
-  preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, champsStagiaire, visitePour, cmisDe, visitesDe, droitsStagiaires } from './stagiaires.js';
+  preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, champsStagiaire, visitePour, cmisDe, visitesDe, droitsStagiaires,
+  sansTuteur, iprObligatoire } from './stagiaires.js';
 import { telechargerFichier } from '../commun/export.js';
 import { TABLE_RETOURS, TABLE_GRILLES, COLONNES, AVIS, AVIS_TITULARISATION, SITUATIONS, COULEURS_TITULARISATION, ECHELLES, colonne,
   prioritaires, competencesDe, echelleDe, descripteur, couleur, rangAvis, retoursDe, synthese, lignesPstg, validerRetour, libNiveau, prevue } from './pstg.js';
@@ -341,21 +344,22 @@ function afficherPstg() {
       <label><input type="checkbox" id="stg-ecartes" ${filtreStg.ecartes ? 'checked' : ''}> Afficher les écarté·es (${ecartes})</label>
       ${droitsStg.ajouter ? '<button id="stg-nouveau">+ Stagiaire</button>' : ''}
       <button id="stg-modele" title="Fichier CSV à faire compléter par les collègues (les stagiaires déjà connu·es de l'année y figurent)">⤓ Modèle CSV</button>
-      ${droitsStg.ajouter ? '<button id="stg-importer" title="Reverser le fichier CSV complété">⤒ Importer un CSV</button>' : ''}
+      ${droitsStg.ajouter ? '<button id="stg-importer" title="Reverser le fichier CSV complété, ou un tableau de suivi (.csv, .tsv)">⤒ Importer un fichier</button><button id="stg-coller" title="Coller des lignes copiées d\'un tableur (avec les en-têtes) : stagiaires, tuteur·trices…">Coller un tableau</button>' : ''}
     </div>
     <p class="petit muted">${tous.length - ecartes} stagiaire${tous.length - ecartes > 1 ? 's' : ''} suivi·e${tous.length - ecartes > 1 ? 's' : ''} en ${esc(annee)}.
       Statut, établissement et e-mail viennent du fichier des professeur·es à l'ajout ; corps, concours, quotité et tuteur·trices se complètent ici ou par le fichier CSV.
       Les CMi sont ceux et celles des visites au plan (un·e stagiaire peut être visité·e par plusieurs CMi).</p>
     ${lignes.length ? `<table class="stg"><thead><tr><th>Stagiaire</th><th>Statut</th><th>Tuteur·trice(s)</th><th>Visites au plan (CMi)</th><th>À compléter</th></tr></thead><tbody>
-      ${lignes.map(s => { const t = tuteursDe(D.tutorats, s.id), vis = visitesEtats(s), m = manques(s, t, vis.map(x => x.v));
+      ${lignes.map(s => { const t = tuteursDe(D.tutorats, s.id), vis = visitesEtats(s), ipr = visitesIpr(s), m = manques(s, t, vis.map(x => x.v), { ipr: ipr.length > 0 });
         return `<tr class="cliquable ${s.Suivi === 'Écarté·e' ? 'ecarte' : ''}" data-stg="${s.id}">
         <td><strong>${esc(nomStg(s))}</strong>${s.Professeur ? '' : ' <span class="etiquette" title="Absent·e du fichier des professeur·es">hors fichier</span>'}
           <span class="det">${esc([s.Etab_nom, s.Etab_commune].filter(Boolean).join(', ') || s.UAI || '')}</span></td>
         <td>${s.Suivi === 'Écarté·e' ? `<span class="etiquette">écarté·e</span><span class="det">${esc(s.Motif || '')}</span>` : esc(statutStagiaire(s))}</td>
-        <td>${s.Sans_tuteur ? '<span class="muted">sans tuteur·trice</span>' : t.map(x => `${esc(`${x.Prenom} ${x.Nom}`)}<span class="det">${esc(x.Etab_nom || x.UAI || '')}${x.UAI && x.UAI !== s.UAI ? ' · autre établissement' : ''}</span>`).join('') || '—'}</td>
-        <td>${vis.length ? vis.map(x => `<div>${esc(nomPers(x.v.CMi) || 'sans CMi')} <span class="etiquette" title="${esc(x.v.Date_prevue ? 'calée le ' + dateFr(x.v.Date_prevue) : 'à caler')}">${esc(x.e.libelle)}</span></div>`).join('') : '<span class="muted">—</span>'}</td>
+        <td>${sansTuteur(s) ? '<span class="muted">sans tuteur·trice</span>' : t.map(x => `${esc(`${x.Prenom} ${x.Nom}`)}<span class="det">${esc(x.Etab_nom || x.UAI || '')}${x.UAI && x.UAI !== s.UAI ? ' · autre établissement' : ''}</span>`).join('') || '—'}</td>
+        <td>${vis.length || ipr.length ? [...vis.map(x => `<div>${esc(nomPers(x.v.CMi) || 'sans CMi')} <span class="etiquette" title="${esc(x.v.Date_prevue ? 'calée le ' + dateFr(x.v.Date_prevue) : 'à caler')}">${esc(x.e.libelle)}</span></div>`),
+          ...ipr.map(r => `<div>${esc(r.par || 'IA-IPR')} <span class="etiquette" title="Visite d'IA-IPR (suivi PSTG, hors plan des CMi)">IA-IPR${r.date ? ' · ' + esc(dateFr(r.date)) : ''}</span></div>`)].join('') : '<span class="muted">—</span>'}</td>
         <td>${m.length ? `<span class="manque">${esc(m.join(', '))}</span>` : ''}</td></tr>`; }).join('')}
-      </tbody></table>` : `<p class="muted">${tous.length ? 'Aucun·e stagiaire ne correspond aux filtres.' : `Aucun·e stagiaire dans la liste ${esc(annee)} : « Tout ajouter » depuis le fichier, « + Stagiaire » ou « Importer un CSV ».`}</p>`}`;
+      </tbody></table>` : `<p class="muted">${tous.length ? 'Aucun·e stagiaire ne correspond aux filtres.' : `Aucun·e stagiaire dans la liste ${esc(annee)} : « Tout ajouter » depuis le fichier, « + Stagiaire », « Importer un fichier » ou « Coller un tableau ».`}</p>`}`;
 }
 
 // --- Suivi PSTG, vue « Suivi des retours » : une ligne par stagiaire, un rond par retour, détail au survol ---
@@ -363,7 +367,9 @@ const typePstg = () => D.types.find(t => String(t.Code || '').toUpperCase() === 
 const echellePstg = () => { const t = typePstg(); return t ? echellePour(t, D.params) : []; };
 const donneesPstg = () => ({ retours: D.retours, rapports: D.rapports, personnes: D.personnes, typePstg: (typePstg() || {}).id, echellePstg: echellePstg(), params: D.params });
 const prio = () => prioritaires(D.params);
-const tuteursTexte = s => s.Sans_tuteur ? 'sans tuteur·trice' : tuteursDe(D.tutorats, s.id).map(t => `${t.Prenom} ${t.Nom}`).join(', ');
+// Visites d'IA-IPR d'un·e stagiaire (suivi PSTG ou rapport d'un·e IA-IPR), faites ou prévues.
+const visitesIpr = s => retoursDe(s, donneesPstg()).filter(r => r.type === 'Visite IA-IPR');
+const tuteursTexte = s => sansTuteur(s) ? 'sans tuteur·trice' : tuteursDe(D.tutorats, s.id).map(t => `${t.Prenom} ${t.Nom}`).join(', ');
 // Un rond : couleur de synthèse ; chiffre = compétences au niveau 1 ou 2 (grilles) ; pointillés = rapport pas encore validé.
 function rond(r, ref) {
   const x = synthese(r, prio());
@@ -402,9 +408,11 @@ function afficherSuiviPstg() {
           <span class="det">${esc([s.Etab_nom, statutStagiaire(s)].filter(Boolean).join(' · '))}</span>
           <span class="det">${esc(tuteursTexte(s) ? 'tut. ' + tuteursTexte(s) : '')}</span></td>
           ${COLONNES.map(c => { const rs = l.cases[c.cle] || [];
-            const vide = (c.cle === 'tuteur1' || c.cle === 'auto') && s.Sans_tuteur;
+            const vide = (c.cle === 'tuteur1' || c.cle === 'auto') && sansTuteur(s);
+            const oblig = c.cle === 'ipr1' && !rs.length && iprObligatoire(s);
             const lecture = !rs.length && (!saisir || vide);
             return `<td class="cel ${lecture ? 'lecture' : ''}" data-cel="${s.id}|${c.cle}">${rs.length ? rs.map((r, i) => rond(r, `${s.id}|${c.cle}|${i}`)).join('')
+              : oblig ? '<span class="oblig" title="Agrégé·e stagiaire : visite d\'un·e IA-IPR obligatoire (un·e CMi peut venir en plus)">IA-IPR !</span>'
               : `<span class="vide">${vide ? '—' : '·'}</span>`}</td>`; }).join('')}
           <td>${s.Avis ? `<span class="av ${COULEURS_TITULARISATION[s.Avis] || ''}">${esc(s.Avis)}</span>` : '<span class="vide">·</span>'}</td></tr>`; }).join('')}
       </tbody></table>` : `<p class="muted">${tous.length ? 'Aucun·e stagiaire ne correspond aux filtres.' : `Aucun·e stagiaire à suivre en ${esc(annee)} : vue « Liste » pour les ajouter.`}</p>`}`;
@@ -599,6 +607,7 @@ function dessinerStagiaire(nouveau, ecrit) {
     <label class="champ" id="s-motif-l" ${x.Suivi === 'Écarté·e' ? '' : 'hidden'}><span>Motif (écarté·e)</span><input type="text" id="s-Motif" value="${esc(x.Motif || '')}" placeholder="Autre discipline, renouvellement suivi ailleurs…" ${dis}></label>
     <h3 style="font-size:14px;margin:12px 0 2px">Tuteur·trice(s)</h3>
     <label class="petit"><input type="checkbox" id="s-Sans_tuteur" ${x.Sans_tuteur ? 'checked' : ''} ${dis}> Sans tuteur·trice (agrégation interne…)</label>
+    ${x.Corps === 'AGREG' ? `<p class="petit"><strong>Agrégé·e stagiaire</strong> : visite d'un·e IA-IPR obligatoire${x.Concours === 'Interne' ? ' ; pas de tuteur·trice (concours interne)' : ''}.</p>` : ''}
     <div class="tuteurs-liste" id="s-tuteurs">${enCours.tuteurs.map((t, i) => `<div><span><strong>${i + 1}.</strong> ${esc(`${t.Civilite ? t.Civilite + ' ' : ''}${t.Prenom} ${t.Nom}`)}
       <span class="muted">— ${esc(t.Etab_nom || t.UAI || '')}${t.Email ? ' · ' + esc(t.Email) : ''}${t.Professeur ? '' : ' · hors fichier'}</span></span>
       ${ecrit && droitsStg.tuteurs ? `<button type="button" class="petit" data-retirer="${i}" title="Retirer">×</button>` : ''}</div>`).join('') || '<span class="muted petit">Aucun·e.</span>'}</div>
@@ -700,8 +709,21 @@ function dessinerStagiaire(nouveau, ecrit) {
 }
 
 // Import du fichier CSV complété : aperçu, puis création ou complément des fiches et des tuteur·trices.
-async function importerCsv(fichier) {
-  const texte = await fichier.text();
+async function importerCsv(fichier) { importerTexte(await fichier.text(), fichier.name); }
+// Collage d'un tableau (Excel, LibreOffice, Google Sheets : lignes séparées par des tabulations), en-têtes compris.
+function ouvrirCollage() {
+  $('f-coller').innerHTML = `<h2>Coller un tableau de stagiaires</h2>
+    <p class="petit muted">Copier dans le tableur les lignes <strong>avec la ligne d'en-têtes</strong>, puis coller ici. Colonnes lues : Nom, Prénom,
+      RNE ou UAI, Corps (Agrégé, Certifié…), Concours, Type Stagiaire ou Quotité (« PU 50 » = 50 %), Mel_Stag, Genre, Abandon,
+      <strong>Tuteur 1</strong> et <strong>Tuteur 2</strong> (« NOM Prénom » dans une case) ; les autres colonnes sont ignorées. Rien n'est écrasé.</p>
+    <textarea id="c-texte" rows="12" style="width:100%;font-family:monospace;font-size:12px" placeholder="Nom&#9;Prénom&#9;RNE&#9;Corps&#9;Concours&#9;Tuteur 1&#9;Tuteur 2…"></textarea>
+    <div class="actions"><button type="button" id="c-ok" class="primary">Lire le tableau</button><button type="button" id="c-fermer">Fermer</button></div>`;
+  $('c-ok').addEventListener('click', () => { const t = $('c-texte').value; if (!t.trim()) return toast('Rien à lire : coller le tableau.', true); fermer('dlg-coller'); importerTexte(t, 'Tableau collé'); });
+  $('c-fermer').addEventListener('click', () => fermer('dlg-coller'));
+  $('dlg-coller').showModal();
+  $('c-texte').focus();
+}
+async function importerTexte(texte, nomSource) {
   const l = lireCsvStagiaires(texte);
   if (l.erreur) { toast(l.erreur, true); return; }
   const annee = anneeStg();
@@ -712,7 +734,7 @@ async function importerCsv(fichier) {
   const action = p => p.ignoree ? p.ignoree : `${p.id ? 'compléter' : 'créer'}${plus(p) ? ` (+ ${plus(p)})` : ''}`;
   const utiles = prep.filter(p => !p.ignoree);
   $('f-import').innerHTML = `<h2>Importer les stagiaires ${esc(annee)}</h2>
-    <p class="petit muted">${esc(fichier.name)} : ${prep.length} ligne${prep.length > 1 ? 's' : ''}. Une fiche existante n'est que complétée (cases vides) ; rien n'est écrasé.</p>
+    <p class="petit muted">${esc(nomSource)} : ${prep.length} ligne${prep.length > 1 ? 's' : ''}. Une fiche existante n'est que complétée (cases vides) ; rien n'est écrasé.</p>
     <div class="apercu-import"><table><thead><tr><th>Ligne</th><th>Stagiaire</th><th>Action</th></tr></thead><tbody>
       ${prep.map(p => `<tr><td>${p.n}</td><td>${esc(p.libelle)}${p.alertes.map(a => `<span class="alerte-l">⚠ ${esc(a)}</span>`).join('')}</td><td>${esc(action(p))}</td></tr>`).join('')}
     </tbody></table></div>
@@ -974,6 +996,7 @@ if (await initialiserGrist()) {
       return;
     }
     if (t.closest('#stg-importer')) { $('fichier-csv').value = ''; $('fichier-csv').click(); return; }
+    if (t.closest('#stg-coller')) { ouvrirCollage(); return; }
     const r = t.closest('tr[data-stg]');
     if (r) { ouvrirStagiaire(D.stagiaires.find(x => x.id === Number(r.dataset.stg))); return; }
   });
@@ -995,7 +1018,7 @@ if (await initialiserGrist()) {
     if (id === 'f-q') filtre.q = e.target.value; else filtreStg.q = e.target.value;
     const p = e.target.selectionStart; afficher(); $(id).focus(); $(id).setSelectionRange(p, p);
   });
-  ['dlg-bilan', 'dlg-md', 'dlg-stg', 'dlg-import', 'dlg-plan', 'dlg-detail', 'dlg-retour'].forEach(id => $(id).addEventListener('cancel', () => { enCours = null; }));
+  ['dlg-bilan', 'dlg-md', 'dlg-stg', 'dlg-import', 'dlg-coller', 'dlg-plan', 'dlg-detail', 'dlg-retour'].forEach(id => $(id).addEventListener('cancel', () => { enCours = null; }));
   relectureReguliere(charger, occupe);
   await charger();
 }

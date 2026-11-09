@@ -13,18 +13,35 @@ export const CORPS = ['CERT', 'AGREG', 'PLP', 'Autre'];
 export const CONCOURS = ['Externe', 'Interne', '3e voie', 'Autre'];
 export const QUOTITES = ['50 %', '100 %'];
 export const SUIVIS = ['À suivre', 'Écarté·e'];
-export const CODES_DEFAUT = 'STG ; STR';
+export const CODES_DEFAUT = 'STG ; STR ; AIS';
 
 // Identité comparable (nom, prénom ; accents, casse, espaces et tirets ignorés).
 /** @param {any} nom @param {any} prenom */
 const cle = (nom, prenom) => `${norm(nom).replace(/[\s'’-]+/g, ' ').trim()}|${norm(prenom).replace(/[\s'’-]+/g, ' ').trim()}`;
 
-// Codes de Type_nomination désignant un·e stagiaire (Parametres.codes_stagiaires, « STG ; STR »).
+// Codes de Type_nomination désignant un·e stagiaire (Parametres.codes_stagiaires, « STG ; STR ; AIS »).
 /** @param {Record<string, any>} [params] Cle → Valeur @returns {string[]} */
 export const codesStagiaires = (params = {}) => String(params.codes_stagiaires || CODES_DEFAUT)
   .split(/[;,\s]+/).map(x => norm(x)).filter(Boolean);
 /** @param {Ligne} p ligne de Professeurs @param {string[]} codes */
 export const estStagiaire = (p, codes) => codes.includes(norm(p.Type_nomination));
+
+// Agrégé·e interne stagiaire : déjà en poste (Type_nomination SER), repéré·e par trois colonnes du fichier : grade d'agrégé·e,
+// entrée dans le grade au 1er septembre de la rentrée, accès par concours interne (Mode_acces « CONC INTER »).
+/** @param {any} d date Grist (secondes) ou texte JJ/MM/AAAA, AAAA-MM-JJ @returns {{ a: number, m: number, j: number } | null} */
+function jourDe(d) {
+  if (typeof d === 'number' && d) { const x = new Date(d * 1000); return { a: x.getUTCFullYear(), m: x.getUTCMonth() + 1, j: x.getUTCDate() }; }
+  const t = String(d || '').trim();
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t);
+  if (m) return { a: +m[1], m: +m[2], j: +m[3] };
+  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/.exec(t);
+  return m ? { a: +m[3], m: +m[2], j: +m[1] } : null;
+}
+/** @param {Ligne} p ligne de Professeurs @param {number} rentree année de la rentrée (2026 pour 2026-2027) */
+export function estAgregInterne(p, rentree) {
+  const d = jourDe(p.Entree_grade);
+  return /^agreg/.test(norm(p.Grade)) && !!d && d.a === rentree && d.m === 9 && d.j === 1 && /conc\w*\s*inter/.test(norm(p.Mode_acces));
+}
 
 // Corps proposé d'après le grade du fichier (AGREGE CLN → AGREG, CERT. CL N → CERT, PLP… → PLP).
 /** @param {any} grade @returns {string} */
@@ -51,7 +68,20 @@ export function lireQuotite(t) {
   if (!g) return '';
   if (/^50|mi-?temps|^0[.,]5/.test(g)) return '50 %';
   if (/^100|plein|^1$/.test(g)) return '100 %';
+  // « PU 50 », « PR 100 » (colonne « Type Stagiaire » des tableaux de suivi)
+  if (/(^|\D)50(\D|$)/.test(g)) return '50 %';
+  if (/(^|\D)100(\D|$)/.test(g)) return '100 %';
   return '';
+}
+// « NOM Prénom » (ou « Prénom NOM ») dans une seule case : les mots en capitales forment le nom.
+/** @param {any} t @returns {{ nom: string, prenom: string }} */
+export function separerNomPrenom(t) {
+  const mots = String(t || '').trim().split(/\s+/).filter(Boolean);
+  if (!mots.length) return { nom: '', prenom: '' };
+  const maj = (/** @type {string} */ m) => /\p{L}/u.test(m) && m === m.toUpperCase() && m !== m.toLowerCase() && !/^\p{Lu}\.?$/u.test(m);
+  const nom = mots.filter(maj), prenom = mots.filter(m => !maj(m));
+  if (nom.length && prenom.length) return { nom: nom.join(' '), prenom: prenom.join(' ') };
+  return { nom: mots[0], prenom: mots.slice(1).join(' ') };
 }
 
 // Statut court affiché dans le plan : « AGREG int. · 100 % », « CERT · 50 % ».
@@ -75,12 +105,14 @@ export function trouverStagiaire(x, stagiaires, annee) {
 }
 
 // Champs d'un·e stagiaire d'après sa ligne du fichier (identité, établissement, corps proposé).
+// Agrégé·e interne (estAgregInterne) : corps AGREG, concours interne, sans tuteur·trice.
 /** @param {Ligne} p @param {Ligne[]} etabs @param {string} annee */
 export function ligneStagiaire(p, etabs, annee) {
   const e = etabs.find(x => String(x.UAI || '').toUpperCase() === String(p.UAI || '').toUpperCase()) || {};
+  const interne = estAgregInterne(p, Number(String(annee).slice(0, 4)));
   return { Annee: annee, Professeur: p.id, Civilite: String(p.Civilite || ''), Nom: String(p.Nom || ''), Prenom: String(p.Prenom || ''),
     Email: String(p.Email || ''), UAI: String(p.UAI || ''), Etab_nom: String(e.Nom || ''), Etab_commune: String(e.Commune || ''),
-    Corps: corpsDuGrade(p.Grade), Concours: '', Quotite: '', Sans_tuteur: false, Suivi: 'À suivre', Motif: '', Notes: '' };
+    Corps: interne ? 'AGREG' : corpsDuGrade(p.Grade), Concours: interne ? 'Interne' : '', Quotite: '', Sans_tuteur: interne, Suivi: 'À suivre', Motif: '', Notes: '' };
 }
 // Champs d'un·e tuteur·trice d'après sa ligne du fichier (ou une saisie libre).
 /** @param {Ligne | null} p @param {Ligne[]} etabs @param {{ nom?: string, prenom?: string, uai?: string }} [libre] */
@@ -91,15 +123,15 @@ export function ligneTuteur(p, etabs, libre = {}) {
     Prenom: String(p ? p.Prenom : libre.prenom || '').trim(), Email: String(p ? p.Email || '' : ''), UAI: uai, Etab_nom: String(e.Nom || '') };
 }
 
-// Stagiaires du fichier (Type_nomination STG, STR…) absent·es de la liste de l'année : une fois par personne
-// (plusieurs affectations possibles).
+// Stagiaires du fichier (Type_nomination STG, STR, AIS… ou agrégé·e interne de l'année) absent·es de la liste de
+// l'année : une fois par personne (plusieurs affectations possibles).
 /** @param {{ stagiaires: Ligne[], profs: Ligne[], etabs: Ligne[], codes: string[], annee: string }} D */
 export function stagiairesAAjouter(D) {
   const vus = new Set();
   /** @type {{ prof: Ligne, champs: Ligne }[]} */
   const r = [];
   for (const p of D.profs) {
-    if (!estStagiaire(p, D.codes)) continue;
+    if (!estStagiaire(p, D.codes) && !estAgregInterne(p, Number(String(D.annee).slice(0, 4)))) continue;
     const k = cle(p.Nom, p.Prenom);
     if (vus.has(k)) continue;
     vus.add(k);
@@ -151,16 +183,25 @@ export function filtrerStagiaires(stagiaires, f, personnes = [], visites = []) {
 export const anneesStagiaires = (stagiaires, courante) => [...new Set([courante, ...stagiaires.map(s => String(s.Annee || '')).filter(Boolean)])]
   .sort().reverse();
 
-// Points à compléter d'un·e stagiaire suivi·e (affichés dans la liste).
-/** @param {Ligne} s @param {Ligne[]} tuteurs @param {Ligne[]} [visites] ses visites au plan */
-export function manques(s, tuteurs, visites = []) {
+// Agrégé·es internes : jamais de tuteur·trice (case cochée ou non).
+/** @param {Ligne} s */
+export const sansTuteur = s => s.Sans_tuteur === true || (s.Corps === 'AGREG' && s.Concours === 'Interne');
+// Agrégé·es stagiaires (externes comme internes) : visite d'un·e IA-IPR obligatoire (un·e CMi peut venir en plus).
+/** @param {Ligne} s */
+export const iprObligatoire = s => s.Corps === 'AGREG' && s.Suivi !== 'Écarté·e';
+
+// Points à compléter d'un·e stagiaire suivi·e (affichés dans la liste). `ipr` : une visite d'IA-IPR est faite ou prévue
+// (suivi PSTG ou rapport d'un·e IA-IPR).
+/** @param {Ligne} s @param {Ligne[]} tuteurs @param {Ligne[]} [visites] ses visites au plan @param {{ ipr?: boolean }} [o] */
+export function manques(s, tuteurs, visites = [], o = {}) {
   if (s.Suivi === 'Écarté·e') return [];
   const m = [];
   if (!s.Corps) m.push('corps');
   if (!s.Concours) m.push('concours');
   if (!s.Quotite) m.push('quotité');
-  if (!s.Sans_tuteur && !tuteurs.length) m.push('tuteur·trice');
-  if (!visites.length) m.push('visite au plan');
+  if (!sansTuteur(s) && !tuteurs.length) m.push('tuteur·trice');
+  if (!visites.length && !o.ipr) m.push('visite au plan');
+  if (iprObligatoire(s) && !o.ipr) m.push('visite IA-IPR (agrégé·e)');
   return m;
 }
 
@@ -202,8 +243,11 @@ export function csvModele(stagiaires = [], tutorats = [], personnes = [], visite
 const ENTETES = /** @type {[string, RegExp][]} */ ([
   ['t1nom', /^tut\w*1nom$|^tut\w*(?<!pre)nom$/], ['t1prenom', /^tut\w*1prenom$|^tut\w*prenom$/], ['t1uai', /^tut\w*1(uai|rne)$|^tut\w*(uai|rne)$/],
   ['t2nom', /^tut\w*2nom$|^cotut\w*(?<!pre)nom$/], ['t2prenom', /^tut\w*2prenom$|^cotut\w*prenom$/], ['t2uai', /^tut\w*2(uai|rne)$|^cotut\w*(uai|rne)$/],
+  // tableaux de suivi : « Tuteur 1 », « Tuteur 2 » = « NOM Prénom » dans une seule case
+  ['t1complet', /^tut\w*1$/], ['t2complet', /^tut\w*2$|^cotut\w*$/],
   ['nom', /^nom$/], ['prenom', /^prenom$/], ['uai', /^(uai|rne)$/], ['corps', /^corps$/], ['concours', /^concours$/],
-  ['quotite', /^quotite$/], ['cmi', /^cmi|^chargee?demission/], ['notes', /^notes?$/],
+  ['quotite', /^(quotite|typestagiaire)$/], ['cmi', /^cmi|^chargee?demission/], ['notes', /^notes?$/],
+  ['email', /^(e?mail|mel|courriel)/], ['civilite', /^(civilite|genre)$/], ['abandon', /^abandon$/],
 ]);
 /** @param {string} ligne @param {string} sep */
 function cases(ligne, sep) {
@@ -223,7 +267,8 @@ function cases(ligne, sep) {
 /**
  * @param {string} texte
  * @returns {{ lignes: { n: number, nom: string, prenom: string, uai: string, corps: string, concours: string, quotite: string,
- *   tuteurs: { nom: string, prenom: string, uai: string }[], cmi: string, notes: string, alertes: string[] }[], erreur: string }}
+ *   email: string, civilite: string, tuteurs: { nom: string, prenom: string, uai: string }[], cmi: string, notes: string, alertes: string[] }[],
+ *   erreur: string }}
  */
 export function lireCsvStagiaires(texte) {
   const brutes = String(texte || '').replace(/^\ufeff/, '').split(/\r?\n/).filter(l => l.trim());
@@ -240,8 +285,14 @@ export function lireCsvStagiaires(texte) {
     const alertes = [];
     const corps = lireCorps(v('corps')), concours = lireConcours(v('concours')), quotite = lireQuotite(v('quotite'));
     if (v('quotite') && !quotite) alertes.push(`quotité « ${v('quotite')} » illisible (50 % ou 100 %)`);
-    const tuteurs = [1, 2].map(n => ({ nom: v(`t${n}nom`), prenom: v(`t${n}prenom`), uai: v(`t${n}uai`).toUpperCase() })).filter(t => t.nom);
-    return { n: i + 2, nom: v('nom'), prenom: v('prenom'), uai: v('uai').toUpperCase(), corps, concours, quotite, tuteurs, cmi: v('cmi'),
+    const tuteurs = [1, 2].map(n => ({ ...(v(`t${n}nom`) ? { nom: v(`t${n}nom`), prenom: v(`t${n}prenom`) } : separerNomPrenom(v(`t${n}complet`))),
+      uai: v(`t${n}uai`).toUpperCase() })).filter(t => t.nom && !/^[-–—?x0]$/i.test(t.nom));
+    const abandon = v('abandon');
+    if (abandon && !/^(non|n|0|faux|false|-)$/i.test(abandon)) alertes.push(`abandon signalé (« ${abandon} ») : à écarter ?`);
+    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('email')) ? v('email') : '';
+    const civ = norm(v('civilite')).replace(/\./g, '');
+    const civilite = /^(m|mr|monsieur|h|homme)$/.test(civ) ? 'M.' : /^(mme|mm|madame|f|femme)$/.test(civ) ? 'Mme' : '';
+    return { n: i + 2, nom: v('nom'), prenom: v('prenom'), uai: v('uai').toUpperCase(), corps, concours, quotite, email, civilite, tuteurs, cmi: v('cmi'),
       notes: v('notes'), alertes };
   }).filter(l => l.nom && !/^nom$/i.test(l.nom));
   return { lignes, erreur: '' };
@@ -271,7 +322,9 @@ export function preparerImportStagiaires(lignes, D) {
       else if (!cmis.includes(p.id) && !(existant && cmisDe(D.visites || [], existant.id).includes(p.id))) cmis.push(p.id);
     }
     const base = prof ? ligneStagiaire(prof, D.etabs, D.annee) : { ...ligneStagiaire({ id: 0, Nom: l.nom, Prenom: l.prenom, UAI: l.uai }, D.etabs, D.annee) };
-    const saisis = /** @type {Ligne} */ ({ Corps: l.corps, Concours: l.concours, Quotite: l.quotite, Notes: l.notes });
+    const interne = (l.corps || (existant && existant.Corps) || base.Corps) === 'AGREG' && (l.concours || (existant && existant.Concours) || base.Concours) === 'Interne';
+    const saisis = /** @type {Ligne} */ ({ Corps: l.corps, Concours: l.concours, Quotite: l.quotite, Notes: l.notes, Email: l.email, Civilite: l.civilite,
+      Sans_tuteur: interne });
     /** @type {Ligne | null} */
     let champs;
     if (existant) {   // compléter seulement les cases vides : rien de ce qui a été saisi dans l'application n'est écrasé
@@ -289,7 +342,8 @@ export function preparerImportStagiaires(lignes, D) {
       return { ...ligneTuteur(p, D.etabs, t), Ordre: deja.length + i + 1 };
     });
     if (existant && !Object.keys(champs).length && !tuteurs.length && !cmis.length) return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: 'déjà à jour', alertes, id: existant.id, champs: null, tuteurs: [], cmis: [] };
-    if (tuteurs.length && (existant ? existant.Sans_tuteur : false)) alertes.push('marqué·e « sans tuteur·trice » : case à revoir');
+    if (tuteurs.length && interne) alertes.push('agrégé·e interne : pas de tuteur·trice en principe');
+    else if (tuteurs.length && (existant ? existant.Sans_tuteur : false)) alertes.push('marqué·e « sans tuteur·trice » : case à revoir');
     return { n: l.n, libelle: `${l.nom} ${l.prenom}`, ignoree: '', alertes, id: existant ? existant.id : 0, champs, tuteurs, cmis };
   });
 }

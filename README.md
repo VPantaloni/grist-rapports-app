@@ -96,7 +96,9 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Statut` | Texte | Titulaire, CDD, CDI |
 | `Grade` | Texte | AGREGE CLN, CERT. CL N, AC2C1, MD1… |
 | `Echelon` | Entier | Échelon |
-| `Type_nomination` | Texte | STG = stagiaire, SER = en service |
+| `Type_nomination` | Texte | STG, STR, AIS = stagiaire ; SER = en service |
+| `Entree_grade` | Date | avec Mode_acces : repère les agrégé·es internes stagiaires (1er septembre de l'année) |
+| `Mode_acces` | Texte | CONC INTER = concours interne |
 | `Discipline` | Texte | Nom_disc_affect |
 | `UAI` | Texte | Rne de l'affectation |
 | `Email` | Texte | mail_ouvert |

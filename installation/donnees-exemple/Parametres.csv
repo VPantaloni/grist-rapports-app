@@ -14,6 +14,6 @@ Auteur : {auteur}
 
 Amicalement,",texte du mail ; mêmes champs que l'objet
 competences_prioritaires,P3 ; P4 ; CC1 ; CC6,compétences regardées pour la couleur de synthèse du suivi PSTG (niveau le plus faible)
-codes_stagiaires,STG ; STR,valeurs de Type_nomination qui désignent un·e stagiaire (Suivis → Suivi PSTG)
+codes_stagiaires,STG ; STR ; AIS,valeurs de Type_nomination qui désignent un·e stagiaire (Suivis → Suivi PSTG)
 echelle_md,À consolider ; Satisfaisant ; Très satisfaisant,"niveaux du positionnement MD, séparés par « ; »"
 aide_md,"Le « à consolider » a pour objectif d'alerter, d'envoyer un signal fort qui dit « si mon enfant avait cet enseignant ou cette enseignante, je serais inquiet ou inquiète ». Par conséquent, le « satisfaisant » correspond à une maîtrise minimale que l'on est en droit d'attendre d'un professeur qui n'a jamais enseigné avant et qui n'a suivi aucune formation.",remarque affichée au-dessus du positionnement MD
