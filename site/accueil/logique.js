@@ -37,6 +37,10 @@ export const CARTES = {
   },
 };
 
+// Mon compte : carte des CMi seulement (sixième carte, à la place de Suivis), pour leur signature.
+CARTES.compte = { cmi: { titre: 'Mon compte', accroche: 'Ma signature', texte: 'Votre signature enregistrée, réutilisée à chaque rapport, et votre fiche.' },
+  ipr: /** @type {any} */ (null) };
+
 // Profil d'affichage : IA-IPR ou administrateur·trice → « ipr », sinon « cmi ».
 /** @param {Ligne | null | undefined} moi */
 export function profil(moi) {
