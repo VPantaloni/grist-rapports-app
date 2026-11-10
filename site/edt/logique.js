@@ -255,8 +255,37 @@ export function lireFichierEdt(texte) {
   const rows = lignes.slice(1).map(couper).map(c => Object.fromEntries(Object.entries(idx).map(([k, i]) => [k, i >= 0 ? (c[i] || '') : ''])))
     .filter(r => parseName(r.Nom).key && parseHoraire(r.Horaire) && parseJour(r.Jour) >= 0)
     .map(r => ({ ...r, UAI: String(r.UAI).toUpperCase() }));
-  return { rows, erreur: rows.length ? '' : 'Aucun créneau reconnu.' };
+  // En-têtes d'origine (identifiants des colonnes de l'autre document : contexte du déchiffrement « Table.Colonne »).
+  const brutes = couper(lignes[0]);
+  const colonnes = Object.fromEntries(Object.entries(idx).filter(([, i]) => i >= 0).map(([k, i]) => [k, brutes[i]]));
+  const chiffre = rows.some(r => Object.values(r).some(v => /^v1:/.test(String(v))));
+  return { rows, colonnes, chiffre, erreur: rows.length ? '' : 'Aucun créneau reconnu.' };
 }
+// Ligne de la table Chiffrement d'un autre document, copiée depuis Grist (avec ou sans la ligne d'en-têtes) :
+// Sel (base64 de 16 octets), Iterations, Version, Verificateur (« v1:… »). null si illisible.
+/** @param {string} texte @returns {{ Sel: string, Iterations: number, Version: number, Verificateur: string } | null} */
+export function lireLigneChiffrement(texte) {
+  const lignes = String(texte || '').replace(/^\ufeff/, '').split(/\r?\n/).map(l => l.split('\t').map(x => x.trim())).filter(l => l.some(Boolean));
+  if (!lignes.length) return null;
+  const tete = lignes[0].map(h => norm(h));
+  const i = (/** @type {string} */ n) => tete.indexOf(n);
+  let sel = '', it = 0, ver = 1, verif = '';
+  if (i('SEL') >= 0 && i('VERIFICATEUR') >= 0 && lignes[1]) {
+    const l = lignes[1];
+    sel = l[i('SEL')]; it = Number(l[i('ITERATIONS')]); ver = Number(l[i('VERSION')]) || 1; verif = l[i('VERIFICATEUR')];
+  } else {
+    const cases = lignes.flat();
+    sel = cases.find(c => /^[A-Za-z0-9+/]{21,22}={0,2}$/.test(c)) || '';
+    it = Number(cases.find(c => /^\d{4,7}$/.test(c.replace(/[\s ]/g, ''))) ?.replace(/[\s ]/g, '')) || 0;
+    verif = cases.find(c => /^v1:/.test(c)) || '';
+  }
+  return sel && it > 0 && /^v1:/.test(verif) ? { Sel: sel, Iterations: it, Version: ver, Verificateur: verif } : null;
+}
+// Contextes à essayer pour déchiffrer une colonne d'un autre document (« Table.Colonne ») : la table indiquée, puis les
+// noms habituels d'une table d'emplois du temps.
+/** @param {string} table @param {string} colonne */
+export const contextesPossibles = (table, colonne) => [...new Set([table, 'EDT', 'Edt', 'EdT', 'EDT_Profs', 'Creneaux', 'Emplois_du_temps', 'Table1']
+  .map(t => String(t || '').trim()).filter(Boolean))].map(t => `${t}.${colonne}`);
 
 // --- Pastilles : stagiaires de l'année (Suivi PSTG) et maître·sses délégué·es en poste ---
 const CORPS_CONCOURS = /** @type {Record<string, string>} */ ({ CERT: 'CAPES', AGREG: 'AGREG', PLP: 'CAPLP' });

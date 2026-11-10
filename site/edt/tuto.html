@@ -74,7 +74,14 @@
     <li><kbd>Ctrl</kbd>+<kbd>A</kbd>, <kbd>Ctrl</kbd>+<kbd>C</kbd>, puis <strong>＋ Ajouter les EdT d'un établissement</strong>
       et <kbd>Ctrl</kbd>+<kbd>V</kbd>. L'UAI est lu sur la ligne « Rne » ; les créneaux déjà présents pour cet établissement
       sont remplacés (ou gardés, au choix).</li>
-    <li>Pour verser d'un coup la table d'EdT-widget : <em>importer un fichier</em> (export CSV de cette table).</li>
+    <li>Pour verser d'un coup la table d'EdT-widget : <em>importer un fichier</em> (export CSV de cette table), ou copier
+      la table dans Grist (en-têtes compris) et la coller dans la fenêtre.</li>
+    <li><strong>Noms chiffrés</strong> (« v1:… », table venant d'une autre application qui chiffre les noms) : la fenêtre
+      demande la clé de l'autre document. Dans l'autre document, ouvrir <em>Données brutes → Chiffrement</em>, copier la
+      ligne <strong>avec ses en-têtes</strong> (Sel, Iterations, Version, Verificateur) et la coller ; saisir la phrase de
+      passe de l'autre application et l'identifiant de la table copiée (souvent <code>EDT</code>), puis
+      <strong>Déchiffrer</strong>. Tout se fait dans le navigateur : rien n'est envoyé, la phrase n'est pas gardée.
+      Les noms sont ensuite enregistrés en clair ici, comme ceux versés depuis Siiprien.</li>
   </ol>
   <p class="muted">Le calendrier (semaines A / B, vacances) se remplit dans la table Calendrier (une ligne par semaine).</p>
 </main>

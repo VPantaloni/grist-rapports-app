@@ -334,9 +334,10 @@ import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
   demandeConteneur } from '../commun/grist.js';
 import { liste } from '../commun/donnees.js';
+import { ouvrirAvecPhrase, dechiffrer, cryptoDisponible } from '../commun/chiffrement.js';
 import { DAYS, DAYS_SHORT, DEPTS, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
   versGrist, parseName, parseAlt, parseJour, ingest, lireCalendrier, isVisible, suggestionsFor, pack, canSplit, partRange, reunionParDefaut, libresSur,
-  parseSiiprien, lireFichierEdt, reperes, reperesDe, modelesPour, remplirModele, planningTexte, champsVisites, mailEtablissement, destinataires, lienMailto,
+  parseSiiprien, lireFichierEdt, lireLigneChiffrement, contextesPossibles, reperes, reperesDe, modelesPour, remplirModele, planningTexte, champsVisites, mailEtablissement, destinataires, lienMailto,
   visitesDuPlanning, profDeVisite } from './logique.js';
 
 /* =====================================================================
@@ -1357,6 +1358,12 @@ function renderImportPreview(){
   const prev = body.querySelector("#impPreview"), go = body.querySelector("#impGo");
   if (!txt.trim()){ prev.innerHTML = ""; go.disabled = true; state.imp = null; return; }
   const r = parseSiiprien(txt);
+  // Tableau copié d'une autre table d'emplois du temps (ligne d'en-têtes Nom, Horaire, Jour, UAI…) : lu comme un fichier.
+  const tete = txt.split(/\r?\n/).find(l => l.trim()) || "";
+  if (/\t/.test(tete) && /(^|\t)\s*nom/i.test(tete) && /\tjour(\t|$)/i.test(tete)){
+    const f = lireFichierEdt(txt);
+    if (!f.erreur){ preparerFichier(f, "Tableau collé"); return; }
+  }
   const keepUai = state.imp && state.imp.uaiEdited ? state.imp.uai : r.uai;
   state.imp = {...r, uai: keepUai, uaiEdited: state.imp?.uaiEdited || false, mode: state.imp?.mode || "replace"};
   renderImportBox();
@@ -1364,13 +1371,25 @@ function renderImportPreview(){
 function renderImportBox(){
   const body = $("#modalBody"), r = state.imp;
   const prev = body.querySelector("#impPreview"), go = body.querySelector("#impGo");
+  if (r && r.fichier && r.chiffre){
+    prev.innerHTML = `<div class="pwarn">🔒 Les noms de ce ${esc(r.fichier === "Tableau collé" ? "tableau" : "fichier")} sont <b>chiffrés</b> par l'autre application (« v1:… ») :
+      il faut la clé de l'autre document pour les lire. Rien n'est envoyé ni enregistré : le déchiffrement se fait dans ce navigateur.</div>
+      <div class="imp-grid" style="margin-top:8px">
+        <label for="dcLigne">Ligne Chiffrement</label><div><textarea id="dcLigne" rows="2" style="width:100%;font:12px monospace" placeholder="Dans l'autre document : Données brutes → table Chiffrement ; sélectionner la ligne AVEC les en-têtes, copier, coller ici"></textarea></div>
+        <label for="dcPhrase">Phrase de passe</label><div><input id="dcPhrase" type="password" autocomplete="off" style="width:100%" placeholder="Phrase de l'autre application"></div>
+        <label for="dcTable">Table d'origine</label><div><input id="dcTable" value="EDT" style="width:160px"> <span class="hint">identifiant Grist de la table copiée (essayé d'abord)</span></div>
+      </div>
+      <div class="prow"><button class="btn pri" id="impDechiffrer" type="button">Déchiffrer</button> <span class="hint" id="dcMsg"></span></div>`;
+    go.disabled = true; go.textContent = "Ajouter";
+    return;
+  }
   if (r && r.fichier){
     const ex = r.uais.reduce((n, u) => n + existingForUai(u).length, 0);
     prev.innerHTML = `<div class="imp-grid">
       <span>Fichier</span><div><b>${esc(r.fichier)}</b></div>
       <span>Créneaux</span><div><b>${r.rows.length}</b></div>
       <span>Établissements</span><div><b>${r.uais.length}</b> <span class="hint">${esc(r.uais.slice(0, 12).map(etabLabel).join(", "))}${r.uais.length > 12 ? "…" : ""}</span></div>
-      <span>Professeur·es</span><div><b>${r.teachers.length}</b></div></div>
+      <span>Professeur·es</span><div><b>${r.teachers.length}</b> <span class="hint">${esc(r.teachers.slice(0, 10).map(k => { const n = parseName((r.rows.find(x => parseName(x.Nom).key === k) || {}).Nom); return `${n.civ ? n.civ + " " : ""}${n.name}`; }).join(", "))}${r.teachers.length > 10 ? "…" : ""}</span></div></div>
       ${ex ? `<div class="imp-ex"><div>Votre table contient déjà <b>${ex}</b> créneau(x) pour ces établissements.</div>
         <label><input type="radio" name="impMode" value="replace" ${r.mode === "replace" ? "checked" : ""}> Les remplacer par ce fichier (recommandé)</label>
         <label><input type="radio" name="impMode" value="add" ${r.mode === "add" ? "checked" : ""}> Les garder et ajouter ce fichier</label></div>` : ""}`;
@@ -1406,15 +1425,54 @@ function renderImportBox(){
   ui.addEventListener("change", () => { state.imp.uai = ui.value.trim().toUpperCase(); state.imp.uaiEdited = true; renderImportBox(); });
   prev.querySelectorAll('input[name="impMode"]').forEach(x => x.addEventListener("change", () => { state.imp.mode = x.value; renderImportBox(); }));
 }
+function preparerFichier(r, nom){
+  const uais = [...new Set(r.rows.map(x => norm(x.UAI)))];
+  state.imp = { fichier: nom, rows: r.rows, colonnes: r.colonnes, chiffre: r.chiffre, uais, uai: uais.length === 1 ? uais[0] : "",
+    teachers: [...new Set(r.rows.map(x => parseName(x.Nom).key))], ignored: 0, mode: "replace" };
+  renderImportBox();
+}
+// Noms chiffrés par une autre application du kit (« v1:… ») : clé de l'autre document (sa ligne Chiffrement et sa phrase),
+// puis déchiffrement de chaque cellule chiffrée ; contexte « Table.Colonne » d'origine (table indiquée, puis noms habituels).
+async function dechiffrerImport(){
+  const r = state.imp, body = $("#modalBody");
+  const ligne = lireLigneChiffrement(body.querySelector("#dcLigne").value);
+  const phrase = body.querySelector("#dcPhrase").value;
+  const table = body.querySelector("#dcTable").value.trim();
+  const msg = t => { body.querySelector("#dcMsg").textContent = t; };
+  if (!ligne) return msg("Ligne de la table Chiffrement illisible : copier la ligne avec ses en-têtes (Sel, Iterations, Version, Verificateur).");
+  if (!phrase) return msg("Saisir la phrase de passe de l'autre application.");
+  if (!cryptoDisponible()) return msg("Ce navigateur ne permet pas le déchiffrement (page non sécurisée).");
+  msg("Vérification de la phrase…");
+  const cle = await ouvrirAvecPhrase(phrase, ligne).catch(() => null);
+  if (!cle) return msg("Phrase incorrecte pour cette ligne Chiffrement.");
+  const cols = Object.keys(r.colonnes || {}).filter(k => r.rows.some(x => /^v1:/.test(String(x[k]))));
+  let contexte = {};
+  for (const k of cols){
+    const exemple = r.rows.find(x => /^v1:/.test(String(x[k])))[k];
+    for (const c of contextesPossibles(table, r.colonnes[k])){
+      try { await dechiffrer(cle, exemple, c); contexte[k] = c; break; } catch (e) { /* contexte suivant */ }
+    }
+    if (!contexte[k]) return msg(`Colonne « ${r.colonnes[k]} » : nom de la table d'origine à préciser (identifiant Grist de la table, ex. EDT).`);
+  }
+  msg(`Déchiffrement de ${r.rows.length} lignes…`);
+  let echecs = 0;
+  for (const x of r.rows) for (const k of cols){
+    if (!/^v1:/.test(String(x[k]))) continue;
+    try { x[k] = String(await dechiffrer(cle, x[k], contexte[k])); } catch (e) { echecs++; }
+  }
+  r.chiffre = r.rows.some(x => cols.some(k => /^v1:/.test(String(x[k]))));
+  r.teachers = [...new Set(r.rows.map(x => parseName(x.Nom).key))];
+  r.dechiffre = !r.chiffre;
+  renderImportBox();
+  toast(echecs ? `${echecs} cellule(s) non déchiffrée(s) : vérifier le fichier.` : "Noms déchiffrés : vérifier l'aperçu avant d'ajouter.", echecs > 0);
+}
 function choisirFichier(){
   const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".csv,.tsv,.txt";
   inp.addEventListener("change", async () => {
     const f = inp.files && inp.files[0]; if (!f) return;
     const r = lireFichierEdt(await f.text());
     if (r.erreur){ toast(r.erreur, true); return; }
-    const uais = [...new Set(r.rows.map(x => norm(x.UAI)))];
-    state.imp = { fichier: f.name, rows: r.rows, uais, uai: uais.length === 1 ? uais[0] : "", teachers: [...new Set(r.rows.map(x => parseName(x.Nom).key))], ignored: 0, mode: "replace" };
-    renderImportBox();
+    preparerFichier(r, f.name);
   });
   inp.click();
 }
@@ -1544,6 +1602,7 @@ document.addEventListener("click", async e => {
   if (t.closest("#recharger")){ relireSansCache(charger); return; }
   if (t.closest("#btnImport")){ openImport(); return; }
   if (t.closest("#impFichier")){ choisirFichier(); return; }
+  if (t.closest("#impDechiffrer")){ const b = t.closest("#impDechiffrer"); b.disabled = true; try { await dechiffrerImport(); } finally { b.disabled = false; } return; }
   if (t.closest("#impGo")){
     const b = t.closest("#impGo"); b.disabled = true; b.textContent = "Enregistrement…";
     if (!(await doImport())){ b.disabled = false; renderImportBox(); }
