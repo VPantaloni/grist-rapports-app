@@ -43,3 +43,43 @@ Au plaisir de vous rencontrer.
 Bien cordialement,
 {signataire}
 {fonction}",40
+proposer_pstg,Proposer une visite (stagiaire),IA-IPR,Chef d'établissement,,[IA-IPR Maths] Proposition de visite – {etablissement},"Monsieur le chef d'établissement,
+Madame la cheffe d'établissement,
+
+j'envisage de venir faire la visite d'inspection de {professeurs}, professeur·e stagiaire, le {date}.
+Cette visite ayant lieu dans le cadre d'une procédure de titularisation, je dois être seul·e observateur·trice.
+
+Je pensais à ce planning :
+
+* Visite de classe : {visite},
+* entretien l'heure suivante ({entretien}).
+
+Est-ce que cela vous conviendrait ?
+
+Cordialement,",50
+annoncer_pstg,Annoncer la visite (stagiaire),IA-IPR,Chef d'établissement,Professeur·e visité·e,[IA-IPR Maths] Visite du {date} – {etablissement},"Madame la proviseure,
+Monsieur le proviseur,
+Madame la principale,
+Monsieur le principal,
+
+[Copie à l'intéressé·e : {professeurs}]
+
+Je vous confirme ma venue dans votre établissement le {date} selon le planning suivant, à transmettre à l'enseignant·e :
+Cette visite d'inspection a lieu dans le cadre de la procédure de titularisation de ce ou cette professeur·e stagiaire.
+{planning_profs}
+
+Afin de préparer au mieux ma venue, je souhaiterais disposer 48 heures avant des documents ci-dessous concernant la classe visitée, à transmettre par courriel et de préférence fusionnés en un seul document pdf.
+
+* Copie du cahier de texte en ligne en pdf :
+   * une version numérique du cahier de textes ;
+   * les résultats chiffrés ou non des élèves ;
+   * les appréciations d'un bulletin trimestriel ou semestriel de la classe ;
+* la progression passée et des éléments pour la suite de l'année ;
+* tous les textes d'évaluations et de devoirs en temps libre ;
+* des exemples d'activités faites avec les élèves, en particulier sur le thème de l'algorithmique ;
+* une présentation de la séance observée (s'il y a des exercices extraits d'un manuel, merci de les scanner) ;
+* divers documents, si vous souhaitez donner d'autres informations professionnelles.
+
+Je reste à votre disposition pour tout complément d'information.
+
+Bien cordialement,",60

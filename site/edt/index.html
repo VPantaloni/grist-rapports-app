@@ -336,7 +336,7 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { liste } from '../commun/donnees.js';
 import { DAYS, DAYS_SHORT, DEPTS, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
   versGrist, parseName, parseAlt, parseJour, ingest, lireCalendrier, isVisible, suggestionsFor, pack, canSplit, partRange, reunionParDefaut, libresSur,
-  parseSiiprien, lireFichierEdt, reperes, reperesDe, modelesPour, remplirModele, planningTexte, mailEtablissement, destinataires, lienMailto,
+  parseSiiprien, lireFichierEdt, reperes, reperesDe, modelesPour, remplirModele, planningTexte, champsVisites, mailEtablissement, destinataires, lienMailto,
   visitesDuPlanning, profDeVisite } from './logique.js';
 
 /* =====================================================================
@@ -759,7 +759,7 @@ function champsMail(g){
   return { etablissement: String(e.Nom || etabLabel(g.uai)), commune: String(e.Commune || ""), date: groupDateText(g),
     planning: planningTexte(itemsTexte(g)), professeurs: joinNames(g.teachers.map(k => tName(state.teachers.get(k)))),
     signataire: `${fiche.Prenom || ""} ${fiche.Nom || ""}`.trim(), fonction: String(fiche.Titre_signature || fiche.Fonction || ""),
-    ipr: ref ? `${ref.Prenom || ""} ${ref.Nom || ""}`.trim() : "" };
+    ipr: ref ? `${ref.Prenom || ""} ${ref.Nom || ""}`.trim() : "", ...champsVisites(itemsTexte(g)) };
 }
 function mailsDe(g){
   const c = contexteMail(g), v = champsMail(g);

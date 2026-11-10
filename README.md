@@ -374,7 +374,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `A` | Liste de choix | À |
 | `Copie` | Liste de choix | Copie |
 | `Objet` | Texte | Objet |
-| `Texte` | Texte | {etablissement}, {commune}, {date}, {planning}, {professeurs}, {signataire}, {fonction}, {ipr} |
+| `Texte` | Texte | {etablissement}, {commune}, {date}, {planning}, {planning_profs}, {visite}, {entretien}, {professeurs}, {signataire}, {fonction}, {ipr} |
 | `Ordre` | Numérique | Ordre |
 
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit

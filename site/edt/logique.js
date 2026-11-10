@@ -315,6 +315,24 @@ export function planningTexte(items) {
     return `* ${h} Réunion de l'équipe de mathématiques`;
   }).join('\n');
 }
+// Champs par professeur·e : {planning_profs} (une ligne « M. NOM PRENOM | visite de la classe 4E2 à 10h10 | Entretien à
+// 11h10 »), {visite} (« 4E2 à 10h10 ») et {entretien} (« 11h10 ») de la première visite.
+/** @param {{ type: string, start: number, end: number, nom?: string, classe?: string }[]} items */
+export function champsVisites(items) {
+  /** @type {Map<string, { v?: any, e?: any }>} */
+  const par = new Map();
+  for (const it of items) {
+    if (!it.nom) continue;
+    if (!par.has(it.nom)) par.set(it.nom, {});
+    const x = /** @type {{ v?: any, e?: any }} */ (par.get(it.nom));
+    if (it.type === 'v' && !x.v) x.v = it;
+    if (it.type === 'e' && !x.e) x.e = it;
+  }
+  const lignes = [...par].map(([nom, x]) => [nom, x.v ? `visite de la classe ${x.v.classe} à ${fmtMin(x.v.start)}` : '',
+    x.e ? `Entretien à ${fmtMin(x.e.start)}` : ''].filter(Boolean).join(' | '));
+  const v = items.find(i => i.type === 'v'), e = items.find(i => i.type === 'e');
+  return { planning_profs: lignes.join('\n'), visite: v ? `${v.classe ? v.classe + ' ' : ''}à ${fmtMin(v.start)}` : '', entretien: e ? fmtMin(e.start) : '' };
+}
 // Adresse de l'établissement : Etablissements.Mel, sinon ce.<uai>@ac-orleans-tours.fr.
 /** @param {string} uai @param {Ligne[]} etabs */
 export function mailEtablissement(uai, etabs) {

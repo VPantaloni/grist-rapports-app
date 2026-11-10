@@ -1509,6 +1509,7 @@
           "choix": [
             "Chef d'établissement",
             "Équipe",
+            "Professeur·e visité·e",
             "IA-IPR référent·e",
             "Moi"
           ]
@@ -1522,7 +1523,7 @@
           "id": "Texte",
           "libelle": "Texte",
           "type": "Text",
-          "role": "{etablissement}, {commune}, {date}, {planning}, {professeurs}, {signataire}, {fonction}, {ipr}"
+          "role": "{etablissement}, {commune}, {date}, {planning}, {planning_profs}, {visite}, {entretien}, {professeurs}, {signataire}, {fonction}, {ipr}"
         },
         {
           "id": "Ordre",
