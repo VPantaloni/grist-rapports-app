@@ -28,11 +28,13 @@ Page d'accueil : https://grist-rapports-app.vercel.app/
 | Écran | Widget | Rôle |
 |---|---|---|
 | Application | `https://grist-rapports-app.vercel.app/app/` | Menu et écrans (page unique) |
+| Accueil | `https://grist-rapports-app.vercel.app/accueil/` | Premier écran : une carte par écran, texte selon le rôle (CMi, IA-IPR), points en attente |
 | Administration | `https://grist-rapports-app.vercel.app/admin/` | Mon compte ; comptes, rôles, permissions, contrôles (admins) |
 | Plan d'inspection | `https://grist-rapports-app.vercel.app/plan/` | Visites à faire par CMi (IA-IPR), suivi des visites et des validations ; « Mes visites » avec les contacts des établissements (CMi) |
-| Suivis | `https://grist-rapports-app.vercel.app/suivis/` | IA-IPR : suivi pluriannuel des maître·sses délégué·es (positionnement sur trois compétences, visite tous les trois ans) ; suivi des stagiaires à venir |
+| Emplois du temps | `https://grist-rapports-app.vercel.app/edt/` | Emplois du temps des équipes (collage Siiprien par les IA-IPR) : cours à visiter, entretien, réunion d'équipe, mails, date calée au plan |
+| Suivis | `https://grist-rapports-app.vercel.app/suivis/` | IA-IPR : suivi pluriannuel des maître·sses délégué·es (positionnement sur trois compétences, visite tous les trois ans) ; liste et suivi des stagiaires (PSTG) |
 | Rapports | `https://grist-rapports-app.vercel.app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
-| Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types, grilles de positionnement (MD, PSTG), paramètres |
+| Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types (bibliothèque personnelle, proposées à tous), grilles de positionnement (MD, PSTG), mails, paramètres |
 | Annuaire | `https://grist-rapports-app.vercel.app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
 
 ## 2. Installation rapide (modèle .grist)
@@ -464,7 +466,16 @@ anciennes visites se saisissent en cliquant sur une case (visiteur·e, niveaux, 
 des professeur·es (grade « MD… ») sont proposé·es à l'ajout ; « + MD » ajoute un·e MD absent·e du fichier. Visite tous
 les trois ans : « À visiter » signalé.
 
-**Rapports**, **Modèles & phrases**, **Annuaire** : voir l'aide (?) de chaque écran.
+**Emplois du temps** (`edt/`, tables `EDT`, `Calendrier`, `EdT_memo`, `Modeles_mail`). Les IA-IPR versent les
+emplois du temps d'un établissement par copier-coller de la page Siiprien (Établissement → Emploi du temps → Tous) ou
+un fichier (export de la table d'EdT-widget). Chacun·e choisit une équipe, le cours visité, l'entretien et une réunion
+d'équipe (placée quand le plus de professeur·es n'ont pas cours) ; les stagiaires (corps, concours, PU / PR, quotité)
+et les MD sont signalé·es. Les modèles de mails (Modèles & phrases → Mails) ouvrent la messagerie ; « Visite calée »
+mémorise le planning et reporte la date dans le plan d'inspection. Ouvert aussi depuis une visite du plan.
+
+**Rapports**, **Modèles & phrases**, **Annuaire** : voir l'aide (?) de chaque écran. Dans un rapport, « ＋ Mes phrases »
+ajoute un passage à sa bibliothèque de phrases types (nom remplacé par {civilite} {nom}) ; « Proposer à tous » l'envoie
+à la validation des IA-IPR.
 
 ## 10. Dépannage
 

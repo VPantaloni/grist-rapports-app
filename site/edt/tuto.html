@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports et suivis — Aide de l'écran Emplois du temps</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg?v=2">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 6px; color: var(--accent); }
+  ol, ul { padding-left: 22px; } li { margin-bottom: 4px; }
+  .etapes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .etapes span { padding: 2px 10px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
+  kbd { font: 12px monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--bg2); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Écran Emplois du temps — mode d'emploi</h1>
+  <p class="muted">Voir les emplois du temps d'une équipe, choisir le cours à visiter, l'entretien et une réunion d'équipe, puis prévenir l'établissement.</p>
+
+  <h2>Choisir l'établissement et les professeur·es</h2>
+  <ul>
+    <li><strong>Établissement</strong> : recherche sur le nom, la ville ou l'UAI ; les petites cases 18, 28, 36, 37, 41, 45 filtrent par département.</li>
+    <li><strong>Professeur·e</strong> : recherche dans tous les établissements ; <strong>＋ Toute l'équipe</strong> affiche l'équipe entière.</li>
+    <li>Pastilles : <span style="color:#7a3fb0;font-weight:700">(S) AGREG int. · PU · 100 %</span> pour un·e stagiaire de la liste
+      Suivi PSTG (corps, concours, public / privé, quotité), <strong>MD</strong> pour un·e maître·sse délégué·e suivi·e. Filtres
+      « Stagiaires » et « MD » en tête de la liste.</li>
+    <li>Depuis le <strong>Plan d'inspection</strong>, le bouton <em>Emploi du temps</em> d'une visite ouvre directement
+      l'établissement et le ou la professeur·e ; la visite du plan est rappelée en haut.</li>
+  </ul>
+
+  <h2>Lire la semaine</h2>
+  <ul>
+    <li><strong>Date</strong> : semaine réelle (A, B ou vacances, d'après la table Calendrier) ; <strong>Sem. A</strong>,
+      <strong>Sem. B</strong>, <strong>Semaine type</strong> : semaines théoriques.</li>
+    <li>Cours hachurés : quinzaine (Q1 = semaine A, Q2 = semaine B — à vérifier auprès de l'établissement) ou semestre ;
+      en pointillés : cours dans un autre établissement.</li>
+    <li>Cliquer sur l'en-tête d'un jour pour ne voir que ce jour (une colonne par professeur·e).</li>
+    <li><strong>Créneaux visite + entretien</strong> : ★ sur les cours suivis d'une heure libre, proposée en vert pour l'entretien.</li>
+  </ul>
+
+  <h2>Préparer la visite</h2>
+  <ol>
+    <li>Cliquer sur un cours → <strong>Visiter ce cours</strong> (1re heure, 2e heure ou tout le cours, pour un cours long).</li>
+    <li>Valider l'<strong>entretien</strong> (créneau vert, horaire réglable).</li>
+    <li><strong>＋ Réunion d'équipe</strong> : placée à l'heure où le plus de professeur·es de l'équipe n'ont pas cours ; le
+      planning indique combien sont libres.</li>
+    <li>Le <strong>planning proposé</strong> signale chevauchements, vacances, cours de quinzaine absents à la date choisie.</li>
+  </ol>
+
+  <h2>Prévenir par mail</h2>
+  <ul>
+    <li>Un bouton par modèle de votre rôle : par exemple <strong>Proposer une visite</strong> (au chef d'établissement) et
+      <strong>Annoncer la visite</strong> (à l'équipe, copie au chef). La messagerie s'ouvre avec le texte prêt ; rien n'est
+      envoyé par l'application. Le tableau du planning est aussi copié : le coller dans le mail (Ctrl+V).</li>
+    <li>Les modèles se modifient dans <em>Modèles &amp; phrases → Mails</em> (IA-IPR) : destinataires, copie, objet, texte, avec
+      {etablissement}, {date}, {planning}, {professeurs}, {signataire}, {fonction}, {ipr}.</li>
+  </ul>
+
+  <h2>Mémoriser, caler</h2>
+  <ul>
+    <li><strong>💾 Mémoriser le planning</strong> : enregistré comme « Planning proposé » ; <strong>Charger</strong> le restaure.</li>
+    <li><strong>✅ Visite calée</strong> : enregistré comme « Visite calée », et la date est reportée dans le <strong>plan
+      d'inspection</strong> pour les professeur·es du planning qui y ont une visite cette année.</li>
+    <li>Chaque CMi enregistre et supprime ses propres plannings ; les IA-IPR, tous.</li>
+  </ul>
+
+  <h2>Verser les emplois du temps (IA-IPR)</h2>
+  <ol>
+    <li>Sur <strong>Siiprien</strong> : page de l'établissement → <em>Emploi du temps</em> → <em>Tous</em>.</li>
+    <li><kbd>Ctrl</kbd>+<kbd>A</kbd>, <kbd>Ctrl</kbd>+<kbd>C</kbd>, puis <strong>＋ Ajouter les EdT d'un établissement</strong>
+      et <kbd>Ctrl</kbd>+<kbd>V</kbd>. L'UAI est lu sur la ligne « Rne » ; les créneaux déjà présents pour cet établissement
+      sont remplacés (ou gardés, au choix).</li>
+    <li>Pour verser d'un coup la table d'EdT-widget : <em>importer un fichier</em> (export CSV de cette table).</li>
+  </ol>
+  <p class="muted">Le calendrier (semaines A / B, vacances) se remplit dans la table Calendrier (une ligne par semaine).</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports et suivis — Emplois du temps pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg?v=2">
+<link rel="stylesheet" href="../commun/style.css">
+<!-- Écran repris du widget EdT-widget v2.0.1 (même lecture des créneaux Siiprien, mêmes règles d'alternance, de créneaux
+     visite + entretien et de réunion d'équipe), branché sur les tables de l'application (spécification ecrans/edt.md). -->
+<style>
+:root{
+  --surface:var(--bg); --surface2:var(--bg2); --ink:var(--fg); --line:var(--border); --line2:color-mix(in srgb,var(--border) 55%,var(--bg));
+  --warn-ink:#7a5300; --vac-bg:#eceae5;
+  --t0:#2f6db0; --t1:#c45f22; --t2:#2a8a5c; --t3:#8a4cb6; --t4:#b8326a; --t5:#1f8a96; --t6:#8a6d1f; --t7:#4d5bbf; --t8:#6b8a1f; --t9:#a2452c;
+  --ghost:#2a8a5c; --meet:#a63d77; --pstg:#7a3fb0; --pstg-bg:#f1e7fb; --md:#1f6f8a; --md-bg:#e2f2f7;
+  --radius:8px; --hourpx:64px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --warn-ink:#f2d08a; --vac-bg:#24262a;
+    --t0:#6aa6e8; --t1:#ee9256; --t2:#5cc492; --t3:#bd8ae6; --t4:#ee7fa8; --t5:#5cc8d4; --t6:#d4b25a; --t7:#8f9cf0; --t8:#a9c95a; --t9:#e48a6c;
+    --ghost:#5cc492; --meet:#e58ab8; --pstg:#d0a8f2; --pstg-bg:#352544; --md:#7cc8e0; --md-bg:#1d3540; }
+}
+#aide{position:static}
+.fl-m{display:inline-block;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:9px;margin-left:4px;vertical-align:1px;white-space:nowrap;background:var(--md-bg);color:var(--md);border:1px solid color-mix(in srgb,var(--md) 45%,transparent)}
+.opt.md{box-shadow:inset 3px 0 0 var(--md)}
+.rappel{padding:8px 10px;border-radius:var(--radius);background:var(--sel);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.rappel b{color:var(--accent)}
+.mails{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ptype.r b{font-weight:700}
+*{box-sizing:border-box}
+body{background:var(--bg2);color:var(--ink);font-size:13px;line-height:1.35}
+button,input,select{font:inherit;color:inherit}
+.app{display:flex;flex-direction:column;min-height:100%;padding:10px 12px 14px;gap:8px}
+
+/* ---------- barre de sélection ---------- */
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.field{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:0 8px;height:34px}
+.field select,.field input{border:0;background:transparent;outline:none;height:32px;min-width:0}
+.field label{color:var(--muted);font-size:12px;white-space:nowrap}
+.f-etab{flex:1 1 280px;max-width:420px}
+.opt.eopt{display:block}
+.eopt .nm{font-weight:500}
+.eopt .u{font-weight:700;font-variant-numeric:tabular-nums;margin-right:6px}
+.eopt .nm{color:var(--ink)}
+.eopt small{display:block;white-space:normal}
+.eopt.cur{box-shadow:inset 3px 0 0 var(--accent)}
+.eopt mark{background:color-mix(in srgb,var(--accent) 25%,transparent);color:inherit;border-radius:2px}
+.btn-add{height:34px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);font-weight:700;cursor:pointer;white-space:nowrap;margin-left:auto}
+.btn-add:hover{filter:brightness(1.08)}
+.chips:empty{display:none}
+.ibtn.team{border-color:var(--accent);color:var(--accent);font-weight:600;height:30px}
+.ddsep{padding:6px 10px 4px;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-top:1px solid var(--line);background:var(--surface2)}
+.dh .lnames{display:flex;gap:2px;margin-top:6px}
+.dh .lnames span{flex:1;min-width:0;border-top:3px solid var(--tc);padding-top:3px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search{position:relative;flex:1 1 240px;max-width:380px}
+.search .field{width:100%}
+.search input{width:100%}
+.dropdown{position:absolute;z-index:30;left:0;right:0;top:38px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:320px;overflow:auto;display:none}
+.dropdown.open{display:block}
+.opt{padding:7px 10px;cursor:pointer;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 10px}
+.opt>span{white-space:nowrap}
+.opt small{color:var(--muted);margin-left:auto;text-align:right}
+.opt.hl,.opt:hover{background:var(--surface2)}
+.opt.dis{opacity:.45;cursor:default}
+.opt.rdvc{background:var(--rdvc-bg);box-shadow:inset 3px 0 0 var(--rdvc)}
+.opt.pstg{box-shadow:inset 3px 0 0 var(--pstg)}
+.opt.rdvc.hl,.opt.rdvc:hover{background:color-mix(in srgb,var(--rdvc) 30%,var(--surface))}
+.fl-r,.fl-s{display:inline-block;font-size:10.5px;font-weight:700;padding:0 6px;border-radius:9px;margin-left:4px;vertical-align:1px;white-space:nowrap}
+.fl-r{background:var(--rdvc);color:#3a2a00}
+.fl-s{background:var(--pstg-bg);color:var(--pstg);border:1px solid color-mix(in srgb,var(--pstg) 45%,transparent)}
+.ddhead{display:flex;gap:4px;padding:6px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.ddhead button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:2px 10px;cursor:pointer;font-size:12px}
+.ddhead button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.chip .fl-r,.chip .fl-s{font-size:10px}
+.empty-opt{padding:10px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.help{flex:0 0 auto;width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);color:var(--accent);background:var(--surface);
+  display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;text-decoration:none;align-self:flex-start;margin-top:3px}
+.help:hover{background:var(--accent);color:var(--accent-fg)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px 0 10px;border-radius:15px;background:var(--surface);border:1px solid var(--line);font-weight:600}
+.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--tc)}
+.chip small{font-weight:400;color:var(--muted)}
+.chip button{border:0;background:transparent;width:22px;height:22px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:15px;line-height:1}
+.chip button:hover{background:var(--surface2);color:var(--ink)}
+.hint{color:var(--muted)}
+
+/* ---------- barre semaine ---------- */
+.weekbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:0 11px;height:32px;cursor:pointer;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.nav{display:inline-flex;align-items:center;gap:4px}
+.ibtn{border:1px solid var(--line);background:var(--surface);height:32px;min-width:32px;border-radius:var(--radius);cursor:pointer;padding:0 9px}
+.ibtn:hover{background:var(--surface2)}
+.wlabel{font-weight:600;padding:0 4px;white-space:nowrap}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11.5px;font-weight:700;background:var(--surface2);border:1px solid var(--line)}
+.tag.A{background:#dceafc;border-color:#b8d3f5;color:#1d4a7a}
+.tag.B{background:#fde6d6;border-color:#f5c9a8;color:#7a3a10}
+.tag.V{background:var(--vac-bg);color:var(--muted)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tag.A{background:#1e3550;border-color:#2f5179;color:#bcd8f6}:root:not([data-theme="light"]) .tag.B{background:#4a2a14;border-color:#6d3f1e;color:#f6cfb1}}
+.spacer{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;white-space:nowrap}
+.toggle input{accent-color:var(--accent);width:15px;height:15px}
+.banner{padding:7px 10px;border-radius:var(--radius);background:var(--warn-bg);color:var(--warn-ink)}
+.banner.info{background:var(--surface2);color:var(--muted)}
+
+/* ---------- grille ---------- */
+.board{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
+.daytabs{display:none;border-bottom:1px solid var(--line);overflow-x:auto}
+.daytabs button{flex:1;border:0;background:transparent;padding:9px 6px;cursor:pointer;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
+.daytabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.grid{display:grid;grid-template-columns:46px repeat(var(--days),minmax(0,1fr))}
+.dh{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);border-left:1px solid var(--line2);padding:7px 6px 6px;text-align:center;font-weight:700}
+.dh small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.dh .lanes{display:flex;gap:2px;margin-top:5px}
+.dh .lanes span{flex:1;height:3px;border-radius:2px;background:var(--tc)}
+.corner{border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:5}
+.times{position:relative;height:var(--h)}
+.times span{position:absolute;right:6px;transform:translateY(-50%);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.col{position:relative;height:var(--h);border-left:1px solid var(--line2);
+  background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line2) 1px,transparent 1px);
+  background-size:100% var(--hourpx),100% calc(var(--hourpx) / 2);background-position:0 10px,0 10px;background-repeat:repeat-y;}
+.col.vac{background-color:var(--vac-bg)}
+.col.sat{background-color:color-mix(in srgb,var(--surface2) 55%,transparent)}
+.lanesep{position:absolute;top:0;bottom:0;border-left:1px dashed var(--line2)}
+.blk{position:absolute;border-radius:5px;padding:3px 5px 3px 6px;overflow:hidden;cursor:pointer;
+  background:color-mix(in srgb,var(--tc) 15%,var(--surface));border-left:3px solid var(--tc);
+  font-size:11.5px;line-height:1.22;transition:box-shadow .12s}
+.blk:hover,.blk.sel{box-shadow:0 0 0 2px var(--tc);z-index:4}
+.blk.alt{background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--tc) 13%,transparent) 0 5px,transparent 5px 10px)}
+.blk.away{background:transparent;border:1.5px dashed var(--tc);border-left-width:3px;opacity:.8}
+.blk.faded{opacity:.35}
+.blk .tm{font-weight:700;font-variant-numeric:tabular-nums}
+.blk .tm span{white-space:nowrap}
+.blk .lb,.blk .cl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .cl{color:var(--muted)}
+.blk .bdg{display:inline-block;font-size:10px;font-weight:700;padding:0 4px;border-radius:4px;background:var(--tc);color:var(--surface);margin-left:3px;vertical-align:1px}
+.blk .star{color:var(--ghost);margin-right:2px}
+.ghost{position:absolute;border:1.5px dashed var(--ghost);border-radius:5px;background:color-mix(in srgb,var(--ghost) 8%,transparent);
+  font-size:10.5px;line-height:1.2;color:var(--ghost);font-weight:600;padding:2px 4px;overflow:hidden;pointer-events:none}
+.placeholder{padding:46px 20px;text-align:center;color:var(--muted)}
+.placeholder b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+
+/* ---------- détail ---------- */
+.detail{position:fixed;right:14px;bottom:14px;width:300px;max-width:calc(100% - 28px);background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:12px 14px;z-index:40;display:none;border-top:4px solid var(--tc)}
+.detail.open{display:block}
+.detail h3{margin:0 0 2px;font-size:14px}
+.detail .sub{color:var(--muted);margin-bottom:8px}
+.detail dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0}
+.detail dt{color:var(--muted)}
+.detail dd{margin:0}
+.detail .x{position:absolute;top:6px;right:8px;border:0;background:transparent;font-size:18px;cursor:pointer;color:var(--muted)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--muted);font-size:12px;align-items:center}
+.legend i{display:inline-block;width:22px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.lg-h{background:color-mix(in srgb,var(--t0) 18%,var(--surface));border-left:3px solid var(--t0)}
+.lg-alt{border-left:3px solid var(--t0);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--t0) 25%,transparent) 0 4px,transparent 4px 8px)}
+.lg-away{border:1.5px dashed var(--t0)}
+.lg-ghost{border:1.5px dashed var(--ghost)}
+
+/* ---------- vue jour, visite, entretien ---------- */
+.dh{cursor:pointer;user-select:none}
+.dh:hover{background:var(--surface2)}
+.dh .back{display:block;font-weight:400;font-size:11px;color:var(--accent)}
+.blk.visit{box-shadow:0 0 0 2.5px var(--tc),0 3px 10px rgba(0,0,0,.18);z-index:3}
+.blk .vbdg{display:inline-block;background:var(--tc);color:var(--surface);font-size:10px;font-weight:800;padding:0 5px;border-radius:4px;margin-bottom:2px;letter-spacing:.02em}
+.ghost{cursor:pointer;pointer-events:auto;z-index:1}
+.ghost:hover{background:color-mix(in srgb,var(--ghost) 20%,transparent)}
+.ghost.sel{box-shadow:0 0 0 2px var(--ghost)}
+.itvblk{position:absolute;border-radius:5px;background:var(--ghost);color:var(--surface);font-size:11px;line-height:1.2;font-weight:700;padding:3px 5px;cursor:pointer;overflow:hidden;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.itvblk small{display:block;font-weight:500}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tform{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.tform b{width:100%}
+.tform input[type=time]{height:30px;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:0 4px}
+.okline{margin-top:10px;padding:6px 8px;border-radius:6px;background:color-mix(in srgb,var(--ghost) 14%,transparent);color:var(--ink)}
+.detail{max-height:calc(100vh - 28px);overflow:auto}
+.lg-visit{border-left:3px solid var(--t0);box-shadow:0 0 0 2px var(--t0);background:color-mix(in srgb,var(--t0) 18%,var(--surface))}
+.lg-itv{background:var(--ghost)}
+
+/* ---------- planning ---------- */
+.plan{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.plan:empty{display:none}
+.plan h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:10px}
+.plan .hint{font-size:12.5px}
+.pgroup+.pgroup{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.phead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.phead input[type=date]{height:30px;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:0 6px}
+.pitems{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.pitems li{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ptime{font-variant-numeric:tabular-nums;font-weight:700;min-width:112px}
+.ptype{font-size:11px;font-weight:700;padding:1px 7px;border-radius:4px}
+.ptype.v{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.ptype.e{background:color-mix(in srgb,var(--ghost) 18%,transparent);color:var(--ghost)}
+.pdot{width:9px;height:9px;border-radius:50%;background:var(--tc);display:inline-block}
+.pitems small{color:var(--muted)}
+.pwarn{color:var(--warn-ink);background:var(--warn-bg);padding:5px 9px;border-radius:6px;margin-top:6px;font-size:12.5px}
+.pactions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn.avis{background:#d9480f;border-color:#d9480f;color:#fff;font-weight:600}
+.prow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.padd{margin-top:8px}
+.btn.lblue{background:color-mix(in srgb,var(--accent) 14%,var(--surface));border-color:color-mix(in srgb,var(--accent) 45%,var(--surface));color:var(--accent);font-weight:600}
+.btn.lorange{background:color-mix(in srgb,#d9480f 14%,var(--surface));border-color:color-mix(in srgb,#d9480f 45%,var(--surface));color:var(--avis);font-weight:600}
+.btn.lgreen{background:color-mix(in srgb,var(--ghost) 16%,var(--surface));border-color:color-mix(in srgb,var(--ghost) 50%,var(--surface));color:var(--ghost);font-weight:600}
+.etat{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:9px;white-space:nowrap}
+.etat.prop{background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
+.etat.cal{background:color-mix(in srgb,var(--ghost) 18%,var(--surface));color:var(--ghost)}
+.ver{color:var(--muted);font-size:11px;text-align:right;margin-top:4px}
+.btn.avis:hover{filter:brightness(1.08)}
+a.btn{display:inline-flex;align-items:center;text-decoration:none;height:auto;min-height:32px;padding:5px 14px}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 14px;border-radius:8px;z-index:60;display:none;max-width:90vw;text-align:center}
+.toast.show{display:block}
+
+/* ---------- départements, menus en mode sombre ---------- */
+.depts{display:grid;grid-template-columns:repeat(3,auto);gap:2px;align-self:center}
+.depts button{border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:10.5px;line-height:1;height:16px;min-width:26px;padding:0 4px;border-radius:4px;cursor:pointer;font-variant-numeric:tabular-nums}
+.depts button:hover{color:var(--ink)}
+.depts button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+select,.field select{background-color:var(--surface);color:var(--ink)}
+select option,select optgroup{background-color:var(--surface);color:var(--ink)}
+
+/* ---------- visite partielle, réunion, mémoire ---------- */
+.blk .vpart{position:absolute;left:0;right:0;border:2px solid var(--tc);border-radius:4px;background:color-mix(in srgb,var(--tc) 22%,transparent);pointer-events:none}
+.blk.visitp{z-index:3;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.blk .vbdg,.blk .tm,.blk .lb,.blk .cl{position:relative}
+.acts .btn:disabled{opacity:1;cursor:default}
+.meet{position:absolute;left:1px;right:1px;border:2px solid var(--meet);border-radius:5px;z-index:6;pointer-events:none;
+  background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--meet) 26%,transparent) 0 6px,color-mix(in srgb,var(--meet) 12%,transparent) 6px 12px)}
+.meet .mtag{position:absolute;top:2px;right:4px;pointer-events:auto;cursor:pointer;background:var(--meet);color:var(--surface);font-size:11px;font-weight:700;padding:1px 7px;border-radius:9px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.meet .mtag:hover{filter:brightness(1.1)}
+.ptype.r{background:color-mix(in srgb,var(--meet) 16%,transparent);color:var(--meet)}
+.pinfo{color:var(--muted);font-size:12.5px;margin-top:4px}
+.memo{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.memo h4{margin:0 0 6px;font-size:13px}
+.memo ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.memo li{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lg-meet{border:1.5px dashed var(--meet);background:color-mix(in srgb,var(--meet) 12%,transparent)}
+
+/* ---------- réglages ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:12px;width:520px;max-width:100%;padding:16px 18px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal h2{margin:0 0 4px;font-size:16px}
+.modal h4{margin:14px 0 6px;font-size:13px}
+.modal p{margin:4px 0;color:var(--muted)}
+.frow{display:grid;grid-template-columns:150px 1fr;gap:8px;align-items:center;margin:5px 0}
+.frow select{height:30px;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:0 6px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn{height:32px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+.modal.wide{width:780px}
+.imp-steps{margin:8px 0 10px;padding-left:22px;color:var(--ink)}
+.imp-steps li{margin:3px 0}
+kbd{font:600 11.5px/1 system-ui,sans-serif;padding:2px 6px;border-radius:5px;background:var(--surface2);border:1px solid var(--line)}
+#impText{width:100%;height:150px;resize:vertical;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:8px 10px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.imp-prev{margin-top:10px}
+.imp-grid{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;align-items:baseline}
+.imp-grid>span,.imp-grid>label{color:var(--muted)}
+#impUai{width:110px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:0 8px;font-weight:700;letter-spacing:.03em}
+#impUai.bad{border-color:#d8a530;background:var(--warn-bg)}
+.imp-ex{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--surface2);display:grid;gap:4px}
+.imp-ex label{display:flex;gap:6px;align-items:center;cursor:pointer}
+code{background:var(--surface2);padding:0 4px;border-radius:4px;font-size:12px}
+
+/* ---------- mobile ---------- */
+@media (max-width:720px){
+  .app{padding:8px 8px 12px}
+  .f-etab,.search{flex:1 1 100%;max-width:none}
+  .btn-add{margin-left:0;flex:1 1 auto}
+  .daytabs{display:flex}
+  .grid{grid-template-columns:40px minmax(0,1fr)}
+  .dh{display:none}
+  .corner{display:none}
+  :root{--hourpx:54px}
+  .detail{right:8px;left:8px;width:auto;bottom:8px}
+  .frow{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body class="plein-ecran">
+<div id="msg">Chargement…</div>
+<div id="app" hidden style="flex:1;overflow:auto">
+<div class="app">
+  <div class="bar" style="position:relative">
+    <div class="depts" id="depts" role="group" aria-label="Filtrer par département"></div>
+    <div class="search f-etab" id="etabBox">
+      <div class="field"><label for="etabq">Établissement</label>
+        <input id="etabq" type="search" placeholder="Nom, ville ou UAI…" autocomplete="off" role="combobox" aria-controls="edd" aria-expanded="false"></div>
+      <div class="dropdown" id="edd" role="listbox"></div>
+    </div>
+    <div class="search" id="profBox">
+      <div class="field"><label for="q">Professeur·e</label>
+        <input id="q" type="search" placeholder="Rechercher un nom…" autocomplete="off"></div>
+      <div class="dropdown" id="dd"></div>
+    </div>
+    <button class="btn-add" id="btnImport" hidden title="Coller les emplois du temps d'un établissement copiés depuis Siiprien (IA-IPR)">＋ Ajouter les EdT d'un établissement</button>
+    <button class="ibtn" id="recharger" title="Relire les tables">↻</button>
+    <a class="help" id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide de l'écran Emplois du temps" aria-label="Ouvrir l'aide">?</a>
+  </div>
+  <div id="rappel"></div>
+  <div class="chips" id="chips"></div>
+  <div class="weekbar" id="weekbar"></div>
+  <div id="banners"></div>
+
+  <div class="board">
+    <div class="daytabs" id="daytabs"></div>
+    <div id="gridwrap"></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="lg-h"></i>Hebdomadaire</span>
+    <span><i class="lg-alt"></i>Quinzaine / semestre (Q1 = sem. A, Q2 = sem. B — à vérifier auprès de l'établissement)</span>
+    <span><i class="lg-away"></i>Autre établissement</span>
+    <span><i class="lg-ghost"></i>Heure libre pour l'entretien (★ = cours visitable)</span>
+    <span><i class="lg-visit"></i>Visite choisie</span>
+    <span><i class="lg-itv"></i>Entretien validé</span>
+    <span><i class="lg-meet"></i>Réunion d'équipe</span>
+  </div>
+
+  <section class="plan" id="plan" aria-live="polite"></section>
+</div>
+<div class="detail" id="detail"></div>
+<div class="modal-bg" id="modal"><div class="modal" id="modalBody"></div></div>
+</div>
+
+<script type="module">
+import { esc, toast, message, installerBulles, preferences, copier } from '../commun/interface.js';
+import { identifierMoi, droitsTable } from '../commun/droits.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
+  demandeConteneur } from '../commun/grist.js';
+import { liste } from '../commun/donnees.js';
+import { DAYS, DAYS_SHORT, DEPTS, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
+  versGrist, parseName, parseAlt, parseJour, ingest, lireCalendrier, isVisible, suggestionsFor, pack, canSplit, partRange, reunionParDefaut, libresSur,
+  parseSiiprien, lireFichierEdt, reperes, reperesDe, modelesPour, remplirModele, planningTexte, mailEtablissement, destinataires, lienMailto,
+  visitesDuPlanning, profDeVisite } from './logique.js';
+
+/* =====================================================================
+   État
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const pref = preferences('Edt');
+const ls = { get(k){ try { return JSON.parse(pref.lire(k, "null")); } catch(e){ return null; } }, set(k, v){ pref.ecrire(k, JSON.stringify(v)); } };
+const MAX_T = 40;
+const ETATS = {prop:"Planning proposé", calee:"Visite calée"};
+const state = {
+  courses: [], teachers: new Map(), uais: new Map(), etabs: new Map(), calendar: new Map(),
+  selected: [], uaiFilter: "", mode: "type", userMode: false, monday: null,
+  showSat: false, suggest: true, mobileDay: 0, focusDay: null, pop: null, ghostRefs: [], groupRefs: [],
+  plan: {}, planDates: {}, depts: [], meetings: {}, memoRefs: [], ddFilter: "all",
+  reperes: new Map(), T: {}, moi: null, profil: "cmi", droitsEdt: {}, droitsMemo: {}, droitsVisites: {}, auxMsg: "",
+  restored: false, demande: null, imp: null
+};
+const inDepts = u => !state.depts.length || state.depts.includes(deptOf(u));
+function todayUTC(){ const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); }
+function defaultMonday(){ const t = todayUTC(); const wd = (t.getUTCDay()+6)%7; return wd >= 5 ? addDays(mondayOf(t),7) : mondayOf(t); }
+const fmtDate = (d, o) => d.toLocaleDateString("fr-FR", {timeZone:"UTC", ...o});
+const rentree = () => { const t = todayUTC(); return t.getUTCMonth() >= 7 ? t.getUTCFullYear() : t.getUTCFullYear() - 1; };
+const anneeScolaire = () => `${rentree()}-${rentree() + 1}`;
+const moiPers = () => (state.moi && state.moi.Personne) || 0;
+const personne = id => (state.T.Personnes || []).find(p => p.id === id) || null;
+const nomPersonne = id => { const p = personne(id); return p ? `${p.Prenom || ""} ${p.Nom || ""}`.trim() : ""; };
+
+/* =====================================================================
+   Lecture des tables de l'application
+   ===================================================================== */
+const NOMS = ["EDT", "Calendrier", "Etablissements", "Professeurs", "Stagiaires", "Maitres_delegues", "Personnes", "Utilisateurs",
+  "EdT_memo", "Modeles_mail", "Visites"];
+const change = detecteurChangement();
+const charger = sansChevauchement(async () => {
+  const r = await Promise.all(NOMS.map(lireTable));
+  const T = Object.fromEntries(NOMS.map((n, i) => [n, r[i].lignes || []]));
+  const err = Object.fromEntries(NOMS.map((n, i) => [n, r[i].erreur || ""]));
+  if (err.EDT){ message(`Impossible de lire la table EDT : ${err.EDT}. L'écran Installer (« Créer la structure ») ajoute les tables des emplois du temps.`, true); $("#app").hidden = true; return; }
+  const dem = demandeConteneur();   // venue du plan d'inspection, prise une seule fois
+  if (!change([r.map(x => x.lignes)]) && !$("#app").hidden){ if (dem){ traiterDemande(dem); render(); } return; }
+  state.T = T;
+  state.moi = identifierMoi(T.Utilisateurs).moi;
+  const roles = state.moi ? liste(state.moi.Roles) : [];
+  state.profil = roles.includes("IA-IPR") || roles.includes("Administrateur·trice") ? "ipr" : "cmi";
+  state.droitsEdt = droitsTable(state.moi, "EDT");
+  state.droitsMemo = droitsTable(state.moi, "EdT_memo");
+  state.droitsVisites = droitsTable(state.moi, "Visites");
+  const avant = new Map(state.courses.map(c => [c.id, sigOf(c)]));
+  const d = ingest(T.EDT);
+  state.courses = d.courses; state.teachers = d.teachers; state.uais = d.uais; state.badRows = d.bad;
+  state.selected = state.selected.filter(k => state.teachers.has(k));
+  if (state.uaiFilter && !state.uais.has(state.uaiFilter)) state.uaiFilter = "";
+  resolvePlan();
+  state.calendar = lireCalendrier(T.Calendrier);
+  state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {nom: String(e.Nom || ""), ville: String(e.Commune || "")}]));
+  state.reperes = reperes({ stagiaires: T.Stagiaires, mds: T.Maitres_delegues, etabs: T.Etablissements }, anneeScolaire());
+  state.auxMsg = err.EdT_memo ? "Table EdT_memo absente ou illisible : les plannings ne peuvent pas être mémorisés (écran Installer, « Créer la structure »)." : "";
+  if (state.calendar.size && !state.userMode) state.mode = "date";
+  if (!state.restored) restoreSelection();
+  $("#btnImport").hidden = state.droitsEdt.C !== "Oui";
+  message(""); $("#app").hidden = false;
+  traiterDemande(dem);
+  render();
+});
+
+/* Ouverture depuis le plan d'inspection : { visite: id } → établissement et professeur·e de la visite */
+function traiterDemande(d){
+  if (d){ state.demande = d; state.demandeTraitee = 0; }
+  const v = state.demande && state.demande.visite ? (state.T.Visites || []).find(x => x.id === state.demande.visite) : null;
+  if (!v || state.demandeTraitee === v.id) return;
+  state.demandeTraitee = v.id;
+  const u = norm(v.UAI);
+  if (state.uais.has(u)){ state.uaiFilter = u; const dp = deptOf(u); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp); }
+  const t = profDeVisite(v, state.teachers);
+  if (t && !state.selected.includes(t.key)) state.selected = [t.key, ...state.selected.filter(k => state.teachers.get(k).uais.has(u))].slice(0, MAX_T);
+  state.visiteRappel = v.id;
+  saveSelection();
+}
+function renderRappel(){
+  const v = state.visiteRappel ? (state.T.Visites || []).find(x => x.id === state.visiteRappel) : null;
+  if (!v){ $("#rappel").innerHTML = ""; return; }
+  const per = [v.Mois_debut, v.Mois_fin].map(parseAnyDate).filter(Boolean).map(d => fmtDate(d, {month:"long"}));
+  const t = profDeVisite(v, state.teachers);
+  $("#rappel").innerHTML = `<div class="rappel">📅 Visite au plan : <b>${esc(`${v.Prof_nom || ""} ${v.Prof_prenom || ""}`.trim())}</b>
+    ${v.CMi ? "· " + esc(nomPersonne(v.CMi)) : ""} ${per.length ? "· période " + esc([...new Set(per)].join(" – ")) : ""}
+    ${v.Date_prevue ? "· calée le " + esc(fmtDate(parseAnyDate(v.Date_prevue), {weekday:"long", day:"numeric", month:"long"})) : ""}
+    ${t ? "" : ` · <span class="hint">emploi du temps introuvable pour ce nom${state.uais.has(norm(v.UAI)) ? "" : " ni pour cet établissement"} (IA-IPR : à ajouter depuis Siiprien)</span>`}
+    <button class="btn sm" data-act="rappel-x" title="Masquer">×</button></div>`;
+}
+
+function restoreSelection(){
+  state.restored = true;
+  const s = ls.get("Sel");
+  if (!s) return false;
+  if (s.uai && state.uais.has(s.uai)) state.uaiFilter = s.uai;
+  if (Array.isArray(s.sel)) state.selected = s.sel.filter(k => state.teachers.has(k)).slice(0, MAX_T);
+  state.showSat = !!s.sat; state.suggest = s.sug !== false;
+  if (Array.isArray(s.dep)) state.depts = s.dep.filter(d => DEPTS.includes(d));
+  return state.selected.length > 0;
+}
+function saveSelection(){ ls.set("Sel", {uai:state.uaiFilter, sel:state.selected, sat:state.showSat, sug:state.suggest, dep:state.depts}); }
+
+/* =====================================================================
+   Logique semaine
+   ===================================================================== */
+function weekInfo(){
+  if (state.mode === "A" || state.mode === "B") return {ab: state.mode, semestre: null};
+  if (state.mode === "type") return {ab: null, semestre: null};
+  const k = isoDay(state.monday);
+  const c = state.calendar.get(k);
+  if (!c) return {ab:null, semestre: defaultSemestre(state.monday), missing:true};
+  return {ab: c.sem === "V" ? null : c.sem, vac: c.sem === "V", semestre: c.semestre || defaultSemestre(state.monday)};
+}
+const teacherCourses = (k, wi = weekInfo()) => state.courses.filter(c => c.tkey === k && isVisible(c, wi));
+
+/* =====================================================================
+   Planning (visites, entretiens, réunion d'équipe)
+   ===================================================================== */
+// state.plan[tkey] = {visit: id|null, visitSig, visitPart: null|"h1"|"h2", itv: {day,start,end}|null}
+// state.meetings["UAI|jour"] = {start, end}
+function planOf(k){ return state.plan[k] || (state.plan[k] = {visit:null, visitSig:null, visitPart:null, itv:null}); }
+function resolvePlan(){
+  const bySig = new Map(state.courses.map(c => [sigOf(c), c.id]));
+  for (const k of Object.keys(state.plan)){
+    const p = state.plan[k];
+    p.visit = p.visitSig && bySig.has(p.visitSig) ? bySig.get(p.visitSig) : null;
+    if (p.visit == null){ p.visitSig = null; p.visitPart = null; }
+  }
+}
+function savePlan(){
+  const out = {};
+  for (const [k,p] of Object.entries(state.plan)) if (p.visitSig || p.itv) out[k] = {visitSig:p.visitSig, visitPart:p.visitPart || null, itv:p.itv};
+  pref.ecrire("Plan", JSON.stringify({plan:out, dates:state.planDates, meetings:state.meetings}));
+}
+function loadPlan(){
+  let s = null; try { s = JSON.parse(pref.lire("Plan", "null")); } catch(e){ s = null; }
+  if (!s) return;
+  for (const [k,p] of Object.entries(s.plan || {})) state.plan[k] = {visit:null, visitSig:p.visitSig || null, visitPart:p.visitPart || null, itv:p.itv || null};
+  state.planDates = s.dates || {};
+  state.meetings = s.meetings || {};
+}
+
+const PART_LABEL = {h1:"1re heure", h2:"2e heure"};
+function setVisit(id, part){
+  const c = state.courses[id], p = planOf(c.tkey);
+  p.visit = id; p.visitSig = sigOf(c); p.visitPart = canSplit(c) ? (part || null) : null;
+  if (p.itv && p.itv.day !== c.day) p.itv = null;
+  savePlan();
+}
+function unVisit(k){ const p = state.plan[k]; if (p){ p.visit = null; p.visitSig = null; p.visitPart = null; savePlan(); } }
+function defaultItvFor(k, day, afterCourse){
+  const s = suggestionsFor(teacherCourses(k));
+  const g = (afterCourse != null && s.ghosts.find(g => g.after === afterCourse)) || s.ghosts.find(g => g.day === day);
+  if (g) return {start:g.start, end:g.end};
+  const c = afterCourse != null ? state.courses[afterCourse] : null;
+  const st = c ? c.end : 10*60;
+  return {start:st, end:st+60};
+}
+const joinNames = arr => arr.length <= 1 ? arr.join("") : arr.slice(0,-1).join(", ") + " et " + arr[arr.length-1];
+/* Réunion : heure où le plus de professeur·es de l'équipe n'ont pas cours (logique.js) */
+function defaultMeetingFor(g){
+  const its = g.items.filter(i => i.type !== "r");
+  const ks = state.uais.get(g.uai) ? [...state.uais.get(g.uai)] : [...new Set(its.map(i => i.k))];
+  const cours = ks.flatMap(k => teacherCourses(k).filter(c => c.day === g.day));
+  return reunionParDefaut(its, cours);
+}
+function itemLabel(it){ return it.type === "v" ? `visite de ${tName(it.t)}` : it.type === "e" ? `entretien de ${tName(it.t)}` : "réunion d'équipe"; }
+
+function planGroups(){
+  const items = [];
+  for (const k of state.selected){
+    const p = state.plan[k]; if (!p) continue;
+    const t = state.teachers.get(k);
+    let uai = null;
+    if (p.visit != null && state.courses[p.visit]){
+      const c = state.courses[p.visit]; uai = c.uai;
+      const [s, e] = partRange(c, p.visitPart);
+      items.push({k, t, type:"v", day:c.day, start:s, end:e, uai, c, part:p.visitPart});
+    }
+    if (p.itv){
+      if (!uai){ const cd = state.courses.find(c => c.tkey === k && c.day === p.itv.day); uai = cd ? cd.uai : [...t.uais][0]; }
+      items.push({k, t, type:"e", day:p.itv.day, start:p.itv.start, end:p.itv.end, uai});
+    }
+  }
+  const map = new Map();
+  for (const it of items){ const gk = it.uai+"|"+it.day; if (!map.has(gk)) map.set(gk, {key:gk, uai:it.uai, day:it.day, items:[]}); map.get(gk).items.push(it); }
+  const groups = [...map.values()].sort((a,b)=>a.day-b.day||a.uai.localeCompare(b.uai));
+  for (const g of groups){
+    g.teachers = [...new Set(g.items.map(i => i.k))];
+    const m = state.meetings[g.key];
+    if (m) g.items.push({k:null, t:null, type:"r", day:g.day, start:m.start, end:m.end, uai:g.uai});
+    g.items.sort((a,b)=>a.start-b.start||({v:0,e:1,r:2}[a.type]-{v:0,e:1,r:2}[b.type]));
+    g.warn = []; g.info = [];
+    const pd = state.planDates[g.day] ? parseAnyDate(state.planDates[g.day]) : null;
+    if (pd && (pd.getUTCDay()+6)%7 !== g.day){ g.warn.push(`La date choisie n'est pas un ${DAYS[g.day].toLowerCase()}.`); g.date = null; }
+    else g.date = pd || (state.mode === "date" ? addDays(state.monday, g.day) : null);
+    if (g.date){
+      const cal = state.calendar.get(isoDay(mondayOf(g.date)));
+      if (cal && cal.sem === "V") g.warn.push("Cette date tombe pendant les vacances scolaires.");
+      for (const it of g.items){
+        if (it.type !== "v") continue;
+        const sem = cal && cal.sem !== "V" ? cal.sem : null;
+        const semestre = (cal && cal.semestre) || defaultSemestre(g.date);
+        if ((sem === "A" && it.c.alt === "Q2") || (sem === "B" && it.c.alt === "Q1"))
+          g.warn.push(`Le cours visité de ${tName(it.t)} (${it.c.alt}) n'a pas lieu en semaine ${sem}.`);
+        if ((semestre === "S1" && it.c.alt === "S2") || (semestre === "S2" && it.c.alt === "S1"))
+          g.warn.push(`Le cours visité de ${tName(it.t)} (${it.c.alt}) n'a pas lieu à cette période.`);
+      }
+    }
+    for (let i = 0; i < g.items.length; i++) for (let j = i+1; j < g.items.length; j++){
+      const a = g.items[i], b = g.items[j];
+      if (b.start < a.end && a.start < b.end) g.warn.push(`Chevauchement : ${itemLabel(a)} et ${itemLabel(b)}.`);
+    }
+    for (const k of g.teachers){
+      const has = ty => g.items.some(i => i.k === k && i.type === ty);
+      const t = state.teachers.get(k);
+      if (has("v") && !has("e")) g.warn.push(`Entretien à fixer pour ${tName(t)}.`);
+      if (has("e") && !has("v")) g.warn.push(`Cours à visiter à choisir pour ${tName(t)}.`);
+    }
+    if (m){
+      const equipe = state.uais.get(g.uai) ? [...state.uais.get(g.uai)] : g.teachers;
+      const coursJour = equipe.flatMap(k => teacherCourses(k).filter(c => c.day === g.day));
+      const libres = libresSur(equipe, coursJour, m.start, m.end);
+      g.info.push(`Réunion : ${libres.length} professeur·e(s) de l'équipe sur ${equipe.length} sans cours sur ce créneau.`);
+      for (const k of g.teachers){
+        const cs = teacherCourses(k).filter(c => c.day === g.day && c.start < m.end - 4 && c.end > m.start + 4);
+        if (cs.length) g.info.push(`Pendant la réunion, ${tName(state.teachers.get(k))} a cours (${cs.map(c => c.classe).join(", ")}).`);
+      }
+    }
+  }
+  return groups;
+}
+
+const longDate = d => fmtDate(d, {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+function groupDateText(g){ return g.date ? longDate(g.date) : `${DAYS[g.day].toLowerCase()} [date à préciser]`; }
+
+/* Tableau HTML du jour (styles en ligne pour les messageries).
+   Colonne « IA-IPR » récapitulative + une colonne par professeur.
+   Une ligne par tranche horaire, cellules fusionnées (rowspan) sur la durée de chaque créneau,
+   plages libres conservées et pause méridienne signalée. */
+const PICTO = {v:"🧑\u200d🏫", e:"💬", r:"👥"};
+const BG = {v:"#d9e7fb", e:"#d7f0e2", r:"#f6e1ee"};
+const FG = {v:"#173f6b", e:"#14532d", r:"#6e1f4c"};
+// soustrait les intervalles déjà placés : renvoie les morceaux restants (>= 5 min)
+function subtractPlaced(e, placed){
+  let pieces = [{start:e.start, end:e.end}];
+  for (const p of placed){
+    const next = [];
+    for (const q of pieces){
+      if (p.end <= q.start || p.start >= q.end){ next.push(q); continue; }
+      if (p.start > q.start) next.push({start:q.start, end:p.start});
+      if (p.end < q.end) next.push({start:p.end, end:q.end});
+    }
+    pieces = next;
+  }
+  return pieces.filter(q => q.end - q.start >= 5).map(q => ({...e, ...q}));
+}
+function placeColumn(es, prio){
+  es.sort((a,b) => prio[a.kind] - prio[b.kind] || a.start - b.start);
+  const placed = [];
+  for (const e of es) placed.push(...subtractPlaced(e, placed));
+  return placed.sort((a,b) => a.start - b.start);
+}
+function planTableHTML(g){
+  const ks = g.teachers;
+  const wi = weekInfo();
+  const visits = g.items.filter(i => i.type === "v");
+  const meet = g.items.find(i => i.type === "r");
+  // colonne IA-IPR : créneaux identiques regroupés (« Visite M. X, Mme Y »)
+  const grouped = new Map();
+  for (const it of g.items){
+    const key = `${it.type}|${it.start}|${it.end}`;
+    if (!grouped.has(key)) grouped.set(key, {kind:it.type, start:it.start, end:it.end, names:[]});
+    if (it.t) grouped.get(key).names.push(tName(it.t));
+  }
+  const ipr = placeColumn([...grouped.values()], {v:0, e:1, r:2});
+  // colonnes professeurs
+  const cols = ks.map(k => {
+    const list = teacherCourses(k, wi).filter(c => c.day === g.day);
+    for (const v of visits.filter(v => v.k === k)) if (!list.includes(v.c)) list.push(v.c);
+    const es = [];
+    for (const c of list){
+      const v = visits.find(v => v.c === c);
+      if (!v){ es.push({start:c.start, end:c.end, kind:"c", c}); continue; }
+      es.push({start:v.start, end:v.end, kind:"v", c});
+      if (v.start > c.start) es.push({start:c.start, end:v.start, kind:"c", c});
+      if (v.end < c.end) es.push({start:v.end, end:c.end, kind:"c", c});
+    }
+    for (const it of g.items) if (it.k === k && it.type === "e") es.push({start:it.start, end:it.end, kind:"e"});
+    if (meet){
+      // les heures de cours pendant la réunion sont découpées puis colorées en rose
+      const cut = [];
+      for (const e of es){
+        if (e.kind !== "c" || e.end <= meet.start || e.start >= meet.end){ cut.push(e); continue; }
+        const a = Math.max(e.start, meet.start), b = Math.min(e.end, meet.end);
+        if (a > e.start) cut.push({...e, end:a});
+        cut.push({...e, start:a, end:b, inMeet:true});
+        if (b < e.end) cut.push({...e, start:b});
+      }
+      es.length = 0; es.push(...cut);
+      es.push({start:meet.start, end:meet.end, kind:"r"});
+    }
+    return placeColumn(es, {v:0, e:1, c:2, r:3});
+  });
+  const allCols = [ipr, ...cols];
+  const allE = allCols.flat();
+  if (!allE.length) return "";
+  // tranches horaires
+  const tset = new Set();
+  for (const e of allE){ tset.add(e.start); tset.add(e.end); }
+  const times = [...tset].sort((a,b) => a - b);
+  const segs = [];
+  for (let i = 0; i < times.length - 1; i++) segs.push({start:times[i], end:times[i+1]});
+  for (const s of segs) s.empty = !allE.some(e => e.start < s.end && e.end > s.start);
+  const LUNCH_A = 11*60+30, LUNCH_B = 14*60;
+  const rows = [];
+  for (const s of segs){
+    const last = rows[rows.length - 1];
+    if (s.empty && last && last.empty && last.end === s.start){ last.end = s.end; continue; }
+    rows.push({...s});
+  }
+  // une plage libre qui chevauche 11h30–14h est découpée : seule la partie dans cette fenêtre est la pause méridienne
+  const split = [];
+  for (const r of rows){
+    if (!r.empty || r.end <= LUNCH_A || r.start >= LUNCH_B){ split.push(r); continue; }
+    const a = Math.max(r.start, LUNCH_A), b = Math.min(r.end, LUNCH_B);
+    if (a > r.start) split.push({start:r.start, end:a, empty:true});
+    split.push({start:a, end:b, empty:true, lunch:(b - a) >= 30});
+    if (b < r.end) split.push({start:b, end:r.end, empty:true});
+  }
+  const kept = split.filter(r => !r.empty || r.lunch || (r.end - r.start) >= 20);
+
+  const FONT = "font-family:Marianne,Arial,Helvetica,sans-serif";
+  const SHORT = 20;                                     // tranche « courte » : moins de 20 min
+  const isShort = r => r.end - r.start < SHORT;
+  const th = `border:1px solid #c9ccd1;padding:5px 9px;background:#e4e7eb;color:#1e1f22;text-align:left;font-weight:bold;${FONT};font-size:11pt`;
+  const tdBase = `border:1px solid #c9ccd1;vertical-align:top;background:#ffffff;color:#1e1f22;${FONT}`;
+  const tdN = `${tdBase};padding:5px 9px;font-size:11pt`;                 // ligne normale
+  const tdS = `${tdBase};padding:1px 9px;font-size:8pt;line-height:1.15`; // ligne courte
+  const et = state.etabs.get(g.uai);
+  const nCol = allCols.length;
+  const small = (txt, color) => `<span style="font-size:9pt;color:${color}">${txt}</span>`;
+  // contenu d'une cellule ; compact = une seule ligne courte ; when = horaire réel affiché dans la cellule
+  const iprCell = (e, compact, when) => {
+    const label = e.kind === "v" ? `Visite ${joinNames(e.names)}` : e.kind === "e" ? `Entretien ${joinNames(e.names)}` : "Réunion équipe";
+    return `background:${BG[e.kind]};color:${FG[e.kind]}"><b>${PICTO[e.kind]} ${esc(label)}</b>${when && !compact ? "<br>" + small(when, FG[e.kind]) : ""}`;
+  };
+  const profCell = (e, compact, when) => {
+    const w = col => when && !compact ? "<br>" + small(when, col) : "";
+    if (e.kind === "e") return `background:${BG.e};color:${FG.e}">${PICTO.e}${w(FG.e)}`;
+    if (e.kind === "r") return `background:${BG.r};color:${FG.r}">${PICTO.r}${w(FG.r)}`;
+    const lib = esc(shortLib(e.c.libelle)), cl = esc(e.c.classe);
+    const away = e.c.uai !== g.uai ? ` ${small("(autre établissement)", "#666666")}` : "";
+    const [bg, fg, pic] = e.kind === "v" ? [BG.v, FG.v, PICTO.v + " "] : e.inMeet ? [BG.r, FG.r, PICTO.r + " "] : ["#ffffff", "#444444", ""];
+    if (compact) return `background:${bg};color:${fg}">${pic}${cl}${away}`;
+    return `background:${bg};color:${fg}">${pic}${cl}<br>${small(lib, fg)}${away}${w(fg)}`;
+  };
+  const coveredRows = e => kept.filter(r => r.start >= e.start && r.end <= e.end);
+  let h = `<table style="border-collapse:collapse;${FONT};font-size:11pt;color:#1e1f22;background:#ffffff">`;
+  h += `<caption style="text-align:left;font-weight:bold;${FONT};font-size:12pt;padding:6px 8px;background:#ffffff;color:#1e1f22">Proposition de planning — ${esc(groupDateText(g))}${et && et.nom ? " — "+esc(et.nom) : ""}</caption>`;
+  h += `<tr><th style="${th}">Horaire</th><th style="${th}">${esc(state.profil === "ipr" ? "IA-IPR" : "CMi")}</th>${ks.map(k => `<th style="${th}">${esc(tName(state.teachers.get(k)))}</th>`).join("")}</tr>`;
+  for (const r of kept){
+    const hour = `${fmtMin(r.start)} – ${fmtMin(r.end)}`;
+    const sh = isShort(r), td = sh ? tdS : tdN;
+    if (r.empty){
+      h += `<tr><td style="${td};background:#f1f2f4;white-space:nowrap;color:#555555">${hour}</td>`
+        + `<td colspan="${nCol}" style="${td};background:#f1f2f4;color:#555555;font-style:italic;text-align:center">${r.lunch ? "Pause méridienne" : ""}</td></tr>`;
+      continue;
+    }
+    h += `<tr><td style="${td};background:#f8f9fa;white-space:nowrap;${sh ? "color:#555555" : "font-weight:bold"}">${hour}</td>`;
+    allCols.forEach((col, ci) => {
+      const starting = col.find(e => e.start === r.start);
+      if (starting){
+        const rowsIn = coveredRows(starting), n = rowsIn.length;
+        // cellule d'une seule ligne courte : contenu compact ; cellule fusionnée : horaire réel écrit dedans
+        const compact = n === 1 && sh;
+        const when = n > 1 ? `${fmtMin(starting.start)} – ${fmtMin(starting.end)}` : "";
+        const cellTd = compact ? tdS : tdN;
+        h += `<td${n > 1 ? ` rowspan="${n}"` : ""} style="${cellTd};${ci === 0 ? iprCell(starting, compact, when) : profCell(starting, compact, when)}</td>`;
+        return;
+      }
+      if (col.some(e => e.start < r.start && e.end > r.start)) return; // couverte par une cellule fusionnée
+      h += `<td style="${td}"></td>`;
+    });
+    h += `</tr>`;
+  }
+  h += `</table>`;
+  h += `<p style="${FONT};font-size:9pt;color:#444444;background:#ffffff;display:inline-block;padding:3px 8px;margin:6px 0 0">${PICTO.v} visite · ${PICTO.e} entretien · ${PICTO.r} réunion d'équipe</p>`;
+  return h;
+}
+/* =====================================================================
+   Mails (modèles de la table Modeles_mail)
+   ===================================================================== */
+const itemsTexte = g => g.items.map(it => ({ type: it.type, start: it.start, end: it.end, nom: it.t ? tName(it.t) : "", classe: it.c ? it.c.classe : "" }));
+// Adresse d'un·e professeur·e : table Professeurs (même nom et prénom, établissement du planning d'abord).
+function mailProf(t, uai){
+  const l = (state.T.Professeurs || []).filter(p => matchNom(p) === t.mkey);
+  const p = l.find(x => norm(x.UAI) === uai && x.Email) || l.find(x => x.Email);
+  return p ? String(p.Email) : "";
+}
+const matchNom = p => norm(`${p.Nom || ""} ${p.Prenom || ""}`).replace(/[^A-Z0-9]+/g, " ").trim();
+function contexteMail(g){
+  const ts = g.teachers.map(k => state.teachers.get(k));
+  const vis = g.items.filter(i => i.type === "v").map(i => i.t);
+  const fiche = personne(moiPers());
+  const ref = fiche && fiche.Referent ? personne(fiche.Referent) : null;
+  return {
+    chef: mailEtablissement(g.uai, state.T.Etablissements || []),
+    equipe: ts.map(t => ({ nom: tName(t), mail: mailProf(t, g.uai) })),
+    visites: vis.map(t => ({ nom: tName(t), mail: mailProf(t, g.uai) })),
+    ipr: ref ? String(ref.Email || "") : "",
+    moi: fiche ? String(fiche.Email || "") : "",
+  };
+}
+function champsMail(g){
+  const e = (state.T.Etablissements || []).find(x => norm(x.UAI) === g.uai) || {};
+  const fiche = personne(moiPers()) || {};
+  const ref = fiche.Referent ? personne(fiche.Referent) : null;
+  return { etablissement: String(e.Nom || etabLabel(g.uai)), commune: String(e.Commune || ""), date: groupDateText(g),
+    planning: planningTexte(itemsTexte(g)), professeurs: joinNames(g.teachers.map(k => tName(state.teachers.get(k)))),
+    signataire: `${fiche.Prenom || ""} ${fiche.Nom || ""}`.trim(), fonction: String(fiche.Titre_signature || fiche.Fonction || ""),
+    ipr: ref ? `${ref.Prenom || ""} ${ref.Nom || ""}`.trim() : "" };
+}
+function mailsDe(g){
+  const c = contexteMail(g), v = champsMail(g);
+  return modelesPour(state.T.Modeles_mail || [], state.profil).map((m, i) => {
+    const d = destinataires(m, c);
+    return { i, libelle: String(m.Titre || m.Code), href: lienMailto(d.to, d.cc, remplirModele(m.Objet, v), remplirModele(m.Texte, v)),
+      titre: `À : ${d.to.join(", ") || "—"}${d.cc.length ? " · copie : " + d.cc.join(", ") : ""}` };
+  });
+}
+function mailsSansAdresse(g){
+  const c = contexteMail(g);
+  const vus = modelesPour(state.T.Modeles_mail || [], state.profil).flatMap(m => destinataires(m, c).sansMail);
+  return [...new Set(vus)];
+}
+
+/* =====================================================================
+   Mémoire des plannings (table EdT_memo) et lien avec le plan
+   ===================================================================== */
+const peutMemoriser = () => state.droitsMemo.C === "Oui" || (state.droitsMemo.C === "Limité" && !!moiPers());
+const peutSupprimerMemo = m => state.droitsMemo.S === "Oui" || (state.droitsMemo.S === "Limité" && m.auteur === moiPers() && !!moiPers());
+function memoRowsFor(g, etat){
+  const now = versGrist(todayUTC());
+  return g.items.map(it => ({
+    UAI: g.uai, Date: versGrist(g.date || null), Jour: DAYS[g.day],
+    Professeur: it.type === "r" ? g.teachers.map(k => tName(state.teachers.get(k))).join(", ") : tName(it.t),
+    Type: it.type === "v" ? "Visite" : it.type === "e" ? "Entretien" : "Réunion d'équipe",
+    Debut: toHHMM(it.start), Fin: toHHMM(it.end),
+    Classe: it.type === "v" ? it.c.classe : "", Libelle: it.type === "v" ? it.c.libelle : "",
+    Etat: etat || ETATS.prop, Auteur: moiPers(), Enregistre_le: now
+  }));
+}
+async function memoSave(g, etat){
+  const rows = memoRowsFor(g, etat);
+  const same = r => norm(r.UAI) === g.uai && (g.date ? memoDateIso(r.Date) === isoDay(g.date) : (!memoDateIso(r.Date) && norm(r.Jour) === norm(DAYS[g.day])));
+  // un planning d'un·e autre (CMi) n'est pas remplacé : le sien s'ajoute
+  const old = (state.T.EdT_memo || []).filter(same).filter(r => state.droitsMemo.S === "Oui" || r.Auteur === moiPers());
+  const actions = [];
+  if (old.length) actions.push(["BulkRemoveRecord", "EdT_memo", old.map(r => r.id)]);
+  // « Visite calée » : date reportée au plan pour chaque visite de l'année de ces professeur·es (si le compte peut modifier ses visites)
+  const vp = etat === ETATS.calee && g.date ? visitesDuPlanning(state.T.Visites || [], g.uai, g.teachers.map(k => state.teachers.get(k)), rentree())
+    .filter(v => state.droitsVisites.M === "Oui" || (state.droitsVisites.M === "Limité" && v.CMi === moiPers())) : [];
+  const parProf = new Map(vp.map(v => [matchNom({Nom: v.Prof_nom, Prenom: v.Prof_prenom}), v.id]));
+  const cols = {};
+  for (const c of ["UAI", "Date", "Jour", "Professeur", "Type", "Debut", "Fin", "Classe", "Libelle", "Etat", "Auteur", "Enregistre_le"]) cols[c] = rows.map(r => r[c]);
+  if (vp.length) cols.Visite = rows.map((r, i) => { const it = g.items[i]; return it.t ? (parProf.get(it.t.mkey) || 0) : 0; });
+  actions.push(["BulkAddRecord", "EdT_memo", rows.map(() => null), cols]);
+  for (const v of vp) actions.push(["UpdateRecord", "Visites", v.id, { Date_prevue: versGrist(g.date) }]);
+  const res = await ecrire(actions, "", charger);
+  return res ? { replaced: old.length, calees: vp.length } : null;
+}
+async function memoDelete(mg){
+  const ids = mg.rows.filter(r => state.droitsMemo.S === "Oui" || r.Auteur === moiPers()).map(r => r.id);
+  if (ids.length) await ecrire([["BulkRemoveRecord", "EdT_memo", ids]], "Planning supprimé de la mémoire", charger);
+}
+const memoDateIso = v => { const d = parseAnyDate(v); return d ? isoDay(d) : ""; };
+function memoGroups(){
+  const map = new Map();
+  for (const r of state.T.EdT_memo || []){
+    const u = norm(r.UAI); if (!u) continue;
+    const di = memoDateIso(r.Date);
+    const key = `${u}|${di}|${norm(r.Jour)}`;
+    if (!map.has(key)) map.set(key, {key, uai:u, date: di ? parseAnyDate(di) : null, jour: String(r.Jour || ""), rows:[], saved:null, etat:"", auteur: r.Auteur || 0});
+    const g = map.get(key); g.rows.push(r);
+    if (r.Etat && !g.etat) g.etat = String(r.Etat);
+    const sv = parseAnyDate(r.Enregistre_le); if (sv && (!g.saved || sv > g.saved)) g.saved = sv;
+  }
+  return [...map.values()].sort((a,b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0));
+}
+function memoApply(mg){
+  const day = DAYS.findIndex(d => norm(d) === norm(mg.jour)) >= 0 ? DAYS.findIndex(d => norm(d) === norm(mg.jour)) : (mg.date ? (mg.date.getUTCDay()+6)%7 : 0);
+  const plan = {}, missing = [];
+  const keys = [];
+  let meeting = null;
+  for (const r of mg.rows){
+    const ty = norm(r.Type), s = fromHHMM(r.Debut), e = fromHHMM(r.Fin);
+    if (/REUNION/.test(ty)){ if (!isNaN(s) && !isNaN(e)) meeting = {start:s, end:e}; continue; }
+    const k = parseName(r.Professeur).key;
+    if (!state.teachers.has(k)){ missing.push(r.Professeur); continue; }
+    if (!keys.includes(k)) keys.push(k);
+    const p = plan[k] || (plan[k] = {visit:null, visitSig:null, visitPart:null, itv:null});
+    if (/VISITE/.test(ty)){
+      const c = state.courses.find(c => c.tkey === k && c.day === day && c.start <= s && c.end >= e && (!r.Classe || norm(c.classe) === norm(r.Classe)))
+             || state.courses.find(c => c.tkey === k && c.day === day && c.start <= s && c.end >= e);
+      if (!c){ missing.push(`${r.Professeur} (cours ${r.Classe || ""} ${r.Debut})`); continue; }
+      p.visit = c.id; p.visitSig = sigOf(c);
+      p.visitPart = (s === c.start && e === c.end) || !canSplit(c) ? null : (s === c.start ? "h1" : "h2");
+    } else if (/ENTRETIEN/.test(ty) && !isNaN(s) && !isNaN(e)) p.itv = {day, start:s, end:e};
+  }
+  state.selected = keys.slice(0, MAX_T);
+  state.plan = plan;
+  state.meetings = meeting ? {[`${mg.uai}|${day}`]: meeting} : {};
+  state.planDates = mg.date ? {[day]: isoDay(mg.date)} : {};
+  if (state.uais.has(mg.uai)){ state.uaiFilter = mg.uai; const dp = deptOf(mg.uai); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp); }
+  if (mg.date){ state.mode = "date"; state.userMode = true; state.monday = mondayOf(mg.date); }
+  state.focusDay = day; state.mobileDay = day; state.pop = null;
+  savePlan(); saveSelection(); render();
+  toast(missing.length ? `Planning rechargé. Introuvable dans l'EDT actuel : ${missing.join(", ")}.` : "Planning rechargé.", missing.length > 0);
+}
+
+/* =====================================================================
+   Rendu
+   ===================================================================== */
+const isMobile = () => window.matchMedia("(max-width:720px)").matches;
+const tColor = i => `var(--t${((i % 10) + 10) % 10})`;
+function etabLabel(u){ const e = state.etabs.get(u); return e && e.nom ? `${e.nom}${e.ville ? " ("+e.ville+")" : ""}` : u; }
+const ABBR = [[/ENSEIGNEMENT SCIENTIFIQUE/g,"Ens. scientifique"],[/ACCOMPAGNEMENT PERSONNALISE/g,"Accomp. perso."],[/MATHEMATIQUES/g,"Maths"],[/COMPLEMENTAIRES/g,"compl."],[/EXPERTES/g,"expertes"],[/PHYSIQUE-CHIMIE/g,"Phys.-chimie"]];
+function shortLib(s){ let r = norm(s); for (const [re,v] of ABBR) r = r.replace(re,v); return r === norm(s) ? s : r; }
+function tName(t){ return `${t.civ ? t.civ+" " : ""}${t.name}`; }
+/* Pastilles : stagiaire (corps, concours, PU / PR, quotité), MD */
+const reps = t => reperesDe(state.reperes, t, state.uaiFilter);
+const pstgOf = t => reps(t).find(x => x.type === "stg") || null;
+const mdOf = t => reps(t).find(x => x.type === "md") || null;
+function flagsHTML(t){
+  return reps(t).map(x => x.type === "stg" ? ` <span class="fl-s" title="${esc(x.titre)}">(S) ${esc(x.label)}</span>` : ` <span class="fl-m" title="${esc(x.titre)}">MD</span>`).join("");
+}
+function renderDepts(){
+  $("#depts").innerHTML = DEPTS.map(d => `<button data-dep="${d}" class="${state.depts.includes(d)?"on":""}" aria-pressed="${state.depts.includes(d)}" title="Département ${d}${state.depts.length ? "" : " (aucun coché = tous)"}">${d}</button>`).join("");
+}
+function etabItems(){
+  const cnt = (set, f) => [...set].filter(k => f(state.teachers.get(k))).length;
+  return [...state.uais.entries()].filter(([u]) => inDepts(u)).map(([u,set]) => {
+    const e = state.etabs.get(u) || {};
+    return {u, nom:e.nom || "", ville:e.ville || "", n:set.size, md:cnt(set, mdOf), st:cnt(set, pstgOf)};
+  }).sort((a,b) => (a.nom || a.u).localeCompare(b.nom || b.u, "fr"));
+}
+function etabText(u){ const e = state.etabs.get(u); return e && e.nom ? `${u} — ${e.nom}${e.ville ? " (" + e.ville + ")" : ""}` : u; }
+function renderEtabSelect(){
+  const inp = $("#etabq");
+  const nT = state.depts.length ? [...state.teachers.values()].filter(t => [...t.uais].some(inDepts)).length : state.teachers.size;
+  inp.placeholder = `Tous${state.depts.length ? " (dép. " + state.depts.join(", ") + ")" : ""} · ${nT} profs — nom, ville ou UAI…`;
+  if (document.activeElement !== inp) inp.value = state.uaiFilter ? etabText(state.uaiFilter) : "";
+}
+let eIndex = 0, eItems = [], eTyped = false;
+function hiWords(text, words){
+  let h = esc(text);
+  for (const w of words){ if (!w) continue; const re = new RegExp("(" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"); h = h.replace(re, "<mark>$1</mark>"); }
+  return h;
+}
+function refreshEtabDropdown(){
+  const inp = $("#etabq"), dd = $("#edd");
+  const q = eTyped ? norm(inp.value) : "";
+  const words = q.split(/\s+/).filter(Boolean);
+  let list = etabItems();
+  if (words.length) list = list.filter(o => { const hay = norm(`${o.u} ${o.nom} ${o.ville}`); return words.every(w => hay.includes(w)); });
+  eItems = [{u:"", all:true}, ...list.slice(0, 120)];
+  eIndex = Math.min(eIndex, eItems.length - 1);
+  const rawWords = eTyped ? inp.value.trim().split(/\s+/).filter(Boolean) : [];
+  dd.innerHTML = eItems.map((o, i) => {
+    if (o.all) return `<div class="opt eopt${i===eIndex?" hl":""}${!state.uaiFilter?" cur":""}" data-e=""><span class="nm">Tous les établissements</span>${state.depts.length ? ` <small>départements ${esc(state.depts.join(", "))}</small>` : ""}</div>`;
+    const extra = [o.ville, `${o.n} prof${o.n>1?"s":""}`, o.st ? `${o.st} stag.` : "", o.md ? `${o.md} MD` : ""].filter(Boolean).join(" · ");
+    return `<div class="opt eopt${i===eIndex?" hl":""}${o.u===state.uaiFilter?" cur":""}" data-e="${esc(o.u)}"><span class="u">${hiWords(o.u, rawWords)}</span><span class="nm">${hiWords(o.nom, rawWords)}</span><small>${hiWords(extra, rawWords)}</small></div>`;
+  }).join("") + (list.length > 120 ? `<div class="empty-opt">… ${list.length - 120} autres, affinez la recherche</div>` : "")
+    + (eItems.length === 1 && words.length ? `<div class="empty-opt">Aucun établissement ne correspond.</div>` : "");
+  dd.classList.add("open"); inp.setAttribute("aria-expanded", "true");
+  const hl = dd.querySelector(".hl"); if (hl) hl.scrollIntoView({block:"nearest"});
+}
+function closeEtab(){ $("#edd").classList.remove("open"); $("#etabq").setAttribute("aria-expanded","false"); renderEtabSelect(); }
+function chooseEtab(u){
+  state.uaiFilter = u; eTyped = false;
+  $("#etabq").blur(); $("#edd").classList.remove("open");
+  saveSelection(); render();
+}
+
+function renderChips(){
+  const el = $("#chips");
+  const teamN = state.uaiFilter ? (state.uais.get(state.uaiFilter) || new Set()).size : 0;
+  const teamAll = teamN && [...state.uais.get(state.uaiFilter)].every(k => state.selected.includes(k));
+  const teamBtn = teamN > 1 && !teamAll ? `<button class="ibtn team" id="allTeam" title="Sélectionner tous les professeur·es de l'établissement">＋ Toute l'équipe (${teamN})</button>` : "";
+  if (!state.selected.length){ el.innerHTML = `<span class="hint">Choisissez un·e ou plusieurs professeur·es</span>${teamBtn}`; return; }
+  el.innerHTML = state.selected.map((k,i) => {
+    const t = state.teachers.get(k);
+    const u = [...t.uais];
+    return `<span class="chip" style="--tc:${tColor(i)}"><span class="dot"></span>${esc(tName(t))}${flagsHTML(t)}${u.length>1?` <small>${u.length} étab.</small>`:""}<button data-rm="${esc(k)}" title="Retirer" aria-label="Retirer ${esc(t.name)}">×</button></span>`;
+  }).join("") + teamBtn + (state.selected.length > 1 ? `<button class="ibtn" id="clearSel" title="Tout retirer">Vider</button>` : "");
+}
+function renderWeekbar(){
+  const wi = weekInfo();
+  const hasCal = state.calendar.size > 0;
+  let nav = "";
+  if (state.mode === "date"){
+    const m = state.monday, f = addDays(m,4);
+    const dateVal = state.focusDay != null ? addDays(m, state.focusDay) : m;
+    let tag = "";
+    if (wi.vac) tag = `<span class="tag V">Vacances</span>`;
+    else if (wi.ab) tag = `<span class="tag ${wi.ab}">Semaine ${wi.ab}</span>`;
+    else tag = `<span class="tag">hors calendrier</span>`;
+    nav = `<span class="nav"><button class="ibtn" data-wk="-1" title="Semaine précédente" aria-label="Semaine précédente">‹</button>
+      <input type="date" class="ibtn" id="wdate" value="${isoDay(dateVal)}" title="Choisir une date : affiche ce jour">
+      <button class="ibtn" data-wk="1" title="Semaine suivante" aria-label="Semaine suivante">›</button>
+      <button class="ibtn" data-wk="0">Cette semaine</button></span>
+      <span class="wlabel">du ${fmtDate(m,{day:"numeric",month:"short"})} au ${fmtDate(f,{day:"numeric",month:"short",year:"numeric"})}</span>
+      ${tag} <span class="tag" title="Semestre utilisé pour les cours S1/S2">${wi.semestre}</span>`;
+  }
+  const focus = state.focusDay != null && !isMobile()
+    ? `<button class="ibtn" id="unfocus" title="Revenir à la semaine complète">← Toute la semaine</button>` : "";
+  let satNote = "";
+  if (!state.showSat){
+    const n = state.courses.filter(c => c.day === 5 && state.selected.includes(c.tkey) && isVisible(c, wi)).length;
+    if (n) satNote = ` <small class="hint">(${n})</small>`;
+  }
+  $("#weekbar").innerHTML = `
+    <span class="seg" role="group" aria-label="Type de semaine">
+      <button data-mode="date" class="${state.mode==="date"?"on":""}" ${hasCal?"":'title="Remplir la table Calendrier (semaines A / B, vacances) pour activer ce mode"'}>Date</button>
+      <button data-mode="A" class="${state.mode==="A"?"on":""}">Sem. A</button>
+      <button data-mode="B" class="${state.mode==="B"?"on":""}">Sem. B</button>
+      <button data-mode="type" class="${state.mode==="type"?"on":""}" title="Tous les cours, toutes alternances confondues">Semaine type</button>
+    </span>
+    ${nav} ${focus}
+    <span class="spacer"></span>
+    <label class="toggle"><input type="checkbox" id="tSug" ${state.suggest?"checked":""}>Créneaux visite + entretien</label>
+    <label class="toggle"><input type="checkbox" id="tSat" ${state.showSat?"checked":""}>Samedi${satNote}</label>`;
+}
+function renderBanners(){
+  const wi = weekInfo(); const b = [];
+  if (state.auxMsg) b.push(`<div class="banner">${esc(state.auxMsg)}</div>`);
+  if (state.mode === "date" && !state.calendar.size) b.push(`<div class="banner">Table Calendrier vide ou absente : impossible de savoir si cette semaine est A ou B. Tous les cours sont affichés.</div>`);
+  else if (state.mode === "date" && wi.missing && state.calendar.size) b.push(`<div class="banner">Cette semaine n'est pas dans le calendrier : tous les cours sont affichés (Q1 et Q2).</div>`);
+  if (wi.vac) b.push(`<div class="banner">Vacances scolaires cette semaine.</div>`);
+  if (state.selected.length > 4 && state.focusDay == null && !isMobile()) b.push(`<div class="banner info">${state.selected.length} professeur·es : cliquez sur l'en-tête d'un jour pour une vue plus lisible.</div>`);
+  $("#banners").innerHTML = b.join("");
+}
+function renderGrid(){
+  const wrap = $("#gridwrap"), tabs = $("#daytabs");
+  state.ghostRefs = [];
+  if (!state.selected.length){
+    tabs.innerHTML = "";
+    wrap.innerHTML = state.teachers.size
+      ? `<div class="placeholder"><b>Aucun·e professeur·e sélectionné·e</b>Choisissez l'établissement, puis un nom ou « ＋ Toute l'équipe ».</div>`
+      : `<div class="placeholder"><b>Aucun emploi du temps</b>${state.droitsEdt.C === "Oui" ? "Ajoutez ceux d'un établissement avec « ＋ Ajouter les EdT d'un établissement » (collage de la page Siiprien)." : "Les IA-IPR versent les emplois du temps depuis Siiprien."}</div>`;
+    return;
+  }
+  const wi = weekInfo();
+  const nT = state.selected.length;
+  const allDays = state.showSat ? [0,1,2,3,4,5] : [0,1,2,3,4];
+  if (state.focusDay != null && !allDays.includes(state.focusDay)) allDays.push(state.focusDay);
+  if (!allDays.includes(state.mobileDay)) state.mobileDay = 0;
+  const mobile = isMobile();
+  const days = mobile ? [state.mobileDay] : (state.focusDay != null ? [state.focusDay] : allDays);
+  const single = days.length === 1;
+
+  const lanes = state.selected.map(k => teacherCourses(k, wi));
+  const empty = () => ({stars:new Set(), ghosts:[]});
+  const sugg = lanes.map((l, li) => {
+    const p = state.plan[state.selected[li]];
+    if (wi.vac) return empty();
+    const hasVisit = p && p.visit != null;
+    if (!state.suggest && !hasVisit) return empty();
+    const s = suggestionsFor(l);
+    if (!state.suggest) s.stars = new Set();
+    if (p && p.itv) s.ghosts = [];
+    else if (hasVisit){ const vd = state.courses[p.visit].day; s.ghosts = s.ghosts.filter(g => g.day === vd); }
+    return s;
+  });
+  // réunion affichée seulement pour l'établissement en cours (filtre) et si le planning de cet établissement existe
+  const groupKeys = new Set(planGroups().map(g => g.key));
+  const meetings = Object.entries(state.meetings)
+    .map(([key, m]) => ({key, uai:key.split("|")[0], day:+key.split("|")[1], ...m}))
+    .filter(m => groupKeys.has(m.key) && (!state.uaiFilter || m.uai === state.uaiFilter));
+
+  // bornes horaires
+  let t0 = 8*60, t1 = 18*60;
+  const widen = (a,b) => { t0 = Math.min(t0, Math.floor(a/60)*60); t1 = Math.max(t1, Math.ceil(b/60)*60); };
+  for (const l of lanes) for (const c of l) if (allDays.includes(c.day)) widen(c.start, c.end);
+  for (const s of sugg) for (const g of s.ghosts) widen(g.start, g.end);
+  for (const k of state.selected){ const p = state.plan[k]; if (p && p.itv) widen(p.itv.start, p.itv.end); }
+  for (const m of meetings) widen(m.start, m.end);
+  const hourPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hourpx")) || 64;
+  const PAD = 10;
+  const H = (t1 - t0)/60 * hourPx + 2*PAD;
+  const y = m => PAD + (m - t0)/60 * hourPx;
+
+  tabs.innerHTML = allDays.map(d => {
+    const n = lanes.reduce((a,l)=>a + l.filter(c=>c.day===d).length, 0);
+    return `<button data-day="${d}" class="${d===state.mobileDay?"on":""}">${DAYS_SHORT[d]}${n?` <small>${n}</small>`:""}</button>`;
+  }).join("");
+
+  let html = `<div class="grid" style="--days:${days.length};--h:${H}px"><div class="corner"></div>`;
+  for (const d of days){
+    const date = state.mode === "date" ? fmtDate(addDays(state.monday,d),{weekday: single ? "long" : undefined, day:"numeric",month: single ? "long" : "short"}) : "";
+    const tip = state.focusDay != null ? "Revenir à la semaine complète" : "Afficher uniquement ce jour";
+    html += `<div class="dh" data-focus="${d}" title="${tip}">${single && date ? date.charAt(0).toUpperCase()+date.slice(1) : DAYS[d]}${date && !single ?`<small>${date}</small>`:""}${state.focusDay != null ? `<span class="back">← toute la semaine</span>` : ""}${single
+      ? `<div class="lnames">${state.selected.map((k,i)=>{ const tt = state.teachers.get(k); return `<span style="--tc:${tColor(i)}" title="${esc(tName(tt))}">${esc(tt.name)}</span>`; }).join("")}</div>`
+      : `<div class="lanes">${state.selected.map((_,i)=>`<span style="--tc:${tColor(i)}"></span>`).join("")}</div>`}</div>`;
+  }
+  html += `<div class="times">`;
+  for (let m = t0; m <= t1; m += 60) html += `<span style="top:${y(m)}px">${m/60}h</span>`;
+  html += `</div>`;
+  for (const d of days){
+    html += `<div class="col${wi.vac?" vac":""}${d===5?" sat":""}">`;
+    for (let i=1;i<nT;i++) html += `<div class="lanesep" style="left:${i/nT*100}%"></div>`;
+    for (const m of meetings.filter(m => m.day === d)){
+      const u = m.key.split("|")[0];
+      html += `<div class="meet" data-meet="${esc(m.key)}" style="top:${y(m.start)+1}px;height:${y(m.end)-y(m.start)-2}px" ><span class="mtag" title="Réunion d'équipe (${esc(u)}) — cliquer pour modifier">👥 Réunion d'équipe ${fmtMin(m.start)}–${fmtMin(m.end)}</span></div>`;
+    }
+    lanes.forEach((l, li) => {
+      const k = state.selected[li], p = state.plan[k];
+      const laneW = 100/nT;
+      const pos = (a,b,l0,w) => `top:${y(a)+1}px;height:${y(b)-y(a)-2}px;left:calc(${l0}% + 2px);width:calc(${w}% - 4px)`;
+      for (const g of sugg[li].ghosts.filter(g => g.day === d)){
+        const gi = state.ghostRefs.push({k, day:g.day, start:g.start, end:g.end, after:g.after}) - 1;
+        const sel = state.pop && state.pop.kind === "ghost" && state.pop.k === k && state.pop.day === g.day && state.pop.start === g.start;
+        html += `<div class="ghost${sel?" sel":""}" data-g="${gi}" style="--tc:${tColor(li)};${pos(g.start,g.end,li*laneW,laneW)}" title="Cliquer pour choisir cet entretien">Entretien ?<br>${fmtMin(g.start)}–${fmtMin(g.end)}</div>`;
+      }
+      if (p && p.itv && p.itv.day === d){
+        html += `<div class="itvblk" data-itv="${esc(k)}" style="${pos(p.itv.start,p.itv.end,li*laneW,laneW)}" title="Entretien validé — cliquer pour modifier">✓ Entretien<small>${fmtMin(p.itv.start)}–${fmtMin(p.itv.end)}</small></div>`;
+      }
+      for (const c of pack(l.filter(c => c.day === d))){
+        const w = laneW / c._ncol, left = li*laneW + c._col*w;
+        const top = y(c.start), h = Math.max(y(c.end) - top, 16);
+        const away = state.uaiFilter && c.uai !== state.uaiFilter;
+        const t = state.teachers.get(c.tkey);
+        const multiUai = t.uais.size > 1;
+        const isVisit = p && p.visit === c.id;
+        const part = isVisit ? p.visitPart : null;
+        const cls = ["blk"]; if (c.alt !== "H") cls.push("alt"); if (away) cls.push("away"); if (wi.vac) cls.push("faded");
+        if (state.pop && state.pop.kind === "course" && state.pop.id === c.id) cls.push("sel");
+        if (isVisit) cls.push(part ? "visitp" : "visit");
+        const badge = c.alt !== "H" ? `<span class="bdg">${c.alt}</span>` : "";
+        const star = sugg[li].stars.has(c.id) && !isVisit ? '<span class="star" title="Cours visitable, heure libre ensuite">★</span>' : "";
+        const lines = [];
+        if (part){ const [vs, ve] = partRange(c, part); lines.push(`<div class="vpart" style="top:${y(vs)-top}px;height:${y(ve)-y(vs)-1}px"></div>`); }
+        if (isVisit) lines.push(`<span class="vbdg">VISITE${part ? " " + (part === "h1" ? "1re h" : "2e h") : ""}</span>`);
+        if (single) lines.push(`<div class="tm">${star}<span>${fmtMin(c.start)} – ${fmtMin(c.end)}</span>${badge}</div>`);
+        else lines.push(`<div class="tm">${star}<span>${fmtMin(c.start)}–</span><wbr><span>${fmtMin(c.end)}</span>${badge}</div>`);
+        const room = isVisit ? 14 : 0;
+        if (h > 30 + room) lines.push(`<div class="lb">${esc(c.classe)}${multiUai ? " · "+esc(c.uai) : ""}</div>`);
+        if (h > 44 + room || single && h > 40) lines.push(`<div class="cl">${esc(single ? c.libelle : shortLib(c.libelle))}</div>`);
+        const tip = `${tName(t)} — ${DAYS[c.day]} ${fmtMin(c.start)}-${fmtMin(c.end)}\n${c.libelle} · ${c.classe}\n${c.altRaw || "Hebdomadaire"} · ${etabLabel(c.uai)}`;
+        html += `<div class="${cls.join(" ")}" data-c="${c.id}" style="--tc:${tColor(li)};top:${top}px;height:${h-1}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" title="${esc(tip)}">${lines.join("")}</div>`;
+      }
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
+function timeForm(title, day, start, end, saveAct, delAct, extra){
+  return `<div class="tform"><b>${title} · ${DAYS[day]}</b>
+    <input type="time" step="300" class="tS" value="${toHHMM(start)}" aria-label="Début">
+    à <input type="time" step="300" class="tE" value="${toHHMM(end)}" aria-label="Fin">
+    <button class="btn pri" data-act="${saveAct}" ${extra}>${delAct ? "Enregistrer" : "Valider"}</button>
+    ${delAct ? `<button class="btn" data-act="${delAct}" ${extra}>Supprimer</button>` : ""}</div>`;
+}
+const itvForm = (k, day, start, end, existing) =>
+  timeForm(existing ? "Modifier l'entretien" : "Entretien", day, start, end, "itv-save", existing ? "itv-del" : "", `data-k="${esc(k)}" data-iday="${day}"`);
+
+function renderPop(){
+  const el = $("#detail");
+  const pop = state.pop;
+  if (!pop){ el.classList.remove("open"); return; }
+  let html = `<button class="x" aria-label="Fermer">×</button>`;
+  let color = tColor(0);
+  if (pop.kind === "course"){
+    const c = state.courses[pop.id]; if (!c){ state.pop = null; return renderPop(); }
+    const t = state.teachers.get(c.tkey); color = tColor(Math.max(state.selected.indexOf(c.tkey), 0));
+    const p = state.plan[c.tkey];
+    const isVisit = p && p.visit === c.id;
+    const alt = {H:"Hebdomadaire", Q1:"Semaine A (Q1)", Q2:"Semaine B (Q2)", S1:"1er semestre", S2:"2nd semestre"}[c.alt];
+    const e = state.etabs.get(c.uai);
+    html += `<h3>${esc(tName(t))}${flagsHTML(t)}</h3>
+      <div class="sub">${DAYS[c.day]} · ${fmtMin(c.start)} – ${fmtMin(c.end)} (${c.end-c.start} min)</div>
+      <dl>
+        <dt>Discipline</dt><dd>${esc(c.libelle)}</dd>
+        <dt>Classe</dt><dd>${esc(c.classe)}</dd>
+        <dt>Alternance</dt><dd>${alt}${c.altUnknown ? ` <span class="hint">(saisie « ${esc(c.altRaw)} » ignorée)</span>` : ""}</dd>
+        <dt>UAI</dt><dd>${esc(c.uai)}</dd>
+        ${e && e.nom ? `<dt>Établissement</dt><dd>${esc(e.nom)}${e.ville?", "+esc(e.ville):""}</dd>` : ""}
+      </dl>`;
+    const cur = isVisit ? (p.visitPart || "") : null;
+    const vbtn = (part, label) => {
+      const on = cur === part;
+      return `<button class="btn${on ? " pri" : ""}" data-act="visit" data-id="${c.id}" data-part="${part}"${on ? " disabled" : ""}>${label}</button>`;
+    };
+    html += `<div class="acts">`;
+    if (canSplit(c)){
+      const [a1,b1] = partRange(c,"h1"), [a2,b2] = partRange(c,"h2");
+      html += `<div class="hint" style="width:100%">${isVisit ? "Visite :" : "Visiter :"}</div>
+        ${vbtn("h1", `1re heure ${fmtMin(a1)}–${fmtMin(b1)}`)}${vbtn("h2", `2e heure ${fmtMin(a2)}–${fmtMin(b2)}`)}${vbtn("", "Tout le cours")}`;
+    } else if (!isVisit) html += `<button class="btn pri" data-act="visit" data-id="${c.id}" data-part="">Visiter ce cours</button>`;
+    if (isVisit) html += `<button class="btn" data-act="unvisit" data-k="${esc(c.tkey)}">Annuler la visite</button>`;
+    html += `</div>`;
+    if (p && p.visit != null && !isVisit) html += `<p class="hint" style="margin:6px 0 0">Une autre visite est déjà prévue pour ce ou cette professeur·e ; elle sera remplacée.</p>`;
+    if (isVisit){
+      if (p.itv) html += `<div class="okline">✓ Entretien validé : ${DAYS[p.itv.day]} ${fmtMin(p.itv.start)} – ${fmtMin(p.itv.end)} <button class="btn sm" data-act="itv-edit" data-k="${esc(c.tkey)}">Modifier</button></div>`;
+      else { const d = defaultItvFor(c.tkey, c.day, c.id); html += itvForm(c.tkey, c.day, d.start, d.end, false); }
+    }
+  } else if (pop.kind === "ghost" || pop.kind === "itv"){
+    const t = state.teachers.get(pop.k); color = tColor(Math.max(state.selected.indexOf(pop.k), 0));
+    const p = state.plan[pop.k];
+    html += `<h3>Entretien · ${esc(tName(t))}</h3>
+      <div class="sub">Heure sans cours pour ce ou cette professeur·e. Ajustez l'horaire si besoin.</div>`;
+    if (pop.kind === "ghost" && !(p && p.visit != null)) html += `<p class="hint" style="margin:0">Pensez aussi à choisir le cours à visiter (clic sur un cours, puis « Visiter »).</p>`;
+    html += itvForm(pop.k, pop.day, pop.start, pop.end, pop.kind === "itv");
+  } else if (pop.kind === "meet"){
+    const m = state.meetings[pop.key]; if (!m){ state.pop = null; return renderPop(); }
+    const [u, day] = pop.key.split("|");
+    color = "var(--meet)";
+    html += `<h3>Réunion d'équipe</h3>
+      <div class="sub">${esc(etabLabel(u))} · commune à tous les professeur·es du planning, même celles et ceux qui ont cours.</div>`;
+    html += timeForm("Horaire", +day, m.start, m.end, "meet-save", "meet-del", `data-key="${esc(pop.key)}"`);
+  }
+  el.style.setProperty("--tc", color);
+  el.innerHTML = html;
+  el.classList.add("open");
+}
+function memoRelevantUais(groups){
+  const s = new Set(groups.map(g => g.uai));
+  if (state.uaiFilter) s.add(state.uaiFilter);
+  for (const k of state.selected) for (const u of state.teachers.get(k).uais) s.add(u);
+  return s;
+}
+function etatBadge(etat){
+  if (!etat) return "";
+  const cal = /cal/i.test(norm(etat));
+  return `<span class="etat ${cal ? "cal" : "prop"}">${cal ? "✅" : "📝"} ${esc(etat)}</span> `;
+}
+function memoOf(g){
+  const di = g.date ? isoDay(g.date) : "";
+  return memoGroups().find(m => m.uai === g.uai && (di ? (m.date && isoDay(m.date) === di) : (!m.date && norm(m.jour) === norm(DAYS[g.day])))) || null;
+}
+function renderMemo(groups){
+  const uais = memoRelevantUais(groups);
+  const list = memoGroups().filter(m => uais.has(m.uai));
+  state.memoRefs = list;
+  if (!list.length) return `<div class="memo"><h4>Plannings en mémoire</h4><div class="hint">Aucun planning mémorisé pour ${uais.size > 1 ? "ces établissements" : "cet établissement"}.</div></div>`;
+  return `<div class="memo"><h4>Plannings en mémoire</h4><ul>${list.map((m, i) => {
+    const names = [...new Set(m.rows.filter(r => !/REUNION/.test(norm(r.Type))).map(r => r.Professeur))];
+    const nR = m.rows.some(r => /REUNION/.test(norm(r.Type)));
+    return `<li>${etatBadge(m.etat)}<b>${m.date ? esc(longDate(m.date)) : esc(m.jour) + " (sans date)"}</b>
+      <span class="hint">${esc(etabLabel(m.uai))} · ${esc(names.join(", "))}${nR ? " · réunion" : ""}${m.auteur ? " · " + esc(nomPersonne(m.auteur)) : ""}${m.saved ? " · enregistré le " + m.saved.toLocaleDateString("fr-FR", {timeZone:"UTC"}) : ""}</span>
+      <button class="btn sm" data-act="memo-load" data-m="${i}">Charger</button>
+      ${peutSupprimerMemo(m) ? `<button class="btn sm" data-act="memo-del" data-m="${i}">Supprimer</button>` : ""}</li>`;
+  }).join("")}</ul></div>`;
+}
+
+function renderPlan(){
+  const el = $("#plan");
+  const groups = state.selected.length ? planGroups() : [];
+  state.groupRefs = groups;
+  const memo = (state.selected.length || state.uaiFilter) ? renderMemo(groups) : "";
+  if (!groups.length){
+    el.innerHTML = state.selected.length || memo
+      ? `<h3>Planning proposé</h3><div class="hint">Cliquez sur un cours puis « Visiter », et choisissez l'heure d'entretien (créneau vert). Le planning et le mail au chef d'établissement apparaîtront ici.</div>${memo}`
+      : "";
+    return;
+  }
+  let html = `<h3>Planning proposé <button class="btn sm" data-act="clearplan" title="Effacer visites, entretiens et réunions">Tout effacer</button></h3>`;
+  groups.forEach((g, gi) => {
+    const dateVal = g.date ? isoDay(g.date) : (state.planDates[g.day] || "");
+    const hasMeet = !!state.meetings[g.key];
+    html += `<div class="pgroup">
+      <div class="phead"><b>${esc(etabLabel(g.uai))}</b>${etabLabel(g.uai) !== g.uai ? ` <small class="hint">${esc(g.uai)}</small>` : ""}
+        <span class="hint">·</span> <span>${DAYS[g.day]}</span>
+        <input type="date" data-pdate="${g.day}" value="${dateVal}" title="Date de la visite" aria-label="Date de la visite">
+        <span class="hint">${g.date ? esc(longDate(g.date)) : "date à préciser"}</span></div>
+      <ul class="pitems">${g.items.map(it => {
+        if (it.type === "r") return `<li style="--tc:var(--meet)"><span class="ptime">${fmtMin(it.start)} – ${fmtMin(it.end)}</span>
+          <span class="ptype r">Réunion</span> <span>Réunion d'équipe</span> <small>toute l'équipe</small>
+          <button class="btn sm" data-act="meet-edit" data-key="${esc(g.key)}">Modifier</button></li>`;
+        const li = state.selected.indexOf(it.k);
+        return `<li style="--tc:${tColor(li)}"><span class="ptime">${fmtMin(it.start)} – ${fmtMin(it.end)}</span>
+          <span class="ptype ${it.type}">${it.type === "v" ? "Visite" + (it.part ? " " + PART_LABEL[it.part] : "") : "Entretien"}</span>
+          <span class="pdot"></span> ${esc(tName(it.t))}${it.type === "v" ? ` <small>${esc(it.c.classe)} · ${esc(shortLib(it.c.libelle))}</small>` : ""}</li>`;
+      }).join("")}</ul>
+      ${g.warn.map(w => `<div class="pwarn">⚠ ${esc(w)}</div>`).join("")}
+      ${g.info.map(w => `<div class="pinfo">ℹ ${esc(w)}</div>`).join("")}
+      ${(() => { const vp = visitesDuPlanning(state.T.Visites || [], g.uai, g.teachers.map(k => state.teachers.get(k)), rentree());
+        return vp.length ? `<div class="pinfo">📅 Au plan : ${vp.map(v => esc(`${v.Prof_nom} ${v.Prof_prenom || ""}`.trim()) + (v.CMi ? " (" + esc(nomPersonne(v.CMi)) + ")" : "") + (v.Date_prevue ? " — calée le " + esc(fmtDate(parseAnyDate(v.Date_prevue), {day:"numeric", month:"long"})) : "")).join(" · ")}. « ✅ Visite calée » y reporte la date.</div>`
+          : `<div class="pinfo">Aucune visite au plan pour ${g.teachers.length > 1 ? "ces professeur·es" : "ce ou cette professeur·e"} cette année.</div>`; })()}
+      ${hasMeet ? "" : `<div class="padd"><button class="btn sm" data-act="meet-add" data-g="${gi}" title="Ajoute une heure de réunion commune à tous les professeur·es">＋ Réunion d'équipe</button></div>`}
+      <div class="prow mails">
+        ${mailsDe(g).map(x => `<a class="btn ${x.i ? "lblue" : "pri"}" href="${esc(x.href)}" target="_blank" rel="noopener" data-act="mail" data-g="${gi}" title="${esc(x.titre)}">✉ ${esc(x.libelle)}</a>`).join("")
+          || `<span class="hint">Aucun modèle de mail pour votre rôle (Modèles & phrases → Mails).</span>`}
+        <button class="btn lblue" data-act="copytable" data-g="${gi}" title="Copie le tableau mis en forme, à coller dans le mail">Copier le tableau</button>
+        <button class="btn lblue" data-act="copytext" data-g="${gi}" title="Copie le planning en texte">Copier le texte</button>
+      </div>
+      ${(() => { const s = mailsSansAdresse(g); return s.length ? `<div class="pinfo">ℹ Pas d'adresse connue pour ${esc(s.join(", "))} (table Professeurs) : à ajouter à la main.</div>` : ""; })()}
+      <div class="prow">
+        ${peutMemoriser() ? `<button class="btn" data-act="memo-save" data-etat="prop" data-g="${gi}" title="Enregistre ces créneaux (table EdT_memo), état « Planning proposé »">💾 Mémoriser le planning</button>
+        <button class="btn lgreen" data-act="memo-save" data-etat="calee" data-g="${gi}" title="Enregistre ces créneaux, état « Visite calée », et reporte la date dans le plan d'inspection">✅ Visite calée</button>` : `<span class="hint">Mémoriser : réservé (droits sur EdT_memo).</span>`}
+        ${(() => { const m = memoOf(g); return m ? `<span class="hint">En mémoire : ${etatBadge(m.etat || ETATS.prop)}</span>` : ""; })()}
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html + memo;
+}
+
+/* =====================================================================
+   Recherche de professeur·es
+   ===================================================================== */
+let ddIndex = 0, ddItems = [];
+/* Recherche de professeurs : dans l'établissement choisi d'abord, puis dans tous les autres.
+   Une ligne par (professeur, établissement) : choisir une ligne sélectionne aussi l'établissement. */
+function refreshDropdown(){
+  const q = norm($("#q").value);
+  const words = q.split(/\s+/).filter(Boolean);
+  const dd = $("#dd");
+  const match = t => words.every(w => t.key.includes(w));
+  const flag = t => state.ddFilter === "md" ? !!mdOf(t) : state.ddFilter === "pstg" ? !!pstgOf(t) : true;
+  const all = [...state.teachers.values()];
+  let local, others = [];
+  if (state.uaiFilter){
+    local = all.filter(t => t.uais.has(state.uaiFilter) && match(t));
+    if (words.length) others = all.filter(t => !t.uais.has(state.uaiFilter) && match(t));
+  } else {
+    local = all.filter(t => match(t) && (words.length || [...t.uais].some(inDepts)));
+  }
+  const counted = [...local, ...others];
+  const nM = counted.filter(mdOf).length, nS = counted.filter(pstgOf).length;
+  local = local.filter(flag); others = others.filter(flag);
+  const byName = (a,b) => a.name.localeCompare(b.name, "fr");
+  local.sort(byName); others.sort(byName);
+  const expand = (list, onlyUai) => list.flatMap(t => {
+    const us = onlyUai ? [onlyUai] : [...t.uais].sort((a,b) => (t.byUai.get(b) || 0) - (t.byUai.get(a) || 0));
+    return us.map(u => ({t, u}));
+  });
+  const rowsLocal = expand(local, state.uaiFilter || null);
+  const rowsOther = expand(others, null);
+  const head = state.reperes.size ? `<div class="ddhead">
+      <button data-ddf="all" class="${state.ddFilter==="all"?"on":""}">Tous</button>
+      <button data-ddf="pstg" class="${state.ddFilter==="pstg"?"on":""}">Stagiaires (${nS})</button>
+      <button data-ddf="md" class="${state.ddFilter==="md"?"on":""}">MD (${nM})</button></div>` : "";
+  const LIM = 80;
+  ddItems = [...rowsLocal, ...rowsOther].slice(0, LIM);
+  ddIndex = Math.min(ddIndex, Math.max(ddItems.length-1, 0));
+  const row = (r, i) => {
+    const t = r.t, sel = state.selected.includes(t.key) && (!r.u || r.u === state.uaiFilter || !state.uaiFilter);
+    const cls = (pstgOf(t) ? " pstg" : "") + (mdOf(t) ? " md" : "");
+    const where = r.u === state.uaiFilter ? "" : etabLabel(r.u);
+    const n = t.byUai.get(r.u) || t.n;
+    return `<div class="opt${cls}${i===ddIndex?" hl":""}${sel?" dis":""}" data-t="${esc(t.key)}" data-u="${esc(r.u || "")}"><span>${esc(tName(t))}${flagsHTML(t)}</span><small>${sel ? "déjà choisi · " : ""}${where ? esc(where) + " · " : ""}${n} cr.</small></div>`;
+  };
+  let html = head;
+  if (!ddItems.length) html += `<div class="empty-opt">Aucun·e professeur·e trouvé·e</div>`;
+  else {
+    const nL = Math.min(rowsLocal.length, LIM);
+    if (state.uaiFilter && !rowsLocal.length && words.length) html += `<div class="empty-opt">Aucun·e professeur·e de ce nom dans cet établissement.</div>`;
+    html += ddItems.slice(0, nL).map(row).join("");
+    if (ddItems.length > nL) html += `<div class="ddsep">Autres établissements</div>` + ddItems.slice(nL).map((r, j) => row(r, nL + j)).join("");
+    const total = rowsLocal.length + rowsOther.length;
+    if (total > LIM) html += `<div class="empty-opt">… ${total - LIM} autres, affinez la recherche</div>`;
+  }
+  dd.innerHTML = html;
+  dd.classList.add("open");
+  const hl = dd.querySelector(".opt.hl"); if (hl) hl.scrollIntoView({block:"nearest"});
+}
+function addTeacher(k, u){
+  if (!k) return;
+  if (u && u !== state.uaiFilter && state.uais.has(u)){
+    state.uaiFilter = u;
+    const dp = deptOf(u); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp);
+  }
+  if (!state.selected.includes(k)){
+    if (state.selected.length >= MAX_T) state.selected.shift();
+    state.selected.push(k);
+  }
+  $("#q").value = ""; $("#dd").classList.remove("open");
+  saveSelection(); render();
+}
+function addTeam(){
+  if (!state.uaiFilter) return;
+  const team = [...(state.uais.get(state.uaiFilter) || [])].map(k => state.teachers.get(k)).sort((a,b) => a.name.localeCompare(b.name, "fr")).map(t => t.key);
+  state.selected = team.slice(0, MAX_T);
+  state.pop = null;
+  saveSelection(); render();
+  if (team.length > 4 && state.focusDay == null && !isMobile()) toast("Toute l'équipe est affichée : cliquez sur un jour pour une vue plus lisible.");
+}
+/* =====================================================================
+   Ajouter les EdT d'un établissement (collage Siiprien) ou un fichier (IA-IPR)
+   ===================================================================== */
+const existingForUai = u => (state.T.EDT || []).filter(r => norm(r.UAI) === u);
+function openImport(){
+  const m = $("#modal"), body = $("#modalBody");
+  m.querySelector(".modal").classList.add("wide");
+  body.innerHTML = `<h2>Ajouter les EdT d'un établissement</h2>
+    <ol class="imp-steps">
+      <li>Sur <b>Siiprien</b>, allez à la page de l'établissement, onglet <b>Emploi du temps</b>, puis <b>Tous</b> (tous les jours de la semaine).</li>
+      <li>Sélectionnez tout (<kbd>Ctrl</kbd>+<kbd>A</kbd>) et copiez (<kbd>Ctrl</kbd>+<kbd>C</kbd>).</li>
+      <li>Collez ci-dessous (<kbd>Ctrl</kbd>+<kbd>V</kbd>).</li>
+    </ol>
+    <p class="hint">Ou <button class="btn sm" id="impFichier" type="button">importer un fichier</button> (export CSV de la table d'EdT-widget, plusieurs établissements possibles).</p>
+    <textarea id="impText" spellcheck="false" placeholder="Collez ici le contenu de la page Siiprien…"></textarea>
+    <div id="impPreview" class="imp-prev"></div>
+    <div class="mfoot"><button class="btn" data-close>Annuler</button><button class="btn pri" id="impGo" disabled>Ajouter</button></div>`;
+  m.classList.add("open");
+  const ta = body.querySelector("#impText");
+  ta.addEventListener("input", renderImportPreview);
+  setTimeout(() => ta.focus(), 50);
+  state.imp = null;
+}
+function renderImportPreview(){
+  const body = $("#modalBody");
+  const txt = body.querySelector("#impText").value;
+  const prev = body.querySelector("#impPreview"), go = body.querySelector("#impGo");
+  if (!txt.trim()){ prev.innerHTML = ""; go.disabled = true; state.imp = null; return; }
+  const r = parseSiiprien(txt);
+  const keepUai = state.imp && state.imp.uaiEdited ? state.imp.uai : r.uai;
+  state.imp = {...r, uai: keepUai, uaiEdited: state.imp?.uaiEdited || false, mode: state.imp?.mode || "replace"};
+  renderImportBox();
+}
+function renderImportBox(){
+  const body = $("#modalBody"), r = state.imp;
+  const prev = body.querySelector("#impPreview"), go = body.querySelector("#impGo");
+  if (r && r.fichier){
+    const ex = r.uais.reduce((n, u) => n + existingForUai(u).length, 0);
+    prev.innerHTML = `<div class="imp-grid">
+      <span>Fichier</span><div><b>${esc(r.fichier)}</b></div>
+      <span>Créneaux</span><div><b>${r.rows.length}</b></div>
+      <span>Établissements</span><div><b>${r.uais.length}</b> <span class="hint">${esc(r.uais.slice(0, 12).map(etabLabel).join(", "))}${r.uais.length > 12 ? "…" : ""}</span></div>
+      <span>Professeur·es</span><div><b>${r.teachers.length}</b></div></div>
+      ${ex ? `<div class="imp-ex"><div>Votre table contient déjà <b>${ex}</b> créneau(x) pour ces établissements.</div>
+        <label><input type="radio" name="impMode" value="replace" ${r.mode === "replace" ? "checked" : ""}> Les remplacer par ce fichier (recommandé)</label>
+        <label><input type="radio" name="impMode" value="add" ${r.mode === "add" ? "checked" : ""}> Les garder et ajouter ce fichier</label></div>` : ""}`;
+    go.disabled = false;
+    go.textContent = ex && r.mode === "replace" ? `Remplacer par ${r.rows.length} créneaux` : `Ajouter ${r.rows.length} créneaux`;
+    prev.querySelectorAll('input[name="impMode"]').forEach(x => x.addEventListener("change", () => { state.imp.mode = x.value; renderImportBox(); }));
+    return;
+  }
+  if (!r.rows.length){
+    prev.innerHTML = `<div class="pwarn">⚠ Aucun créneau reconnu. Vérifiez que vous avez copié la page « Emploi du temps » avec le filtre « Tous », directement depuis le navigateur.</div>`;
+    go.disabled = true; return;
+  }
+  const okUai = /^[0-9]{7}[A-Z]$/.test(r.uai);
+  const ex = okUai ? existingForUai(r.uai).length : 0;
+  const names = r.teachers.map(k => { const row = r.rows.find(x => parseName(x.Nom).key === k); const n = parseName(row.Nom); return `${n.civ ? n.civ + " " : ""}${n.name}`; });
+  const nAlt = r.rows.filter(x => parseAlt(x.Alt).code !== "H").length;
+  prev.innerHTML = `
+    <div class="imp-grid">
+      <label for="impUai">UAI (Rne)</label>
+      <div><input id="impUai" value="${esc(r.uai)}" maxlength="8" class="${okUai ? "" : "bad"}" aria-label="UAI de l'établissement">
+        ${r.nom ? ` <b>${esc(r.nom)}</b>` : ""}${r.ville ? ` <span class="hint">${esc(r.ville)}</span>` : ""}
+        ${r.dateEdt ? ` <span class="hint">· EDT au ${esc(r.dateEdt)}</span>` : ""}
+        ${okUai ? "" : `<div class="pwarn">⚠ UAI non trouvé ou invalide : saisissez-le (7 chiffres + 1 lettre).</div>`}</div>
+      <span>Créneaux</span><div><b>${r.rows.length}</b>${nAlt ? ` <span class="hint">(dont ${nAlt} en quinzaine ou semestre)</span>` : ""}${r.ignored ? ` <span class="hint">· ${r.ignored} ligne(s) ignorée(s)</span>` : ""}</div>
+      <span>Professeur·es</span><div><b>${names.length}</b> <span class="hint">${esc(names.join(", "))}</span></div>
+    </div>
+    ${ex ? `<div class="imp-ex"><div>Votre table contient déjà <b>${ex}</b> créneau(x) pour ${esc(r.uai)}.</div>
+      <label><input type="radio" name="impMode" value="replace" ${r.mode === "replace" ? "checked" : ""}> Les remplacer par ce collage (recommandé)</label>
+      <label><input type="radio" name="impMode" value="add" ${r.mode === "add" ? "checked" : ""}> Les garder et ajouter ce collage</label></div>` : ""}`;
+  go.disabled = !okUai;
+  go.textContent = ex && r.mode === "replace" ? `Remplacer par ${r.rows.length} créneaux` : `Ajouter ${r.rows.length} créneaux`;
+  const ui = prev.querySelector("#impUai");
+  ui.addEventListener("change", () => { state.imp.uai = ui.value.trim().toUpperCase(); state.imp.uaiEdited = true; renderImportBox(); });
+  prev.querySelectorAll('input[name="impMode"]').forEach(x => x.addEventListener("change", () => { state.imp.mode = x.value; renderImportBox(); }));
+}
+function choisirFichier(){
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".csv,.tsv,.txt";
+  inp.addEventListener("change", async () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const r = lireFichierEdt(await f.text());
+    if (r.erreur){ toast(r.erreur, true); return; }
+    const uais = [...new Set(r.rows.map(x => norm(x.UAI)))];
+    state.imp = { fichier: f.name, rows: r.rows, uais, uai: uais.length === 1 ? uais[0] : "", teachers: [...new Set(r.rows.map(x => parseName(x.Nom).key))], ignored: 0, mode: "replace" };
+    renderImportBox();
+  });
+  inp.click();
+}
+async function doImport(){
+  const r = state.imp; if (!r || !r.rows.length) return false;
+  const uais = r.fichier ? r.uais : [r.uai];
+  const old = r.mode === "replace" ? (state.T.EDT || []).filter(x => uais.includes(norm(x.UAI))) : [];
+  const recs = r.rows.map(x => ({...x, UAI: r.fichier ? norm(x.UAI) : r.uai}));
+  const auj = versGrist(todayUTC());
+  const cols = {};
+  for (const c of ["Nom", "Horaire", "Libelle", "Classe", "Jour", "Alternance", "UAI"]) cols[c] = recs.map(x => String(x[c] ?? ""));
+  cols.Importe_le = recs.map(() => auj);
+  const actions = [];
+  if (old.length) actions.push(["BulkRemoveRecord", "EDT", old.map(x => x.id)]);
+  actions.push(["BulkAddRecord", "EDT", recs.map(() => null), cols]);
+  const ok = await ecrire(actions, `${recs.length} créneaux ${old.length ? "remplacés" : "ajoutés"}${r.nom ? " (" + r.nom + ")" : ""}`);
+  if (!ok) return false;
+  $("#modal").classList.remove("open");
+  if (uais.length === 1){ state.uaiFilter = uais[0]; const dp = deptOf(uais[0]); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp); }
+  state.selected = []; state.pop = null; state.imp = null;
+  saveSelection();
+  await relireSansCache(charger);
+  return true;
+}
+
+/* =====================================================================
+   Événements
+   ===================================================================== */
+function setFocus(d){
+  state.focusDay = d;
+  if (d != null) state.mobileDay = d;
+  render();
+}
+function readTimes(btn){
+  const f = btn.closest(".tform");
+  const s = fromHHMM(f.querySelector(".tS").value), e = fromHHMM(f.querySelector(".tE").value);
+  if (!(e > s)){ toast("L'heure de fin doit être après l'heure de début."); return null; }
+  return [s, e];
+}
+function saveItv(btn, k, day){
+  const r = readTimes(btn); if (!r) return;
+  const [s, e] = r;
+  planOf(k).itv = {day, start:s, end:e};
+  savePlan();
+  const clash = teacherCourses(k).filter(c => c.day === day && c.start < e - 4 && c.end > s + 4);
+  state.pop = null;
+  renderWork();
+  toast(clash.length ? `Entretien enregistré, mais ce ou cette professeur·e a cours (${clash.map(c => c.classe).join(", ")}) sur ce créneau.` : "Entretien validé.");
+}
+
+document.addEventListener("click", async e => {
+  const t = e.target;
+  if (t.closest("[data-rm]")){
+    const k = t.closest("[data-rm]").dataset.rm;
+    state.selected = state.selected.filter(x => x !== k);
+    delete state.plan[k]; savePlan();
+    if (state.pop && (state.pop.k === k || (state.pop.kind === "course" && state.courses[state.pop.id]?.tkey === k))) state.pop = null;
+    saveSelection(); render(); return;
+  }
+  if (t.id === "clearSel"){ state.selected = []; state.plan = {}; state.meetings = {}; state.pop = null; savePlan(); saveSelection(); render(); return; }
+  const dep = t.closest("[data-dep]");
+  if (dep){
+    const d = dep.dataset.dep;
+    state.depts = state.depts.includes(d) ? state.depts.filter(x => x !== d) : [...state.depts, d];
+    if (state.uaiFilter && !inDepts(state.uaiFilter)) state.uaiFilter = "";
+    saveSelection(); render();
+    if ($("#dd").classList.contains("open")) refreshDropdown();
+    return;
+  }
+  const ddf = t.closest("[data-ddf]"); if (ddf){ state.ddFilter = ddf.dataset.ddf; ddIndex = 0; refreshDropdown(); $("#q").focus(); return; }
+  const eo = t.closest(".eopt"); if (eo){ chooseEtab(eo.dataset.e); return; }
+  if (t.closest("#allTeam")){ addTeam(); return; }
+  const opt = t.closest(".opt"); if (opt && !opt.classList.contains("dis")){ addTeacher(opt.dataset.t, opt.dataset.u || null); return; }
+  const mb = t.closest("[data-mode]"); if (mb){ state.mode = mb.dataset.mode; state.userMode = true; render(); return; }
+  const wk = t.closest("[data-wk]"); if (wk){ const n = +wk.dataset.wk; state.monday = n === 0 ? defaultMonday() : addDays(state.monday, 7*n); render(); return; }
+  const fh = t.closest("[data-focus]"); if (fh){ const d = +fh.dataset.focus; setFocus(state.focusDay === d ? null : d); return; }
+  if (t.id === "unfocus"){ setFocus(null); return; }
+  const dt = t.closest(".daytabs [data-day]"); if (dt){ state.mobileDay = +dt.dataset.day; state.focusDay = state.mobileDay; renderWork(); return; }
+
+  const blk = t.closest(".blk");
+  if (blk){ const id = +blk.dataset.c; state.pop = state.pop && state.pop.kind === "course" && state.pop.id === id ? null : {kind:"course", id}; renderGrid(); renderPop(); return; }
+  const gh = t.closest(".ghost");
+  if (gh){ const g = state.ghostRefs[+gh.dataset.g]; if (g){ state.pop = {kind:"ghost", k:g.k, day:g.day, start:g.start, end:g.end}; renderGrid(); renderPop(); } return; }
+  const iv = t.closest(".itvblk");
+  if (iv){ const k = iv.dataset.itv, p = state.plan[k]; if (p && p.itv){ state.pop = {kind:"itv", k, ...p.itv}; renderGrid(); renderPop(); } return; }
+  const mt = t.closest(".meet");
+  if (mt){ state.pop = {kind:"meet", key:mt.dataset.meet}; renderPop(); return; }
+
+  const act = t.closest("[data-act]");
+  if (act){
+    const a = act.dataset.act;
+    if (a === "rappel-x"){ state.visiteRappel = 0; renderRappel(); return; }
+    if (a === "visit"){ setVisit(+act.dataset.id, act.dataset.part || null); renderWork(); return; }
+    if (a === "unvisit"){ unVisit(act.dataset.k); renderWork(); return; }
+    if (a === "itv-save"){ saveItv(act, act.dataset.k, +act.dataset.iday); return; }
+    if (a === "itv-del"){ const p = state.plan[act.dataset.k]; if (p){ p.itv = null; savePlan(); } state.pop = null; renderWork(); return; }
+    if (a === "itv-edit"){ const k = act.dataset.k, p = state.plan[k]; if (p && p.itv){ state.pop = {kind:"itv", k, ...p.itv}; renderWork(); } return; }
+    if (a === "meet-edit"){ state.pop = {kind:"meet", key:act.dataset.key}; renderPop(); return; }
+    if (a === "meet-save"){ const r = readTimes(act); if (!r) return; state.meetings[act.dataset.key] = {start:r[0], end:r[1]}; savePlan(); state.pop = null; renderWork(); toast("Réunion d'équipe enregistrée."); return; }
+    if (a === "meet-del"){ delete state.meetings[act.dataset.key]; savePlan(); state.pop = null; renderWork(); return; }
+    if (a === "clearplan"){ if (act.dataset.ok !== "1"){ act.dataset.ok = "1"; act.textContent = "Confirmer : tout effacer"; return; } state.plan = {}; state.planDates = {}; state.meetings = {}; state.pop = null; savePlan(); renderWork(); return; }
+    if (a === "memo-load"){
+      const mg = state.memoRefs[+act.dataset.m]; if (!mg) return;
+      memoApply(mg); return;
+    }
+    if (a === "memo-del"){
+      const mg = state.memoRefs[+act.dataset.m]; if (!mg) return;
+      if (act.dataset.ok !== "1"){ act.dataset.ok = "1"; act.textContent = "Confirmer la suppression"; act.classList.add("pri"); return; }
+      await memoDelete(mg); renderPlan(); return;
+    }
+    const g = state.groupRefs[+act.dataset.g];
+    if (g && a === "meet-add"){ state.meetings[g.key] = defaultMeetingFor(g); savePlan(); state.pop = {kind:"meet", key:g.key}; renderWork(); return; }
+    if (g && a === "copytable"){ const ok = await copier(planningTexte(itemsTexte(g)), planTableHTML(g)); toast(ok ? "Tableau copié : collez-le dans le mail (Ctrl+V)." : "Copie impossible dans ce navigateur.", !ok); return; }
+    if (g && a === "copytext"){ const ok = await copier(planningTexte(itemsTexte(g))); toast(ok ? "Planning copié." : "Copie impossible dans ce navigateur.", !ok); return; }
+    if (g && a === "mail"){ copier(planningTexte(itemsTexte(g)), planTableHTML(g)).then(ok => { if (ok) toast("Messagerie ouverte. Le tableau du planning est aussi copié : collez-le dans le mail si besoin (Ctrl+V)."); }); return; }
+    if (g && a === "memo-save"){
+      if (!g.date && act.dataset.ok !== "1"){ act.dataset.ok = "1"; toast("Aucune date pour ce planning : cliquer encore pour le mémoriser quand même, ou choisir la date.", true); return; }
+      act.disabled = true;
+      const etat = ETATS[act.dataset.etat] || ETATS.prop;
+      const r = await memoSave(g, etat);
+      if (r) toast(`${r.replaced ? "Mémoire mise à jour" : "Mis en mémoire"} : ${etat}${r.calees ? ` ; date reportée au plan (${r.calees} visite${r.calees > 1 ? "s" : ""})` : ""}.`);
+      renderPlan(); return;
+    }
+  }
+
+  if (t.closest("#detail .x")){ state.pop = null; renderGrid(); renderPop(); return; }
+  if (t.closest("#recharger")){ relireSansCache(charger); return; }
+  if (t.closest("#btnImport")){ openImport(); return; }
+  if (t.closest("#impFichier")){ choisirFichier(); return; }
+  if (t.closest("#impGo")){
+    const b = t.closest("#impGo"); b.disabled = true; b.textContent = "Enregistrement…";
+    if (!(await doImport())){ b.disabled = false; renderImportBox(); }
+    return;
+  }
+  if (t.closest("[data-close]") || t.id === "modal"){ $("#modal").classList.remove("open"); return; }
+  if (!t.closest("#profBox")) $("#dd").classList.remove("open");
+  if (!t.closest("#etabBox") && $("#edd").classList.contains("open")) closeEtab();
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "tSat"){ state.showSat = t.checked; saveSelection(); render(); }
+  else if (t.id === "tSug"){ state.suggest = t.checked; saveSelection(); render(); }
+  else if (t.id === "wdate"){
+    const d = parseAnyDate(t.value);
+    if (d){ state.monday = mondayOf(d); const wd = (d.getUTCDay()+6)%7; state.focusDay = wd; state.mobileDay = wd; render(); }
+  }
+  else if (t.dataset.pdate != null){
+    const day = +t.dataset.pdate;
+    if (t.value) state.planDates[day] = t.value; else delete state.planDates[day];
+    savePlan(); renderPlan();
+  }
+});
+document.addEventListener("input", e => {
+  // durée d'une heure par défaut : décaler la fin quand on change le début
+  if (e.target.classList.contains("tS")){
+    const s = fromHHMM(e.target.value), end = e.target.closest(".tform").querySelector(".tE");
+    if (!isNaN(s) && end) end.value = toHHMM(Math.min(s + 60, 23*60+55));
+  }
+});
+const eq = $("#etabq");
+eq.addEventListener("focus", () => { eTyped = false; eIndex = Math.max(0, eItems.findIndex(o => o.u === state.uaiFilter)); eq.select(); refreshEtabDropdown(); });
+eq.addEventListener("input", () => { eTyped = true; eIndex = eq.value.trim() ? 1 : 0; refreshEtabDropdown(); });
+eq.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown"){ eIndex = Math.min(eIndex+1, eItems.length-1); refreshEtabDropdown(); e.preventDefault(); }
+  else if (e.key === "ArrowUp"){ eIndex = Math.max(eIndex-1, 0); refreshEtabDropdown(); e.preventDefault(); }
+  else if (e.key === "Enter"){ const it = eItems[eIndex]; if (it) chooseEtab(it.u); e.preventDefault(); }
+  else if (e.key === "Escape"){ eq.blur(); closeEtab(); }
+  else if (e.key === "Tab"){ closeEtab(); }
+});
+const q = $("#q");
+q.addEventListener("input", () => { ddIndex = 0; refreshDropdown(); });
+q.addEventListener("focus", refreshDropdown);
+q.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown"){ ddIndex = Math.min(ddIndex+1, ddItems.length-1); refreshDropdown(); e.preventDefault(); }
+  else if (e.key === "ArrowUp"){ ddIndex = Math.max(ddIndex-1, 0); refreshDropdown(); e.preventDefault(); }
+  else if (e.key === "Enter"){ const it = ddItems[ddIndex]; if (it) addTeacher(it.t.key, it.u); e.preventDefault(); }
+  else if (e.key === "Escape"){ $("#dd").classList.remove("open"); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape"){ state.pop = null; renderGrid(); renderPop(); $("#modal").classList.remove("open"); } });
+let lastMobile = isMobile();
+window.addEventListener("resize", () => { const m = isMobile(); if (m !== lastMobile){ lastMobile = m; render(); } });
+/* =====================================================================
+   Rendu
+   ===================================================================== */
+function render(){
+  renderDepts(); renderEtabSelect(); renderRappel(); renderChips(); renderWeekbar(); renderBanners(); renderGrid(); renderPop(); renderPlan();
+}
+function renderWork(){ renderGrid(); renderPop(); renderPlan(); }
+
+/* =====================================================================
+   Démarrage
+   ===================================================================== */
+state.monday = defaultMonday();
+{ const wd = (todayUTC().getUTCDay()+6)%7; state.mobileDay = wd > 4 ? 0 : wd; }
+loadPlan();
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  grist.onRecords(regrouper(charger));
+  installerBulles();
+  relectureReguliere(charger, () => !!state.pop || $("#modal").classList.contains("open"));
+  await charger();
+}
+</script>
+</body>
+</html>

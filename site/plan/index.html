@@ -214,7 +214,7 @@ function carte({ v, r, e }) {
       ${c.tel ? `<a href="tel:${esc(c.telLien)}">${ic('tel')} ${esc(c.tel)}</a>` : ''}</div>
     <div class="ligne"><span>Date calée</span>${m ? `<input type="date" data-date="${v.id}" value="${esc(dateIso(v.Date_prevue))}">` : `<strong>${esc(dateFr(v.Date_prevue)) || '—'}</strong>`}</div>
     ${m ? `<textarea data-notes="${v.id}" placeholder="Notes (créneau, salle, contact pris…)">${esc(v.Notes || '')}</textarea>` : v.Notes ? `<div class="petit">${esc(v.Notes)}</div>` : ''}
-    <div class="actions">${r ? `<button data-rapport="${r.id}">Ouvrir le rapport</button>` : rediger ? `<button class="primary" data-rediger="${v.id}">Rédiger le rapport</button>` : ''}</div>
+    <div class="actions">${!r && hoteEcran('edt') ? `<button data-edt="${v.id}" title="Emplois du temps de l'établissement : cours à visiter, entretien, réunion, mail">Emploi du temps</button>` : ''}${r ? `<button data-rapport="${r.id}">Ouvrir le rapport</button>` : rediger ? `<button class="primary" data-rediger="${v.id}">Rédiger le rapport</button>` : ''}</div>
   </div>`;
 }
 
@@ -261,6 +261,7 @@ function afficherSaisie() {
     </div>
     <label class="champ"><span>Notes</span><textarea id="v-Notes">${esc(f.Notes || '')}</textarea></label>
     ${r ? `<p class="petit">Rapport relié : ${esc(r.Statut || '')} (visite du ${esc(dateFr(r.Date_visite))}). <button type="button" class="lien" data-rapport="${r.id}">Ouvrir</button></p>` : ''}
+    ${f.id && !r && hoteEcran('edt') ? `<p class="petit"><button type="button" class="lien" data-edt="${f.id}">Voir l'emploi du temps et préparer la visite</button></p>` : ''}
     <ul class="erreurs" id="v-erreurs"></ul>
     <div class="actions"><button type="button" id="v-ok" class="primary">Enregistrer</button><button type="button" id="v-annuler">Annuler</button>
       ${f.id ? '<button type="button" id="v-suppr" class="danger" title="Supprimer cette visite du plan (double clic)">Supprimer</button>' : ''}</div>`;
@@ -396,6 +397,8 @@ if (await initialiserGrist()) {
     if (aj) { const r = D.rapports.find(x => x.id === Number(aj.dataset.ajouter)); if (r) { const v = visiteDepuisRapport(r); v.Stagiaire = stagiaireDe(v, D.stagiaires, rentreeDe(r.Date_visite) || rentree); ouvrirSaisie({ id: null, ...v }); } return; }
     const ra = t.closest('[data-rapport]');
     if (ra) { ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); return; }
+    const ed = t.closest('[data-edt]');
+    if (ed) { const h = hoteEcran('edt'); if (h) h.ouvrirEcran('edt', { visite: Number(ed.dataset.edt) }); return; }
     const re = t.closest('[data-rediger]');
     if (re) { ouvrirRapports({ visite: Number(re.dataset.rediger) }); return; }
     const tr = t.closest('tr.cliquable[data-id]');
@@ -409,7 +412,9 @@ if (await initialiserGrist()) {
   });
   $('contenu').addEventListener('input', e => { if (e.target.id === 'f-q') { filtre.q = e.target.value; const p = e.target.selectionStart; afficher(); $('f-q').focus(); $('f-q').setSelectionRange(p, p); } });
   $('contenu').addEventListener('toggle', e => { if (e.target.id === 'bilan') pref.ecrire('Bilan', e.target.open ? '1' : '0'); }, true);
-  $('f-visite').addEventListener('click', e => { const ra = e.target.closest('[data-rapport]'); if (ra) { $('dlg-visite').close(); saisie = null; ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); } });
+  $('f-visite').addEventListener('click', e => { const ed = e.target.closest('[data-edt]');
+    if (ed) { $('dlg-visite').close(); saisie = null; const h = hoteEcran('edt'); if (h) h.ouvrirEcran('edt', { visite: Number(ed.dataset.edt) }); return; }
+    const ra = e.target.closest('[data-rapport]'); if (ra) { $('dlg-visite').close(); saisie = null; ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); } });
   $('dlg-visite').addEventListener('close', () => { saisie = null; });
   $('imp-analyser').addEventListener('click', analyserImport);
   $('imp-fichier').addEventListener('change', async () => {
