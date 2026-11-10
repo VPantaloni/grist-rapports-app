@@ -334,7 +334,9 @@ import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
   demandeConteneur } from '../commun/grist.js';
 import { liste } from '../commun/donnees.js';
-import { ouvrirAvecPhrase, dechiffrer, cryptoDisponible } from '../commun/chiffrement.js';
+import { ouvrirAvecPhrase, dechiffrer, cryptoDisponible, TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree,
+  chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
+import { CHIFFREMENT } from '../commun/config.js';
 import { DAYS, DAYS_SHORT, DEPTS, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
   versGrist, parseName, parseAlt, parseJour, ingest, lireCalendrier, isVisible, suggestionsFor, pack, canSplit, partRange, reunionParDefaut, libresSur,
   parseSiiprien, lireFichierEdt, lireLigneChiffrement, contextesPossibles, reperes, reperesDe, modelesPour, remplirModele, planningTexte, champsVisites, mailEtablissement, destinataires, lienMailto,
@@ -372,13 +374,25 @@ const nomPersonne = id => { const p = personne(id); return p ? `${p.Prenom || ""
 const NOMS = ["EDT", "Calendrier", "Etablissements", "Professeurs", "Stagiaires", "Maitres_delegues", "Personnes", "Utilisateurs",
   "EdT_memo", "Modeles_mail", "Visites"];
 const change = detecteurChangement();
+// Chiffrement (SPEC § 5.8) : EDT.Nom et EdT_memo.Professeur chiffrés ; sans clé (masqué), les noms sont vides.
+let cle = null, cleLue = false;
+const cache = new Map();
+const masque = () => !!CHIFFREMENT && !cle && tableChiffree(CHIFFREMENT, "EDT");
+// Écritures : chiffrées avec la clé ; refusées (toast) si les données sont masquées.
+async function ecrireChiffre(actions, ok, relire){
+  if (CHIFFREMENT && (actions.some(a => tableChiffree(CHIFFREMENT, a[1]))) && !cle){ toast("Noms chiffrés masqués : « Révéler » (menu de l'application) avant d'enregistrer.", true); return null; }
+  return ecrire(CHIFFREMENT ? await chiffrerActions(cle, actions, CHIFFREMENT) : actions, ok, relire);
+}
 const charger = sansChevauchement(async () => {
-  const r = await Promise.all(NOMS.map(lireTable));
+  const r = await Promise.all([...NOMS.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
+  if (CHIFFREMENT && !cleLue){ cleLue = true; cle = await cleAuDemarrage(ligneChiffrementValide(r[NOMS.length].lignes)); }
   const T = Object.fromEntries(NOMS.map((n, i) => [n, r[i].lignes || []]));
+  T.EDT = await lignesLisibles(cle, "EDT", T.EDT, CHIFFREMENT, cache);
+  T.EdT_memo = await lignesLisibles(cle, "EdT_memo", T.EdT_memo, CHIFFREMENT, cache);
   const err = Object.fromEntries(NOMS.map((n, i) => [n, r[i].erreur || ""]));
   if (err.EDT){ message(`Impossible de lire la table EDT : ${err.EDT}. L'écran Installer (« Créer la structure ») ajoute les tables des emplois du temps.`, true); $("#app").hidden = true; return; }
   const dem = demandeConteneur();   // venue du plan d'inspection, prise une seule fois
-  if (!change([r.map(x => x.lignes)]) && !$("#app").hidden){ if (dem){ traiterDemande(dem); render(); } return; }
+  if (!change([r.map(x => x.lignes), !!cle]) && !$("#app").hidden){ if (dem){ traiterDemande(dem); render(); } return; }
   state.T = T;
   state.moi = identifierMoi(T.Utilisateurs).moi;
   const roles = state.moi ? liste(state.moi.Roles) : [];
@@ -395,6 +409,7 @@ const charger = sansChevauchement(async () => {
   state.calendar = lireCalendrier(T.Calendrier);
   state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {nom: String(e.Nom || ""), ville: String(e.Commune || "")}]));
   state.reperes = reperes({ stagiaires: T.Stagiaires, mds: T.Maitres_delegues, etabs: T.Etablissements }, anneeScolaire());
+  state.masque = masque() && (r[0].lignes || []).some(l => /^v1:/.test(String(l.Nom)));
   state.auxMsg = err.EdT_memo ? "Table EdT_memo absente ou illisible : les plannings ne peuvent pas être mémorisés (écran Installer, « Créer la structure »)." : "";
   if (state.calendar.size && !state.userMode) state.mode = "date";
   if (!state.restored) restoreSelection();
@@ -808,7 +823,7 @@ async function memoSave(g, etat){
   if (vp.length) cols.Visite = rows.map((r, i) => { const it = g.items[i]; return it.t ? (parProf.get(it.t.mkey) || 0) : 0; });
   actions.push(["BulkAddRecord", "EdT_memo", rows.map(() => null), cols]);
   for (const v of vp) actions.push(["UpdateRecord", "Visites", v.id, { Date_prevue: versGrist(g.date) }]);
-  const res = await ecrire(actions, "", charger);
+  const res = await ecrireChiffre(actions, "", charger);
   return res ? { replaced: old.length, calees: vp.length } : null;
 }
 async function memoDelete(mg){
@@ -975,6 +990,7 @@ function renderWeekbar(){
 }
 function renderBanners(){
   const wi = weekInfo(); const b = [];
+  if (state.masque) b.push(`<div class="banner">🔒 Noms des professeur·es chiffrés et masqués : « Révéler » (menu de l'application) pour voir les emplois du temps.</div>`);
   if (state.auxMsg) b.push(`<div class="banner">${esc(state.auxMsg)}</div>`);
   if (state.mode === "date" && !state.calendar.size) b.push(`<div class="banner">Table Calendrier vide ou absente : impossible de savoir si cette semaine est A ou B. Tous les cours sont affichés.</div>`);
   else if (state.mode === "date" && wi.missing && state.calendar.size) b.push(`<div class="banner">Cette semaine n'est pas dans le calendrier : tous les cours sont affichés (Q1 et Q2).</div>`);
@@ -989,6 +1005,7 @@ function renderGrid(){
     tabs.innerHTML = "";
     wrap.innerHTML = state.teachers.size
       ? `<div class="placeholder"><b>Aucun·e professeur·e sélectionné·e</b>Choisissez l'établissement, puis un nom ou « ＋ Toute l'équipe ».</div>`
+      : state.masque ? `<div class="placeholder"><b>Emplois du temps masqués</b>Les noms des professeur·es sont chiffrés : « Révéler » dans le menu de l'application.</div>`
       : `<div class="placeholder"><b>Aucun emploi du temps</b>${state.droitsEdt.C === "Oui" ? "Ajoutez ceux d'un établissement avec « ＋ Ajouter les EdT d'un établissement » (collage de la page Siiprien)." : "Les IA-IPR versent les emplois du temps depuis Siiprien."}</div>`;
     return;
   }
@@ -1334,6 +1351,7 @@ function addTeam(){
    ===================================================================== */
 const existingForUai = u => (state.T.EDT || []).filter(r => norm(r.UAI) === u);
 function openImport(){
+  if (masque()){ toast("Noms chiffrés masqués : « Révéler » (menu de l'application) avant d'ajouter des emplois du temps.", true); return; }
   const m = $("#modal"), body = $("#modalBody");
   m.querySelector(".modal").classList.add("wide");
   body.innerHTML = `<h2>Ajouter les EdT d'un établissement</h2>
@@ -1488,7 +1506,7 @@ async function doImport(){
   const actions = [];
   if (old.length) actions.push(["BulkRemoveRecord", "EDT", old.map(x => x.id)]);
   actions.push(["BulkAddRecord", "EDT", recs.map(() => null), cols]);
-  const ok = await ecrire(actions, `${recs.length} créneaux ${old.length ? "remplacés" : "ajoutés"}${r.nom ? " (" + r.nom + ")" : ""}`);
+  const ok = await ecrireChiffre(actions, `${recs.length} créneaux ${old.length ? "remplacés" : "ajoutés"}${r.nom ? " (" + r.nom + ")" : ""}`);
   if (!ok) return false;
   $("#modal").classList.remove("open");
   if (uais.length === 1){ state.uaiFilter = uais[0]; const dp = deptOf(uais[0]); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp); }
@@ -1674,6 +1692,7 @@ if (await initialiserGrist()) {
   grist.onRecords(regrouper(charger));
   installerBulles();
   relectureReguliere(charger, () => !!state.pop || $("#modal").classList.contains("open"));
+  if (CHIFFREMENT) suivreCle(k => { cle = k; cache.clear(); charger(); });
   await charger();
 }
 </script>

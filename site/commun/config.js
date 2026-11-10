@@ -17,6 +17,8 @@ export const CHIFFREMENT = {
     Rapports: { Contenu: 'texte', Commentaires: 'texte', Positionnement: 'texte', Signature_cmi: 'texte', Signature_ipr: 'texte' },
     Bilans_MD: { Positionnement: 'texte' },
     Retours_PSTG: { Positionnement: 'texte', Commentaire: 'texte' },
+    EDT: { Nom: 'texte' },                 // noms des professeur·es dans les emplois du temps (APP § 11, 2026-11-10)
+    EdT_memo: { Professeur: 'texte' },
   },
   codes: {},
 };
