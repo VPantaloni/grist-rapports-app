@@ -7,7 +7,8 @@ import { retoursDe } from '../suivis/pstg.js';
 /** @typedef {Record<string, any>} Ligne */
 /** @typedef {{ titre: string, accroche: string, texte: string }} Texte */
 
-// Une carte par écran du menu ; texte selon le profil (cmi, ipr ; admin = ipr). À ADAPTER avec les écrans (APP § 9).
+// Une carte par écran du menu ; texte selon le profil (cmi, ipr ; admin = ipr). Écran sans entrée ici (Administration,
+// Mon compte) : pas de carte, il reste dans le menu. Six cartes au plus (deux rangées de trois). À ADAPTER (APP § 9).
 /** @type {Record<string, { cmi: Texte | null, ipr: Texte }>} */
 export const CARTES = {
   plan: {
@@ -33,14 +34,6 @@ export const CARTES = {
   modeles: {
     cmi: { titre: 'Modèles & phrases', accroche: 'Votre bibliothèque', texte: 'Vos phrases types, classées par rubrique, compétence et niveau ; proposez les meilleures à tous.' },
     ipr: { titre: 'Modèles & phrases', accroche: 'Les modèles du rapport', texte: 'Rubriques, phrases à valider, grilles de positionnement, mails et paramètres.' },
-  },
-  admin: {
-    cmi: { titre: 'Administration', accroche: 'Réglages', texte: 'Comptes, droits, chiffrement et import du fichier académique.' },
-    ipr: { titre: 'Administration', accroche: 'Réglages', texte: 'Comptes, droits, chiffrement et import du fichier académique.' },
-  },
-  compte: {
-    cmi: { titre: 'Mon compte', accroche: 'Ma signature', texte: 'Votre signature enregistrée et votre fiche.' },
-    ipr: { titre: 'Mon compte', accroche: 'Ma signature', texte: 'Votre signature enregistrée et votre fiche.' },
   },
 };
 
