@@ -140,7 +140,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Nature` | Choix | Nature |
 | `Texte` | Texte | {nom}, {civilite}, {prenom} remplacés à l'insertion |
 | `Auteur` | Référence → Personnes | Auteur·e |
-| `Validee` | Booléen | phrase proposée par un·e CMi : visible de tous après validation |
+| `Partagee` | Booléen | phrase d'un·e CMi : décochée = dans sa seule bibliothèque ; cochée = proposée à la validation des IA-IPR |
+| `Validee` | Booléen | validée par un·e IA-IPR : visible de tous |
 | `Ordre` | Numérique | Ordre |
 
 #### `Competences_MD` — grilles de positionnement (MD : 3 compétences ; PSTG : P1 à P5) : compétences et descripteurs par niveau
@@ -321,6 +322,58 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Dispositif` | Booléen | auto-positionnement : accompagnement par un dispositif particulier envisagé |
 | `Commentaire` | Texte | chiffré |
 | `Libelle` | Texte (formule) | colonne affichée (unique par l'id) |
+
+#### `EDT` — créneaux des emplois du temps (collage Siiprien « Emploi du temps / Tous » ou export d'EdT-widget), une ligne par cours ; versés par les IA-IPR
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Nom` | Texte | « M. NOM PRENOM (EDT) », « MM … » = Mme |
+| `Horaire` | Texte | « 8h00 - 9h00 » |
+| `Libelle` | Texte | discipline du cours |
+| `Classe` | Texte | Classe |
+| `Jour` | Texte | Lundi … Samedi |
+| `Alternance` | Texte | H = chaque semaine ; Q1 = semaine A ; Q2 = semaine B ; S1, S2 = semestres |
+| `UAI` | Texte | UAI |
+| `Importe_le` | Date | Importé le |
+
+#### `Calendrier` — calendrier scolaire : semaine A, B ou vacances (une ligne par semaine)
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Lundi` | Date | n'importe quel jour de la semaine |
+| `Semaine` | Choix | Semaine |
+| `Semestre` | Choix | vide : septembre-janvier = S1, février-juin = S2 |
+
+#### `EdT_memo` — plannings préparés dans Emplois du temps (une ligne par créneau : visite, entretien, réunion) ; « Visite calée » cale aussi la date au plan
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `UAI` | Texte | UAI |
+| `Date` | Date | date de la visite (vide si non précisée) |
+| `Jour` | Texte | Jour |
+| `Professeur` | Texte | « Mme NOM PRENOM » ; réunion : liste des professeur·es |
+| `Type` | Choix | Type |
+| `Debut` | Texte | HH:MM |
+| `Fin` | Texte | HH:MM |
+| `Classe` | Texte | Classe |
+| `Libelle` | Texte | discipline du cours visité |
+| `Etat` | Choix | État |
+| `Auteur` | Référence → Personnes | portée « Limité » des CMi |
+| `Visite` | Référence → Visites | visite du plan calée par ce planning |
+| `Enregistre_le` | Date | Enregistré le |
+
+#### `Modeles_mail` — modèles de mails (Emplois du temps) : proposer, annoncer une visite… ; champs {etablissement}, {date}, {planning}…
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `Code` | Texte | unique |
+| `Titre` | Texte | libellé du bouton : « Proposer une visite » |
+| `Pour` | Choix | rôle qui voit ce modèle |
+| `A` | Liste de choix | À |
+| `Copie` | Liste de choix | Copie |
+| `Objet` | Texte | Objet |
+| `Texte` | Texte | {etablissement}, {commune}, {date}, {planning}, {professeurs}, {signataire}, {fonction}, {ipr} |
+| `Ordre` | Numérique | Ordre |
 
 #### `Utilisateurs` — comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit
 

@@ -16,6 +16,10 @@ Administrateur·trice,Stagiaires,Oui,Oui,Oui,Oui
 Administrateur·trice,Tutorats,Oui,Oui,Oui,Oui
 Administrateur·trice,Grilles_PSTG,Oui,Oui,Oui,Oui
 Administrateur·trice,Retours_PSTG,Oui,Oui,Oui,Oui
+Administrateur·trice,EDT,Oui,Oui,Oui,Oui
+Administrateur·trice,Calendrier,Oui,Oui,Oui,Oui
+Administrateur·trice,EdT_memo,Oui,Oui,Oui,Oui
+Administrateur·trice,Modeles_mail,Oui,Oui,Oui,Oui
 IA-IPR,Personnes,Oui,Non,Limité,Non
 IA-IPR,Etablissements,Oui,Non,Non,Non
 IA-IPR,Professeurs,Oui,Non,Non,Non
@@ -33,6 +37,10 @@ IA-IPR,Stagiaires,Oui,Oui,Oui,Oui
 IA-IPR,Tutorats,Oui,Oui,Oui,Oui
 IA-IPR,Grilles_PSTG,Oui,Oui,Oui,Oui
 IA-IPR,Retours_PSTG,Oui,Oui,Oui,Oui
+IA-IPR,EDT,Oui,Oui,Oui,Oui
+IA-IPR,Calendrier,Oui,Oui,Oui,Oui
+IA-IPR,EdT_memo,Oui,Oui,Oui,Oui
+IA-IPR,Modeles_mail,Oui,Oui,Oui,Oui
 CMi,Personnes,Oui,Non,Limité,Non
 CMi,Etablissements,Oui,Non,Non,Non
 CMi,Professeurs,Oui,Non,Non,Non
@@ -50,3 +58,7 @@ CMi,Stagiaires,Oui,Non,Non,Non
 CMi,Tutorats,Oui,Non,Non,Non
 CMi,Grilles_PSTG,Oui,Non,Non,Non
 CMi,Retours_PSTG,Oui,Non,Non,Non
+CMi,EDT,Oui,Non,Non,Non
+CMi,Calendrier,Oui,Non,Non,Non
+CMi,EdT_memo,Oui,Limité,Limité,Limité
+CMi,Modeles_mail,Oui,Non,Non,Non

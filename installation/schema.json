@@ -420,10 +420,16 @@
           "type": "Ref:Personnes"
         },
         {
+          "id": "Partagee",
+          "libelle": "Proposée à tous",
+          "type": "Bool",
+          "role": "phrase d'un·e CMi : décochée = dans sa seule bibliothèque ; cochée = proposée à la validation des IA-IPR"
+        },
+        {
           "id": "Validee",
           "libelle": "Validée",
           "type": "Bool",
-          "role": "phrase proposée par un·e CMi : visible de tous après validation"
+          "role": "validée par un·e IA-IPR : visible de tous"
         },
         {
           "id": "Ordre",
@@ -1281,6 +1287,251 @@
       ]
     },
     {
+      "id": "EDT",
+      "role": "créneaux des emplois du temps (collage Siiprien « Emploi du temps / Tous » ou export d'EdT-widget), une ligne par cours ; versés par les IA-IPR",
+      "colonnes": [
+        {
+          "id": "Nom",
+          "libelle": "Nom - Prénom",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "« M. NOM PRENOM (EDT) », « MM … » = Mme"
+        },
+        {
+          "id": "Horaire",
+          "libelle": "Début - Fin",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "« 8h00 - 9h00 »"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "role": "discipline du cours"
+        },
+        {
+          "id": "Classe",
+          "libelle": "Classe",
+          "type": "Text"
+        },
+        {
+          "id": "Jour",
+          "libelle": "Jour",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "Lundi … Samedi"
+        },
+        {
+          "id": "Alternance",
+          "libelle": "Alternance",
+          "type": "Text",
+          "role": "H = chaque semaine ; Q1 = semaine A ; Q2 = semaine B ; S1, S2 = semestres"
+        },
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Importe_le",
+          "libelle": "Importé le",
+          "type": "Date"
+        }
+      ]
+    },
+    {
+      "id": "Calendrier",
+      "role": "calendrier scolaire : semaine A, B ou vacances (une ligne par semaine)",
+      "colonnes": [
+        {
+          "id": "Lundi",
+          "libelle": "Lundi",
+          "type": "Date",
+          "obligatoire": true,
+          "role": "n'importe quel jour de la semaine"
+        },
+        {
+          "id": "Semaine",
+          "libelle": "Semaine",
+          "type": "Choice",
+          "choix": [
+            "A",
+            "B",
+            "Vacances"
+          ]
+        },
+        {
+          "id": "Semestre",
+          "libelle": "Semestre",
+          "type": "Choice",
+          "choix": [
+            "S1",
+            "S2"
+          ],
+          "role": "vide : septembre-janvier = S1, février-juin = S2"
+        }
+      ]
+    },
+    {
+      "id": "EdT_memo",
+      "role": "plannings préparés dans Emplois du temps (une ligne par créneau : visite, entretien, réunion) ; « Visite calée » cale aussi la date au plan",
+      "colonnes": [
+        {
+          "id": "UAI",
+          "libelle": "UAI",
+          "type": "Text",
+          "obligatoire": true
+        },
+        {
+          "id": "Date",
+          "libelle": "Date",
+          "type": "Date",
+          "role": "date de la visite (vide si non précisée)"
+        },
+        {
+          "id": "Jour",
+          "libelle": "Jour",
+          "type": "Text"
+        },
+        {
+          "id": "Professeur",
+          "libelle": "Professeur·e",
+          "type": "Text",
+          "role": "« Mme NOM PRENOM » ; réunion : liste des professeur·es"
+        },
+        {
+          "id": "Type",
+          "libelle": "Type",
+          "type": "Choice",
+          "choix": [
+            "Visite",
+            "Entretien",
+            "Réunion d'équipe"
+          ]
+        },
+        {
+          "id": "Debut",
+          "libelle": "Début",
+          "type": "Text",
+          "role": "HH:MM"
+        },
+        {
+          "id": "Fin",
+          "libelle": "Fin",
+          "type": "Text",
+          "role": "HH:MM"
+        },
+        {
+          "id": "Classe",
+          "libelle": "Classe",
+          "type": "Text"
+        },
+        {
+          "id": "Libelle",
+          "libelle": "Libellé",
+          "type": "Text",
+          "role": "discipline du cours visité"
+        },
+        {
+          "id": "Etat",
+          "libelle": "État",
+          "type": "Choice",
+          "choix": [
+            "Planning proposé",
+            "Visite calée"
+          ]
+        },
+        {
+          "id": "Auteur",
+          "libelle": "Préparé par",
+          "type": "Ref:Personnes",
+          "role": "portée « Limité » des CMi"
+        },
+        {
+          "id": "Visite",
+          "libelle": "Visite du plan",
+          "type": "Ref:Visites",
+          "role": "visite du plan calée par ce planning"
+        },
+        {
+          "id": "Enregistre_le",
+          "libelle": "Enregistré le",
+          "type": "Date"
+        }
+      ]
+    },
+    {
+      "id": "Modeles_mail",
+      "role": "modèles de mails (Emplois du temps) : proposer, annoncer une visite… ; champs {etablissement}, {date}, {planning}…",
+      "affichee": "Code",
+      "colonnes": [
+        {
+          "id": "Code",
+          "libelle": "Code",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "unique"
+        },
+        {
+          "id": "Titre",
+          "libelle": "Titre",
+          "type": "Text",
+          "obligatoire": true,
+          "role": "libellé du bouton : « Proposer une visite »"
+        },
+        {
+          "id": "Pour",
+          "libelle": "Pour",
+          "type": "Choice",
+          "choix": [
+            "IA-IPR",
+            "CMi",
+            "Tous"
+          ],
+          "role": "rôle qui voit ce modèle"
+        },
+        {
+          "id": "A",
+          "libelle": "À",
+          "type": "ChoiceList",
+          "choix": [
+            "Chef d'établissement",
+            "Équipe",
+            "Professeur·e visité·e"
+          ]
+        },
+        {
+          "id": "Copie",
+          "libelle": "Copie",
+          "type": "ChoiceList",
+          "choix": [
+            "Chef d'établissement",
+            "Équipe",
+            "IA-IPR référent·e",
+            "Moi"
+          ]
+        },
+        {
+          "id": "Objet",
+          "libelle": "Objet",
+          "type": "Text"
+        },
+        {
+          "id": "Texte",
+          "libelle": "Texte",
+          "type": "Text",
+          "role": "{etablissement}, {commune}, {date}, {planning}, {professeurs}, {signataire}, {fonction}, {ipr}"
+        },
+        {
+          "id": "Ordre",
+          "libelle": "Ordre",
+          "type": "Numeric"
+        }
+      ]
+    },
+    {
       "id": "Utilisateurs",
       "role": "comptes d'accès (SPEC § 5.2) ; absent ou inactif = aucun droit",
       "administration": true,
@@ -1366,7 +1617,11 @@
             "Stagiaires",
             "Tutorats",
             "Grilles_PSTG",
-            "Retours_PSTG"
+            "Retours_PSTG",
+            "EDT",
+            "Calendrier",
+            "EdT_memo",
+            "Modeles_mail"
           ]
         },
         {
@@ -1426,7 +1681,9 @@
           "libelle": "Écran",
           "type": "Choice",
           "choix": [
+            "accueil",
             "plan",
+            "edt",
             "rapports",
             "suivis",
             "modeles",
@@ -1657,6 +1914,24 @@
       "condition": "user.Profil and \"Visites:M:Limité\" in user.Profil.Droits and rec.CMi == user.Profil.Personne and newRec.CMi == user.Profil.Personne",
       "droits": "+U",
       "libelle": "Visites : caler la date de ses visites (Limité)"
+    },
+    {
+      "table": "EdT_memo",
+      "condition": "user.Profil and \"EdT_memo:C:Limité\" in user.Profil.Droits and newRec.Auteur == user.Profil.Personne",
+      "droits": "+C",
+      "libelle": "EdT_memo : enregistrer ses plannings (Limité)"
+    },
+    {
+      "table": "EdT_memo",
+      "condition": "user.Profil and \"EdT_memo:M:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne and newRec.Auteur == user.Profil.Personne",
+      "droits": "+U",
+      "libelle": "EdT_memo : modifier ses plannings (Limité)"
+    },
+    {
+      "table": "EdT_memo",
+      "condition": "user.Profil and \"EdT_memo:S:Limité\" in user.Profil.Droits and rec.Auteur == user.Profil.Personne",
+      "droits": "+D",
+      "libelle": "EdT_memo : supprimer ses plannings (Limité)"
     }
   ]
 }

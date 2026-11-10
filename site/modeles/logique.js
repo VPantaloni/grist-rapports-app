@@ -4,7 +4,7 @@
 import { liste, norm } from '../commun/donnees.js';
 
 /**
- * @typedef {{ id: string, lib: string, type: 'texte' | 'long' | 'nombre' | 'case' | 'choix' | 'ref' | 'refs', choix?: string[],
+ * @typedef {{ id: string, lib: string, type: 'texte' | 'long' | 'nombre' | 'case' | 'choix' | 'multi' | 'ref' | 'refs', choix?: string[],
  *   cible?: string, affichee?: string, obligatoire?: boolean, unique?: boolean, aide?: string, facultative?: boolean,
  *   validation?: boolean }} Colonne
  * @typedef {{ cle: string, libelle: string, table: string, colonnes: Colonne[], titre: (l: Ligne) => string,
@@ -30,8 +30,8 @@ export const ONGLETS = [
       { id: 'Texte_depart', lib: 'Texte de départ ({civilite}, {nom}, {prenom})', type: 'long' },
     ] },
   { cle: 'phrases', libelle: 'Phrases types', table: 'Phrases', titre: l => String(l.Texte || '').slice(0, 90) || 'Phrase vide',
-    detail: l => [l.Nature, l.Competence, Number(l.Niveau) ? `niveau ${l.Niveau}` : '', l.Validee ? '' : 'à valider'].filter(Boolean).join(' · '),
-    aide: 'Bibliothèque de phrases proposées à la rédaction. {civilite}, {nom}, {prenom} sont remplacés à l\'insertion. Une phrase proposée par un·e CMi est visible de tous une fois validée.',
+    detail: l => [l.Nature, l.Competence, Number(l.Niveau) ? `niveau ${l.Niveau}` : '', statutPhrase(l) === 'validée' ? '' : statutPhrase(l)].filter(Boolean).join(' · '),
+    aide: 'Bibliothèque de phrases proposées à la rédaction. {civilite}, {nom}, {prenom} sont remplacés à l\'insertion. Une phrase d\'un·e CMi sert d\'abord à sa propre bibliothèque ; « Proposer à tous » l\'envoie à la validation des IA-IPR, puis elle est visible de tout le monde.',
     colonnes: [
       { id: 'Texte', lib: 'Texte', type: 'long', obligatoire: true },
       { id: 'Rubrique', lib: 'Rubrique', type: 'ref', cible: 'Rubriques', affichee: 'Titre', obligatoire: true },
@@ -39,6 +39,8 @@ export const ONGLETS = [
       { id: 'Niveau', lib: 'Niveau (rang, 1 = le plus faible)', type: 'nombre', facultative: true,
         aide: 'Pour une phrase de compétence : proposée d\'office quand la compétence est positionnée à ce niveau (PSTG : 1 NA, 2 F, 3 S, 4 TS ; MD : 1 À consolider, 2 Satisfaisant, 3 Très satisfaisant). Vide = tous niveaux.' },
       { id: 'Nature', lib: 'Nature', type: 'choix', choix: ['', ...NATURES] },
+      { id: 'Partagee', lib: 'Proposer à tous (validation par un·e IA-IPR)', type: 'case', facultative: true,
+        aide: 'Décochée : la phrase reste dans votre seule bibliothèque. Cochée : elle part en validation ; validée, elle est proposée à tout le monde.' },
       { id: 'Validee', lib: 'Validée (visible de tous)', type: 'case', validation: true },
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
     ] },
@@ -66,6 +68,19 @@ export const ONGLETS = [
       { id: 'Domaine', lib: 'Domaine', type: 'texte' },
       { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
     ] },
+  { cle: 'mails', libelle: 'Mails', table: 'Modeles_mail', titre: l => `${l.Titre || ''}${l.Pour ? ' — ' + l.Pour : ''}`,
+    detail: l => String(l.Objet || ''),
+    aide: 'Modèles de mails de l\'écran Emplois du temps (proposer, annoncer une visite…). Champs remplacés : {etablissement}, {commune}, {date}, {planning}, {professeurs}, {signataire}, {fonction}, {ipr}. La messagerie s\'ouvre avec le mail prêt ; rien n\'est envoyé.',
+    colonnes: [
+      { id: 'Titre', lib: 'Titre (libellé du bouton)', type: 'texte', obligatoire: true },
+      { id: 'Code', lib: 'Code (sans espace)', type: 'texte', obligatoire: true, unique: true },
+      { id: 'Pour', lib: 'Proposé à', type: 'choix', choix: ['Tous', 'CMi', 'IA-IPR'] },
+      { id: 'A', lib: 'À', type: 'multi', choix: ["Chef d'établissement", 'Équipe', 'Professeur·e visité·e'] },
+      { id: 'Copie', lib: 'Copie', type: 'multi', choix: ["Chef d'établissement", 'Équipe', 'IA-IPR référent·e', 'Moi'] },
+      { id: 'Objet', lib: 'Objet', type: 'texte' },
+      { id: 'Texte', lib: 'Texte', type: 'long' },
+      { id: 'Ordre', lib: 'Ordre', type: 'nombre' },
+    ] },
   { cle: 'parametres', libelle: 'Paramètres', table: 'Parametres', titre: l => String(l.Cle || ''), detail: l => String(l.Description || ''),
     aide: 'discipline, entete (une ligne par ligne d\'en-tête, en gras), pied (bas de page), taille_signature (hauteur des signatures imprimées, en mm), secretariat (destinataire), mail_objet et mail_texte ({etablissement}, {professeur}, {auteur}, {date}), mail_proposition, mail_modifications et mail_accord (textes des échanges CMi ↔ IA-IPR ; aussi {ipr} ; vide = texte prévu), echelle_md (niveaux séparés par « ; »), aide_md. Les IA-IPR en copie des PSTG se règlent dans l\'Annuaire.',
     colonnes: [
@@ -83,10 +98,19 @@ export function trier(o, lignes, recherche = '') {
   return lignes.filter(l => !q || norm(o.colonnes.map(c => l[c.id]).join(' ')).includes(q))
     .sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0) || o.titre(a).localeCompare(o.titre(b), 'fr'));
 }
-// Phrases : filtres rubrique, compétence, « à valider ».
-/** @param {Ligne[]} phrases @param {{ rubrique?: number, competence?: string, aValider?: boolean }} f */
+// Phrase : validée (visible de tous), à valider (proposée à tous), personnelle (bibliothèque de son auteur·e).
+// Document sans colonne Partagee : toute phrase non validée est « à valider » (fonctionnement d'avant).
+/** @param {Ligne} p @returns {'validée' | 'à valider' | 'personnelle'} */
+export const statutPhrase = p => p.Validee === true ? 'validée' : (p.Partagee === undefined || p.Partagee === true) ? 'à valider' : 'personnelle';
+// Phrases montrées : validées, les siennes, et (IA-IPR) celles proposées à tous ; jamais la bibliothèque personnelle d'un·e autre.
+/** @param {Ligne[]} phrases @param {number} moiId @param {boolean} valideur */
+export const phrasesVisibles = (phrases, moiId, valideur) => phrases.filter(p => statutPhrase(p) === 'validée'
+  || (!!moiId && p.Auteur === moiId) || (valideur && statutPhrase(p) === 'à valider'));
+// Phrases : filtres rubrique, compétence, « à valider », « mes phrases ».
+/** @param {Ligne[]} phrases @param {{ rubrique?: number, competence?: string, aValider?: boolean, miennes?: number }} f */
 export const filtrerPhrases = (phrases, f) => phrases.filter(p => (!f.rubrique || p.Rubrique === f.rubrique)
-  && (!f.competence || p.Competence === f.competence) && (!f.aValider || p.Validee !== true));
+  && (!f.competence || p.Competence === f.competence) && (!f.aValider || statutPhrase(p) === 'à valider')
+  && (!f.miennes || p.Auteur === f.miennes));
 
 // Formulaire → valeurs Grist (listes de références ['L', …], nombres, cases).
 /** @param {Onglet} o @param {Record<string, any>} f @param {string[]} colonnesPresentes */
@@ -96,7 +120,7 @@ export function versGrist(o, f, colonnesPresentes) {
   for (const c of o.colonnes) {
     if (c.facultative && !colonnesPresentes.includes(c.id)) continue;
     const x = f[c.id];
-    v[c.id] = c.type === 'refs' ? ['L', ...liste(x)] : c.type === 'ref' ? (Number(x) || 0) : c.type === 'case' ? !!x
+    v[c.id] = c.type === 'refs' ? ['L', ...liste(x)] : c.type === 'multi' ? ['L', ...liste(x).map(String)] : c.type === 'ref' ? (Number(x) || 0) : c.type === 'case' ? !!x
       : c.type === 'nombre' ? (x === '' || x === null || x === undefined || !Number.isFinite(Number(x)) ? null : Number(x)) : String(x ?? '').trim();
   }
   return v;
@@ -112,7 +136,7 @@ export function valider(o, f, lignes, id) {
     if (c.unique && String(x ?? '').trim() && lignes.some(l => l.id !== id && norm(l[c.id]).trim() === norm(x).trim())) e.push(`${c.lib} « ${x} » : déjà utilisé.`);
     if (c.type === 'nombre' && String(x ?? '').trim() && !Number.isFinite(Number(x))) e.push(`${c.lib} : un nombre.`);
   }
-  if ((o.cle === 'rubriques' || o.cle === 'grille' || o.cle === 'parametres') && /\s/.test(String(f.Code ?? f.Cle ?? '').trim())) e.push('Code ou clé : sans espace.');
+  if ((o.cle === 'rubriques' || o.cle === 'grille' || o.cle === 'parametres' || o.cle === 'mails') && /\s/.test(String(f.Code ?? f.Cle ?? '').trim())) e.push('Code ou clé : sans espace.');
   return e;
 }
 // Ordre d'une nouvelle ligne : après la dernière, pas de 10.

@@ -180,6 +180,11 @@
   <textarea id="note-c" rows="4" placeholder="Commentaire, visible du ou de la CMi"></textarea>
   <div class="actions"><button id="note-ok" class="primary">Enregistrer</button><button id="note-annuler">Annuler</button></div>
 </dialog>
+<dialog id="dlg-maphrase" aria-labelledby="mp-titre">
+  <h2 id="mp-titre">Ajouter à mes phrases</h2>
+  <div id="mp-corps"></div>
+  <div class="actions"><button id="mp-ok" class="primary">Ajouter</button><button id="mp-annuler">Annuler</button></div>
+</dialog>
 <dialog id="dlg-signature" aria-labelledby="sig-titre">
   <h2 id="sig-titre">Signer</h2>
   <div id="sig-corps"></div>
@@ -195,7 +200,7 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
-  redigeParIpr, peutValiderSeul, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, rubriquesVides, phrasesPour, inserer,
+  redigeParIpr, peutValiderSeul, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, generaliserPhrase, competenceDuPassage, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
   lirePositionnement, positionner, grillePour, echellePour, couleurNiveau, rangsPositionnement, ongletParDefaut, lireRelecture, suggerer, commenter, trancher, traiter, appliquerSuggestions, bilanRelecture, peutRepondre, annoter, changerNote, occurrence, vueRelue,
@@ -590,7 +595,8 @@ function afficherFiche() {
           <div class="outils-rel"><button data-commenter="${esc(x.code)}" title="Sélectionner un passage dans le cadre ci-dessus, puis cliquer ici">💬 Commenter la sélection</button></div>
           <div class="suggestion" data-diff="${esc(x.code)}" ${typeof n.s === 'string' ? '' : 'hidden'}><div class="titre">Votre suggestion</div><div class="diff">${typeof n.s === 'string' ? htmlDiff(contenu[x.code] || '', n.s) : ''}</div></div>
           <div class="commentaire">Commentaire de relecture<textarea data-comm="${esc(x.code)}" placeholder="Visible du ou de la CMi">${esc(n.c || '')}</textarea></div>`
-        : `${redige ? `<textarea data-texte="${esc(x.code)}" rows="5">${esc(contenu[x.code] || '')}</textarea>`
+        : `${redige ? `<textarea data-texte="${esc(x.code)}" rows="5">${esc(contenu[x.code] || '')}</textarea>
+          ${peutAjouterPhrase() ? `<div class="outils-rel"><button data-maphrase="${esc(x.code)}" title="Sélectionner un passage (ou placer le curseur sur une ligne), puis cliquer : il rejoint votre bibliothèque de phrases types">＋ Mes phrases</button></div>` : ''}`
           : `<div class="lu">${esc(contenu[x.code] || '') || '<span class="muted">—</span>'}</div>`}
         ${typeof n.s === 'string' ? `<div class="suggestion"><div class="titre">Suggestion de l'IA-IPR${repond ? ` <button data-trancher="${esc(x.code)}" data-ok="1" class="primary">Accepter</button><button data-trancher="${esc(x.code)}" data-ok="0">Refuser</button>` : ''}</div>
           <div class="diff">${htmlDiff(contenu[x.code] || '', n.s)}</div></div>` : ''}
@@ -898,6 +904,18 @@ function brancherFiche(r) {
     });
     t.addEventListener('focus', () => { champActif = t; if (rubriqueActive !== t.dataset.sugg) { rubriqueActive = t.dataset.sugg; competenceFiltre = ''; afficherPhrases(); } });
   });
+  fiche.querySelectorAll('[data-maphrase]').forEach(b => {
+    b.addEventListener('mousedown', e => e.preventDefault());   // garder la sélection du cadre
+    b.addEventListener('click', () => {
+      const t = fiche.querySelector(`[data-texte="${CSS.escape(b.dataset.maphrase)}"]`);
+      if (!t) return;
+      let a = t.selectionStart, z = t.selectionEnd;
+      if (a === z) { a = t.value.lastIndexOf('\n', a - 1) + 1; z = t.value.indexOf('\n', z); if (z < 0) z = t.value.length; }   // ligne du curseur
+      const passage = t.value.slice(a, z).trim();
+      if (!passage) return toast('Sélectionner d\'abord un passage (ou placer le curseur sur une ligne non vide).', true);
+      ouvrirMaPhrase(r, b.dataset.maphrase, passage);
+    });
+  });
   fiche.querySelectorAll('[data-commenter]').forEach(b => {
     b.addEventListener('mousedown', e => e.preventDefault());   // garder la sélection du cadre
     b.addEventListener('click', () => {
@@ -965,6 +983,44 @@ function brancherFiche(r) {
   });
 }
 
+// --- Bibliothèque personnelle : ajouter un passage du rapport à ses phrases types ---
+const droitsPhrases = () => droitsTable(moi, 'Phrases');
+const peutAjouterPhrase = () => { const d = droitsPhrases(); return d.C === 'Oui' || (d.C === 'Limité' && !!moiPers()); };
+function ouvrirMaPhrase(r, code, passage) {
+  const rub = D.rubriques.find(x => x.Code === code);
+  if (!rub) return toast('Rubrique introuvable dans les modèles : ajout impossible.', true);
+  const valideur = droitsPhrases().M === 'Oui', avecPartage = D.phrases.length === 0 || 'Partagee' in D.phrases[0];
+  const echelle = typeDe(r).Positionnement ? echellePour(typeDe(r), D.params) : [];
+  const rangs = echelle.length ? rangsPositionnement(r.Positionnement, echelle) : {};
+  const codes = [...new Set([...grillePour(typeDe(r), D.competences).map(k => String(k.Code)), 'P1', 'P2', 'P3', 'P4', 'P5', 'MD1', 'MD2', 'MD3'])];
+  const comp = competenceDuPassage(passage, codes);
+  const texte = generaliserPhrase(comp ? passage.replace(/^\s*(?:[-•*–]\s*)?[A-Z]{1,2}\d{1,2}\s*[:–-]?\s*/, '') : passage,
+    { civilite: r.Prof_civilite, nom: r.Prof_nom, prenom: r.Prof_prenom });
+  $('mp-corps').innerHTML = `<p class="petit muted">Rubrique « ${esc(rub.Titre)} ». Le nom du ou de la professeur·e est remplacé par {civilite} {nom} : la phrase servira pour d'autres rapports.</p>
+    <label class="champ"><span>Phrase</span><textarea id="mp-texte" rows="4">${esc(texte)}</textarea></label>
+    <div class="grille">
+      <label class="champ"><span>Compétence</span><select id="mp-comp"><option value="">—</option>${codes.map(c => `<option ${c === comp ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="champ"><span>Niveau</span><select id="mp-niv"><option value="">tous niveaux</option>${[1, 2, 3, 4].map(n => `<option value="${n}" ${comp && rangs[comp] === n ? 'selected' : ''}>${n}${echelle[n - 1] ? ' – ' + esc(echelle[n - 1].cle) : ''}</option>`).join('')}</select></label>
+      <label class="champ"><span>Nature</span><select id="mp-nat">${['', 'Point fort', 'Conseil', 'Vigilance', 'Autre'].map(x => `<option value="${esc(x)}">${esc(x || '—')}</option>`).join('')}</select></label>
+    </div>
+    ${!valideur && avecPartage ? '<label class="champ"><input type="checkbox" id="mp-partage"> Proposer à tous (validation par un·e IA-IPR)</label>' : ''}
+    ${valideur ? '<p class="petit muted">Vos phrases sont validées d\'office : elles sont proposées à tout le monde.</p>' : ''}`;
+  $('mp-comp').addEventListener('change', () => { const c = $('mp-comp').value; $('mp-niv').value = c && rangs[c] ? String(rangs[c]) : ''; });
+  $('mp-ok').onclick = async () => {
+    const t = $('mp-texte').value.trim();
+    if (!t) return toast('Phrase vide.', true);
+    if (D.phrases.some(p => norm(p.Texte).trim() === norm(t))) return toast('Cette phrase est déjà dans la bibliothèque.', true);
+    const ordre = (Math.floor(Math.max(0, ...D.phrases.map(p => Number(p.Ordre) || 0)) / 10) + 1) * 10;
+    const v = { Rubrique: rub.id, Competence: $('mp-comp').value, Niveau: Number($('mp-niv').value) || null, Nature: $('mp-nat').value,
+      Texte: t, Auteur: moiPers() || 0, Validee: valideur, Ordre: ordre };
+    if (avecPartage) v.Partagee = valideur || !!($('mp-partage') && $('mp-partage').checked);
+    if (!('Niveau' in (D.phrases[0] || { Niveau: 0 }))) delete v.Niveau;
+    if (await ecrire([['AddRecord', 'Phrases', null, v]], 'Ajoutée à vos phrases', charger)) $('dlg-maphrase').close();
+  };
+  $('mp-annuler').onclick = () => $('dlg-maphrase').close();
+  $('dlg-maphrase').showModal();
+}
+
 // --- Phrases types (panneau de droite) ---
 function afficherPhrases() {
   const r = rapportSel();
@@ -993,7 +1049,7 @@ function afficherPhrases() {
       <span class="muted">(sinon, pour une compétence positionnée, seules les phrases de son niveau)</span></label>` : ''}
     ${liste_.length ? liste_.map(p => { const n = Number(p.Niveau) || 0; return `<div class="phrase" data-phrase="${p.id}" title="Insérer à la position du curseur"
       ${n && p.Competence ? `style="--niv:${couleurNiveau(n, echelle.length || nbNiv)}"` : ''}>${esc(remplirChamps(p.Texte, v))}
-      <span class="meta">${esc([p.Nature, p.Competence, n && p.Competence ? libNiv(n) : '', p.Validee ? '' : 'proposée, non validée'].filter(Boolean).join(' · '))}</span></div>`; }).join('')
+      <span class="meta">${esc([p.Nature, p.Competence, n && p.Competence ? libNiv(n) : '', p.Validee ? '' : p.Partagee === false ? 'ma phrase' : 'ma phrase, proposée à tous'].filter(Boolean).join(' · '))}</span></div>`; }).join('')
       : '<p class="muted">Aucune phrase pour cette rubrique.</p>'}`;
   const champ = $('ph-q');
   champ.addEventListener('input', () => { const pos = champ.selectionStart; afficherPhrases(); const c2 = $('ph-q'); c2.focus(); c2.setSelectionRange(pos, pos); });

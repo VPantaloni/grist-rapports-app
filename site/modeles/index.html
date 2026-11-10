@@ -44,6 +44,7 @@
         <select id="f-rubrique"><option value="">Toutes les rubriques</option></select>
         <select id="f-competence" style="max-width:80px"><option value="">P…</option></select>
       </div>
+      <label class="petit" id="f-miennes-l" hidden><input type="checkbox" id="f-miennes"> mes phrases seulement</label>
       <label class="petit" id="f-valider-l" hidden><input type="checkbox" id="f-valider"> seulement les phrases à valider</label>
     </div>
     <ul id="liste"></ul>
@@ -56,7 +57,7 @@ import { $, esc, message, toast, installerBulles, preferences, boutonConfirmatio
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
 import { liste } from '../commun/donnees.js';
-import { ONGLETS, COMPETENCES, onglet, trier, filtrerPhrases, versGrist, valider, ordreSuivant, lirePhrasesCollees,
+import { ONGLETS, COMPETENCES, onglet, trier, filtrerPhrases, phrasesVisibles, statutPhrase, versGrist, valider, ordreSuivant, lirePhrasesCollees,
   peutModifier, peutSupprimer, peutCreer, peutValider } from './logique.js';
 
 const pref = preferences('Modeles');
@@ -65,21 +66,25 @@ const COLS = {};                  // table → colonnes présentes dans Grist
 let moi = null, cle = pref.lire('Onglet', 'rubriques'), sel = 0, f = null, lot = false;
 const O = () => onglet(cle);
 const droits = () => droitsTable(moi, O().table);
-const lignes = () => T[O().table] || [];
+const lignes = () => O().table === 'Phrases' ? phrasesVues() : (T[O().table] || []);
+// Phrases montrées : validées, les siennes, et pour les IA-IPR celles proposées à tous (jamais la bibliothèque d'un·e autre).
+const phrasesVues = () => phrasesVisibles(T.Phrases || [], (moi && moi.Personne) || 0, peutValider(droitsTable(moi, 'Phrases')));
 const affiche = (table, col, id) => { const l = (T[table] || []).find(x => x.id === id); return l ? String(l[col] ?? '') : ''; };
 
 function afficherOnglets() {
   $('onglets').hidden = false;
   $('onglets').innerHTML = ONGLETS.map(o => `<button data-onglet="${o.cle}" class="${o.cle === cle ? 'actif' : ''}">${esc(o.libelle)}${o.cle === 'phrases'
-    ? ` <span class="muted">(${filtrerPhrases(T.Phrases || [], { aValider: true }).length} à valider)</span>` : ''}</button>`).join('');
+    && peutValider(droitsTable(moi, 'Phrases')) ? ` <span class="muted">(${filtrerPhrases(T.Phrases || [], { aValider: true }).length} à valider)</span>` : ''}</button>`).join('');
 }
 
 function afficherListe() {
   const o = O(), ph = o.cle === 'phrases';
-  $('filtres-phrases').hidden = !ph; $('f-valider-l').hidden = !ph; $('lot').hidden = !ph;
+  $('filtres-phrases').hidden = !ph; $('f-valider-l').hidden = !ph || !peutValider(droits()); $('lot').hidden = !ph;
+  $('f-miennes-l').hidden = !ph || !(moi && moi.Personne);
   let l = trier(o, lignes(), $('recherche').value);
-  if (ph) l = filtrerPhrases(l, { rubrique: Number($('f-rubrique').value) || 0, competence: $('f-competence').value, aValider: $('f-valider').checked });
-  $('liste').innerHTML = l.length ? l.map(x => `<li data-id="${x.id}" class="${x.id === sel ? 'sel' : ''} ${ph && x.Validee !== true ? 'a-valider' : ''}">${esc(o.titre(x))}
+  if (ph) l = filtrerPhrases(l, { rubrique: Number($('f-rubrique').value) || 0, competence: $('f-competence').value,
+    aValider: $('f-valider').checked && peutValider(droits()), miennes: $('f-miennes').checked ? (moi && moi.Personne) || 0 : 0 });
+  $('liste').innerHTML = l.length ? l.map(x => `<li data-id="${x.id}" class="${x.id === sel ? 'sel' : ''} ${ph && statutPhrase(x) === 'à valider' ? 'a-valider' : ''}">${esc(o.titre(x))}
     ${o.detail ? `<span class="det">${esc(o.detail(x))}${ph ? ' · ' + esc(affiche('Rubriques', 'Code', x.Rubrique)) : ''}</span>` : ''}</li>`).join('')
     : '<li class="vide" style="cursor:default">Aucune ligne.</li>';
   const ok = peutCreer(droits(), moi);
@@ -98,6 +103,8 @@ function champ(c, v, actif) {
     .map(x => `<option value="${x.id}" ${x.id === v ? 'selected' : ''}>${esc(x.Titre || x[c.affichee])}${x.Code ? ` (${esc(x.Code)})` : ''}</option>`).join('')}</select>${aide}</label>`;
   if (c.type === 'refs') return `<div class="champ">${tete}<div class="cases">${(T[c.cible] || []).map(x => `<label><input type="checkbox" data-refs="${c.id}" value="${x.id}"
     ${liste(v).includes(x.id) ? 'checked' : ''} ${dis}> ${esc(x[c.affichee])}</label>`).join('')}</div>${aide}</div>`;
+  if (c.type === 'multi') return `<div class="champ">${tete}<div class="cases">${(c.choix || []).map(x => `<label><input type="checkbox" data-multi="${c.id}" value="${esc(x)}"
+    ${liste(v).includes(x) ? 'checked' : ''} ${dis}> ${esc(x)}</label>`).join('')}</div>${aide}</div>`;
   return `<label class="champ">${tete}<input type="text" data-c="${c.id}" value="${esc(v ?? '')}" ${dis}>${aide}</label>`;
 }
 
@@ -127,6 +134,7 @@ function afficherFiche() {
 function lireFormulaire(cols) {
   for (const c of cols) {
     if (c.type === 'refs') { f[c.id] = [...$('fiche').querySelectorAll(`[data-refs="${c.id}"]`)].filter(x => x.checked).map(x => Number(x.value)); continue; }
+    if (c.type === 'multi') { f[c.id] = [...$('fiche').querySelectorAll(`[data-multi="${c.id}"]`)].filter(x => x.checked).map(x => x.value); continue; }
     const e = $('fiche').querySelector(`[data-c="${c.id}"]`);
     if (e) f[c.id] = c.type === 'case' ? e.checked : c.type === 'ref' ? Number(e.value) : e.value;
   }
@@ -139,6 +147,7 @@ async function enregistrer(cols) {
   if (err.length) return;
   const v = versGrist(o, f, COLS[o.table] || []);
   if (o.cle === 'phrases' && !peutValider(droits())) v.Validee = false;
+  if (o.cle === 'phrases' && v.Validee === true && 'Partagee' in v) v.Partagee = true;
   if (f.id) { if (await ecrire([['UpdateRecord', o.table, f.id, v]], 'Enregistré', charger)) { f = null; afficherListe(); afficherFiche(); } return; }
   if (o.cle === 'phrases') v.Auteur = (moi && moi.Personne) || 0;
   const res = await ecrire([['AddRecord', o.table, null, v]], 'Ajouté');
@@ -150,7 +159,8 @@ async function enregistrer(cols) {
 // Lot de phrases collées : une par ligne, dans une rubrique, avec une nature et une compétence communes.
 function afficherLot() {
   $('fiche').innerHTML = `<h1>Coller un lot de phrases</h1>
-    <p class="note">Une phrase par ligne (puces et numéros retirés). Les phrases déjà présentes et les doublons sont ignorés. ${peutValider(droits()) ? '' : 'Elles seront « à valider » par un·e IA-IPR.'}</p>
+    <p class="note">Une phrase par ligne (puces et numéros retirés). Les phrases déjà présentes et les doublons sont ignorés. ${peutValider(droits()) ? '' : 'Elles vont dans votre bibliothèque ; cochez « Proposer à tous » pour les envoyer à la validation des IA-IPR.'}</p>
+    ${!peutValider(droits()) && (COLS.Phrases || []).includes('Partagee') ? '<label class="champ"><input type="checkbox" id="lot-partage"> Proposer à tous (validation par un·e IA-IPR)</label>' : ''}
     ${champ(onglet('phrases').colonnes[1], Number($('f-rubrique').value) || 0, true)}
     ${champ(onglet('phrases').colonnes[2], $('f-competence').value, true)}${champ(onglet('phrases').colonnes[3], '', true)}
     <label class="champ"><span>Phrases</span><textarea id="lot-texte" rows="10"></textarea></label>
@@ -168,6 +178,7 @@ function afficherLot() {
     const n = p.length, valide = peutValider(droits()), auteur = (moi && moi.Personne) || 0;
     const champs = { Texte: p, Rubrique: p.map(() => rub), Competence: p.map(() => comp), Nature: p.map(() => nat),
       Validee: p.map(() => valide), Auteur: p.map(() => auteur), Ordre: p.map(() => { const x = ordre; ordre += 10; return x; }) };
+    if ((COLS.Phrases || []).includes('Partagee')) champs.Partagee = p.map(() => valide || !!($('lot-partage') && $('lot-partage').checked));
     if (await ecrire([['BulkAddRecord', 'Phrases', p.map(() => null), champs]], `${n} phrase(s) ajoutée(s)`, charger)) { lot = false; afficherListe(); afficherFiche(); }
   });
   compter();
@@ -185,7 +196,7 @@ const change = detecteurChangement();
 const occupe = () => lot || (!!f && f.id === null)
   || (!!document.activeElement && $('fiche').contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
 const charger = sansChevauchement(async () => {
-  const noms = ['Rubriques', 'Phrases', 'Types_rapport', 'Competences_MD', 'Parametres', 'Personnes', 'Utilisateurs', '_grist_Tables_column', '_grist_Tables'];
+  const noms = ['Rubriques', 'Phrases', 'Types_rapport', 'Competences_MD', 'Parametres', 'Modeles_mail', 'Personnes', 'Utilisateurs', '_grist_Tables_column', '_grist_Tables'];
   const lus = Object.fromEntries(noms.map((n, i) => [n, null]));
   const r = await Promise.all(noms.map(lireTable));
   noms.forEach((n, i) => { lus[n] = r[i]; T[n] = r[i].lignes || []; });
@@ -197,7 +208,7 @@ const charger = sansChevauchement(async () => {
     COLS[o.table] = [...new Set([...meta, ...Object.keys((T[o.table] || [])[0] || {})])];
   }
   moi = identifierMoi(T.Utilisateurs).moi;
-  if (!change([r.slice(0, 6).map(x => x.lignes), sel, cle]) && !$('app').hidden) return;
+  if (!change([r.slice(0, 7).map(x => x.lignes), sel, cle]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
   remplirFiltres(); afficherOnglets(); afficherListe();
   if (!occupe()) { f = null; afficherFiche(); }
@@ -213,7 +224,7 @@ if (await initialiserGrist()) {
     cle = b.dataset.onglet; pref.ecrire('Onglet', cle); sel = 0; f = null; lot = false; $('recherche').value = '';
     afficherOnglets(); afficherListe(); afficherFiche();
   });
-  for (const id of ['recherche', 'f-rubrique', 'f-competence', 'f-valider']) $(id).addEventListener(id === 'recherche' ? 'input' : 'change', afficherListe);
+  for (const id of ['recherche', 'f-rubrique', 'f-competence', 'f-valider', 'f-miennes']) $(id).addEventListener(id === 'recherche' ? 'input' : 'change', afficherListe);
   $('recharger').addEventListener('click', () => relireSansCache(charger));
   $('liste').addEventListener('click', e => {
     const li = e.target.closest('li[data-id]');
@@ -225,7 +236,7 @@ if (await initialiserGrist()) {
     const o = O();
     f = { id: null, Ordre: ordreSuivant(lignes()) };
     for (const c of o.colonnes) if (!(c.id in f)) f[c.id] = c.type === 'refs' ? [] : c.type === 'case' ? (c.id === 'Imprimee') : c.type === 'choix' ? c.choix[0] : '';
-    if (o.cle === 'phrases') { f.Rubrique = Number($('f-rubrique').value) || 0; f.Competence = $('f-competence').value; f.Validee = peutValider(droits()); }
+    if (o.cle === 'phrases') { f.Rubrique = Number($('f-rubrique').value) || 0; f.Competence = $('f-competence').value; f.Validee = peutValider(droits()); f.Partagee = peutValider(droits()); }
     if (o.cle === 'rubriques') f.Types = (T.Types_rapport || []).map(t => t.id);
     lot = false; afficherFiche();
   });

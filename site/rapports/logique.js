@@ -110,6 +110,25 @@ export function remplirChamps(texte, v) {
   const val = /** @type {Record<string, string>} */ ({ civilite: String(v.civilite ?? ''), nom: String(v.nom ?? ''), prenom: String(v.prenom ?? '') });
   return String(texte ?? '').replace(/\{(civilite|nom|prenom)\}/g, (_, k) => val[k] || `{${k}}`);
 }
+// Inverse de remplirChamps : un passage du rapport devient une phrase type générique (« Mme NOM » → « {civilite} {nom} »).
+/** @param {string} texte @param {{ civilite?: any, nom?: any, prenom?: any }} v */
+export function generaliserPhrase(texte, v) {
+  const e = (/** @type {string} */ x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const mot = (/** @type {string} */ x) => new RegExp(`(?<![\\p{L}])${e(x)}(?![\\p{L}])`, 'giu');
+  let t = String(texte ?? '').trim().replace(/^\s*(?:[-•*–]|\d+[.)])\s*/, '');
+  const civ = String(v.civilite ?? '').trim(), nom = String(v.nom ?? '').trim(), prenom = String(v.prenom ?? '').trim();
+  if (civ && nom) t = t.replace(new RegExp(`(?<![\\p{L}])${e(civ)}\\s+${e(nom)}(?![\\p{L}])`, 'giu'), '{civilite} {nom}');
+  if (prenom && nom) t = t.replace(new RegExp(`(?<![\\p{L}])${e(prenom)}\\s+${e(nom)}(?![\\p{L}])`, 'giu'), '{prenom} {nom}');
+  if (nom) t = t.replace(mot(nom), m => m === '{nom}' ? m : '{nom}');
+  if (prenom) t = t.replace(mot(prenom), '{prenom}');
+  return t;
+}
+// Compétence d'un passage de la rubrique des compétences : code en tête de ligne (« P3 : … », « - MD2 … »).
+/** @param {string} texte @param {string[]} codes */
+export function competenceDuPassage(texte, codes) {
+  const m = /^\s*(?:[-•*–]\s*)?([A-Z]{1,2}\d{1,2})\b/.exec(String(texte ?? ''));
+  return m && codes.includes(m[1]) ? m[1] : '';
+}
 // Contenu de départ d'un nouveau rapport : texte de départ de chaque rubrique, champs remplis.
 /** @param {Ligne[]} rubriques @param {{ civilite?: any, nom?: any, prenom?: any }} v */
 export function contenuInitial(rubriques, v) {

@@ -7,7 +7,8 @@ import { PREFIXE } from '../commun/config.js';
 // ===== À ADAPTER (APP § 4 et § 8) =====
 // Tables de données présentes dans la matrice Permissions (pas Utilisateurs, Permissions, Navigation).
 export const TABLES_DONNEES = ['Personnes', 'Etablissements', 'Professeurs', 'Types_rapport', 'Rubriques', 'Phrases',
-  'Competences_MD', 'Parametres', 'Rapports', 'Signatures', 'Visites', 'Maitres_delegues', 'Bilans_MD', 'Stagiaires', 'Tutorats', 'Grilles_PSTG', 'Retours_PSTG'];
+  'Competences_MD', 'Parametres', 'Rapports', 'Signatures', 'Visites', 'Maitres_delegues', 'Bilans_MD', 'Stagiaires', 'Tutorats', 'Grilles_PSTG', 'Retours_PSTG',
+  'EDT', 'Calendrier', 'EdT_memo', 'Modeles_mail'];
 // Table des fiches vers laquelle pointe Utilisateurs.Personne ('' si l'application n'en a pas).
 export const TABLE_FICHES = 'Personnes';
 // Rôles qui exigent une fiche (leurs droits « Limité » portent sur « mes » lignes).
@@ -54,6 +55,10 @@ export const MATRICE_DEFAUT = (() => {
     Tutorats: [[O, O, O, O], [O, N, N, N]],
     Grilles_PSTG: [[O, O, O, O], [O, N, N, N]],
     Retours_PSTG: [[O, O, O, O], [O, N, N, N]],     // suivi des stagiaires : IA-IPR ; CMi en lecture
+    EDT: [[O, O, O, O], [O, N, N, N]],              // emplois du temps : versés par les IA-IPR (Siiprien)
+    Calendrier: [[O, O, O, O], [O, N, N, N]],
+    EdT_memo: [[O, O, O, O], [O, L, L, L]],         // plannings : chaque CMi les siens
+    Modeles_mail: [[O, O, O, O], [O, N, N, N]],
   };
   return {
     'Administrateur·trice': Object.fromEntries(Object.keys(m).map(t => [t, [O, O, O, O]])),
@@ -92,6 +97,9 @@ export const PORTEES = {
   'Signatures:S': 'sa signature',
   'Visites:L': 'ses visites du plan',
   'Visites:M': 'ses visites : date calée et notes seulement',
+  'EdT_memo:C': 'ses plannings',
+  'EdT_memo:M': 'ses plannings',
+  'EdT_memo:S': 'ses plannings',
 };
 // Onglet Import (SPEC § 4.5, commun/import.js) : deux fichiers possibles. Le fichier académique des professeur·es (une
 // ligne par affectation, colonnes de l'établissement comprises) remplit Etablissements puis Professeurs ; le fichier

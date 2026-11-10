@@ -1,5 +1,7 @@
 ﻿Libelle,Widget,Ordre,Roles,Visible
+Accueil,accueil,1,,true
 Plan d'inspection,plan,5,,true
+Emplois du temps,edt,7,,true
 Rapports,rapports,10,,true
 Suivis,suivis,15,"Administrateur·trice, IA-IPR",true
 Modèles & phrases,modeles,20,,true

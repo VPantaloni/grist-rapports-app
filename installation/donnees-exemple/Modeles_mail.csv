@@ -1,0 +1,45 @@
+﻿Code,Titre,Pour,A,Copie,Objet,Texte,Ordre
+proposer_cmi,Proposer une visite,CMi,Chef d'établissement,IA-IPR référent·e,[Mathématiques] Proposition de visite – {etablissement},"Madame, Monsieur,
+
+Chargé·e de mission d'inspection en mathématiques, je souhaiterais rendre visite à {professeurs} le {date}, selon le planning suivant :
+
+{planning}
+
+Pourriez-vous me confirmer que cette date convient ?
+
+Bien cordialement,
+{signataire}
+{fonction}",10
+annoncer_cmi,Annoncer la visite,CMi,Équipe,Chef d'établissement,[Mathématiques] Visite du {date} – {etablissement},"Bonjour,
+
+Je vous confirme ma venue au {etablissement} le {date} :
+
+{planning}
+
+Je me tiens à votre disposition pour toute question.
+
+Bien cordialement,
+{signataire}
+{fonction}",20
+proposer_ipr,Proposer une visite,IA-IPR,Chef d'établissement,,[IA-IPR Maths] Proposition de visites – {etablissement},"Madame, Monsieur,
+
+Je souhaiterais venir dans votre établissement le {date} pour rencontrer {professeurs}, selon le planning suivant :
+
+{planning}
+
+Pourriez-vous me confirmer que cette date convient ?
+
+Bien cordialement,
+{signataire}
+{fonction}",30
+annoncer_ipr,Annoncer la visite,IA-IPR,Équipe,Chef d'établissement,[IA-IPR Maths] Visite du {date} – {etablissement},"Bonjour,
+
+Je viendrai au {etablissement} le {date} :
+
+{planning}
+
+Au plaisir de vous rencontrer.
+
+Bien cordialement,
+{signataire}
+{fonction}",40

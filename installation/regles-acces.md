@@ -178,6 +178,22 @@ Prêtes à copier, une ligne par table de données (générées depuis `installa
 | [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
 | [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
 | [ ] | `Retours_PSTG` | `user.Profil and "Retours_PSTG:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `EDT` | `user.Profil and "EDT:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `EDT` | `user.Profil and "EDT:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `EDT` | `user.Profil and "EDT:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `EDT` | `user.Profil and "EDT:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Calendrier` | `user.Profil and "Calendrier:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Calendrier` | `user.Profil and "Calendrier:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Calendrier` | `user.Profil and "Calendrier:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Calendrier` | `user.Profil and "Calendrier:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `EdT_memo` | `user.Profil and "EdT_memo:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `EdT_memo` | `user.Profil and "EdT_memo:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `EdT_memo` | `user.Profil and "EdT_memo:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `EdT_memo` | `user.Profil and "EdT_memo:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
+| [ ] | `Modeles_mail` | `user.Profil and "Modeles_mail:L:Oui" in user.Profil.Droits` | ✓ | · | · | · |
+| [ ] | `Modeles_mail` | `user.Profil and "Modeles_mail:C:Oui" in user.Profil.Droits` | · | · | ✓ | · |
+| [ ] | `Modeles_mail` | `user.Profil and "Modeles_mail:M:Oui" in user.Profil.Droits` | · | ✓ | · | · |
+| [ ] | `Modeles_mail` | `user.Profil and "Modeles_mail:S:Oui" in user.Profil.Droits` | · | · | · | ✓ |
 <!-- /schema:matrice -->
 
 - [ ] **Enregistrer.**
