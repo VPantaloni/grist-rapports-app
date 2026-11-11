@@ -381,7 +381,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 
 | Colonne | Type | Rôle |
 |---|---|---|
-| `Email` | Texte | exactement user.Email, majuscules comprises |
+| `Email` | Texte | adresse du compte Grist (majuscules indifférentes : comparée par Email_cle) |
+| `Email_cle` | Texte (formule) | e-mail en minuscules, comparé à user.Email (que Grist donne en minuscules) par l'attribut Profil et les règles : la casse de la saisie est indifférente |
 | `Roles` | Liste de choix | Rôles |
 | `Personne` | Référence → Personnes | fiche liée (droits « Limité ») |
 | `Actif` | Booléen | Actif |

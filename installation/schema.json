@@ -1543,7 +1543,14 @@
           "libelle": "E-mail",
           "type": "Text",
           "obligatoire": true,
-          "role": "exactement user.Email, majuscules comprises"
+          "role": "adresse du compte Grist (majuscules indifférentes : comparée par Email_cle)"
+        },
+        {
+          "id": "Email_cle",
+          "libelle": "E-mail (clé)",
+          "type": "Text",
+          "formule": "($Email or \"\").strip().lower()",
+          "role": "e-mail en minuscules, comparé à user.Email (que Grist donne en minuscules) par l'attribut Profil et les règles : la casse de la saisie est indifférente"
         },
         {
           "id": "Roles",

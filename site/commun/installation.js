@@ -203,10 +203,14 @@ export function reglesAcces(schema, o = {}) {
   /** @type {RegleAcces[]} */
   const r = [];
   const t = (/** @type {string} */ tableId, colIds = '*') => ({ tableId, colIds });
-  r.push({ ressource: DEFAUT, condition: '', droits: '', attribut: { name: 'Profil', tableId: 'Utilisateurs', charId: 'Email', lookupColId: 'Email' },
-    libelle: 'Attribut utilisateur Profil : Utilisateurs, user.Email ↔ Email' });
-  r.push({ ressource: t('Utilisateurs', 'Moi'), condition: 'rec.Email != user.Email', droits: '-R', libelle: 'Utilisateurs.Moi : illisible sauf sur sa ligne' });
-  r.push({ ressource: t('Utilisateurs'), condition: 'rec.Email == user.Email', droits: '+R', libelle: 'Utilisateurs : sa ligne' });
+  // Colonne Utilisateurs.Email_cle (formule : e-mail en minuscules) déclarée : comparaison insensible à la casse
+  // (Grist donne user.Email en minuscules) ; sinon comparaison à l'identique avec Email.
+  const util = (schema.tables || []).find(x => x.id === 'Utilisateurs');
+  const cleEmail = util && util.colonnes.some(c => c.id === 'Email_cle') ? 'Email_cle' : 'Email';
+  r.push({ ressource: DEFAUT, condition: '', droits: '', attribut: { name: 'Profil', tableId: 'Utilisateurs', charId: 'Email', lookupColId: cleEmail },
+    libelle: `Attribut utilisateur Profil : Utilisateurs, user.Email ↔ ${cleEmail}` });
+  r.push({ ressource: t('Utilisateurs', 'Moi'), condition: `rec.${cleEmail} != user.Email`, droits: '-R', libelle: 'Utilisateurs.Moi : illisible sauf sur sa ligne' });
+  r.push({ ressource: t('Utilisateurs'), condition: `rec.${cleEmail} == user.Email`, droits: '+R', libelle: 'Utilisateurs : sa ligne' });
   r.push({ ressource: t('Permissions'), condition: 'user.IsLoggedIn', droits: '+R', libelle: 'Permissions : lisible si connecté·e' });
   r.push({ ressource: t('Navigation'), condition: 'True', droits: '+R', libelle: 'Navigation : lisible par tous' });
   if (o.chiffrement) r.push({ ressource: t('Chiffrement'), condition: `${P} and ${P}.Actif`, droits: '+R', libelle: 'Chiffrement : lisible des comptes actifs (pour « Révéler »)' });

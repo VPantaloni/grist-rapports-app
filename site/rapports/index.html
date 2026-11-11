@@ -1125,7 +1125,7 @@ async function validerSignature() {
   if ($('sig-garder') && $('sig-garder').checked && moi && moi.Email) {
     const m = maSignature();
     await ecrire(m ? [['UpdateRecord', 'Signatures', m.id, { Image: s.image, Modifie_le: aujourdhuiGrist() }]]
-      : [['AddRecord', 'Signatures', null, { Email: moi.Email, Image: s.image, Modifie_le: aujourdhuiGrist() }]], 'Signature enregistrée');
+      : [['AddRecord', 'Signatures', null, { Email: String(moi.Email).trim().toLowerCase(), Image: s.image, Modifie_le: aujourdhuiGrist() }]], 'Signature enregistrée');
   }
   signatureEnCours = null;
   await s.faire(s.image);
