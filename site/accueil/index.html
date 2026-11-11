@@ -14,24 +14,24 @@
   #app { flex: 1; min-height: 0; overflow-y: auto; }
   .page { max-width: 1240px; height: 100%; min-height: 380px; margin: 0 auto; padding: 12px 16px 14px; display: flex;
     flex-direction: column; gap: 12px; position: relative; box-sizing: border-box; }
-  #aide { position: absolute; top: 22px; right: 26px; z-index: 2; border-radius: 50%; width: 28px; height: 28px; display: flex;
-    align-items: center; justify-content: center; text-decoration: none; color: #fff; background: rgba(255,255,255,.18);
-    border: 1px solid rgba(255,255,255,.35); }
-  #aide:hover { background: rgba(255,255,255,.3); }
-  /* Lien vers l'application Menu (toutes les applications), à sa couleur. */
-  #menu-apps { position: absolute; top: 18px; right: 64px; z-index: 2; width: 36px; height: 36px; border-radius: 9px; display: flex;
-    align-items: center; justify-content: center; background: #B2B8D8; color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.35), 0 3px 8px rgba(0,0,0,.18);
-    transition: transform .15s ease; }
+  /* Coin du bandeau, en haut à droite : aide (?) puis, en dessous, lien vers l'application Menu (à sa couleur). */
+  .coin { position: absolute; top: 20px; right: 24px; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #aide { display: flex; width: 34px; height: 34px; align-items: center; justify-content: center; color: #fff; opacity: .9;
+    transition: opacity .15s ease, transform .15s ease; }
+  #aide:hover, #aide:focus-visible { opacity: 1; transform: scale(1.08); outline: none; }
+  #aide svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #menu-apps { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: #B2B8D8; color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.35), 0 3px 8px rgba(0,0,0,.18); transition: transform .15s ease; }
   #menu-apps:hover, #menu-apps:focus-visible { transform: scale(1.08); outline: none; }
-  #menu-apps svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .bandeau { flex: none; position: relative; overflow: hidden; border-radius: 14px; padding: 10px 18px 10px 12px; color: #fff;
+  #menu-apps svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .bandeau { flex: none; position: relative; overflow: hidden; min-height: 104px; box-sizing: border-box; border-radius: 14px; padding: 10px 18px 10px 12px; color: #fff;
     display: flex; align-items: center; gap: 16px;
     background: radial-gradient(120% 140% at 100% 0%, var(--violet-3) 0%, transparent 45%), linear-gradient(135deg, var(--violet-1) 0%, var(--violet-2) 100%);
     box-shadow: 0 8px 24px rgba(91, 33, 163, .22); }
   .bandeau::after { content: ''; position: absolute; right: -50px; bottom: -90px; width: 220px; height: 220px; border-radius: 50%;
     border: 30px solid rgba(255,255,255,.08); }
   .bandeau .logo { width: clamp(72px, 18vh, 116px); height: clamp(72px, 18vh, 116px); flex: none; border-radius: 16px; box-shadow: 0 0 0 3px rgba(255,255,255,.35), 0 6px 16px rgba(0,0,0,.18); }
-  .bandeau .txt { min-width: 0; padding-right: 96px; }
+  .bandeau .txt { min-width: 0; padding-right: 64px; }
   .bandeau h1 { font-size: clamp(22px, 4.4vh, 30px); line-height: 1.15; margin: 0; font-weight: 700; }
   .bandeau .bonjour { font-size: 14px; margin: 3px 0 0; opacity: .95; }
   .bandeau p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
@@ -66,8 +66,10 @@
 <div id="msg">Chargement…</div>
 <div id="app" hidden>
   <div class="page">
-    <a id="menu-apps" href="https://edurl.fr/grist-app-menu" target="_blank" rel="noopener" title="Menu : toutes les applications Grist" aria-label="Ouvrir le menu des applications Grist"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></a>
-    <a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide de l'application">?</a>
+    <div class="coin">
+      <a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide de l'application" aria-label="Aide de l'application"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></a>
+      <a id="menu-apps" href="https://edurl.fr/grist-app-menu" target="_blank" rel="noopener" title="Menu : toutes les applications Grist" aria-label="Ouvrir le menu des applications Grist"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></a>
+    </div>
     <section class="bandeau" id="bandeau"></section>
     <section class="grille" id="cartes" aria-label="Écrans de l'application"></section>
   </div>
