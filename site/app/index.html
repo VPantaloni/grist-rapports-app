@@ -314,6 +314,18 @@ async function pleinEcran(cle, actif) {
   return cle === courant && (await basculerPleinEcranNavigateur(document, true)) === 'navigateur' ? 'navigateur' : 'conteneur';
 }
 
+// Pourquoi le compte n'est pas reconnu (affiché sous le message) : lignes de Utilisateurs que Grist laisse lire à ce
+// compte et état de la colonne Moi. 0 ligne : e-mail absent ou différent (règles d'accès) ; lignes sans Moi lisible :
+// règles d'accès anciennes (Installer, volet 3).
+function diagnosticCompte(lignes, erreur) {
+  if (erreur) return `lecture de Utilisateurs refusée (${esc(String(erreur))}).`;
+  const n = lignes.length, moi = lignes.filter(l => l.Moi === true).length;
+  const actifs = lignes.filter(l => l.Actif === true).length;
+  if (!n) return 'aucune ligne de Utilisateurs n\'est lisible par ce compte : son e-mail n\'y figure pas (ou pas à l\'identique).';
+  return `${n} ligne${n > 1 ? 's' : ''} de Utilisateurs lisible${n > 1 ? 's' : ''}, « Moi » vrai sur ${moi}, active${actifs > 1 ? 's' : ''} : ${actifs}`
+    + (moi ? '' : ' — colonne Moi illisible : réécrire les règles (Installer, volet 3).');
+}
+
 // Menu lu dans la table Navigation (selon les rôles) ; écrans devenus invisibles fermés.
 async function chargerMenu() {
   const [nav, util, perm] = await Promise.all([lireTable('Navigation'), lireTable('Utilisateurs'), lireTable('Permissions')]);
@@ -344,7 +356,8 @@ async function chargerMenu() {
       : `<div class="connexion"><p><strong>Aucun écran disponible.</strong> Tu n'es pas connecté·e à Grist, ou ton compte
           n'est pas encore déclaré dans l'application : l'e-mail de la table Utilisateurs doit être exactement celui de ton
           compte Grist (avatar en haut à droite), écrit en minuscules.</p>
-          <a class="bouton" href="${connexion}" target="_top">Se connecter ou changer de compte</a></div>`;
+          <a class="bouton" href="${connexion}" target="_top">Se connecter ou changer de compte</a>
+          <p class="petit muted">Détail pour l'administration : ${diagnosticCompte(utilisateurs, util.erreur)}</p></div>`;
   } else $('ecrans').querySelectorAll('.vide, .connexion').forEach(el => el.remove());   // « Chargement… », message
   if (!entrees.some(e => e.cle === courant)) {
     const voulu = entrees.some(e => e.cle === 'accueil') ? 'accueil' : pref.lire('Ecran', '');   // l'accueil d'abord
