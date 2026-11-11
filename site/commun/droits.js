@@ -11,6 +11,11 @@ export function identifierMoi(lignes) {
   if (!l.length) return { moi: null, statut: 'aucune' };
   const avecMoi = l.filter(x => x.Moi === true);
   if (avecMoi.length === 1) return { moi: avecMoi[0], statut: 'moi' };
+  // Plusieurs lignes « Moi » pour la même adresse (doublon avec et sans majuscules) : la ligne active, sinon la première.
+  // Moi vrai sur des adresses différentes = règles d'accès pas encore saisies (mise en place).
+  const cle = (/** @type {Ligne} */ x) => String(x.Email_cle ?? x.Email ?? '').trim().toLowerCase();
+  if (avecMoi.length > 1 && cle(avecMoi[0]) && new Set(avecMoi.map(cle)).size === 1)
+    return { moi: avecMoi.find(x => x.Actif === true) || avecMoi[0], statut: 'moi' };
   if (l.length > 1 && avecMoi.length === l.length) return { moi: null, statut: 'sans-regles' };
   if (!('Moi' in l[0])) return { moi: l.length === 1 ? l[0] : null, statut: 'sans-moi' };
   if (l.every(x => estCensure(x.Moi))) return { moi: null, statut: 'masque-partout' };
