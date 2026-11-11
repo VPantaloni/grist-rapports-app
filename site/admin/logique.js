@@ -220,6 +220,12 @@ export function indexPermissions(permissions) {
 
 /** @param {any} e */
 const normEmail = e => String(e || '').trim().toLowerCase();
+export const TITRE_MAJUSCULES = 'E-mails avec majuscules ou espaces : compte non reconnu (à écrire en minuscules)';
+// Comptes à corriger : e-mail mis en minuscules, sans espaces (bouton du contrôle ci-dessus).
+/** @param {Ligne[]} utilisateurs */
+export const actionsEmailsMinuscules = utilisateurs => utilisateurs
+  .filter(u => String(u.Email || '').trim() && String(u.Email) !== normEmail(u.Email))
+  .map(u => ['UpdateRecord', 'Utilisateurs', u.id, { Email: normEmail(u.Email) }]);
 
 // Vérifie une fiche utilisateur·trice avant enregistrement ; renvoie la liste des erreurs.
 /**
@@ -266,6 +272,10 @@ export function controles({ utilisateurs, permissions, personnes }) {
     if (vus[k]) doublons.push(`${u.Email} (déjà : ${vus[k]})`); else vus[k] = u.Email;
   }
   ajouter('erreur', 'E-mails en double (majuscules ignorées)', doublons);
+  // Grist compare user.Email à Utilisateurs.Email à l'identique, et donne l'e-mail du compte en minuscules : une
+  // majuscule dans la ligne et le compte n'est pas reconnu (« Aucun écran disponible »), sauf pour le ou la propriétaire.
+  ajouter('erreur', TITRE_MAJUSCULES, utilisateurs.filter(u => String(u.Email || '') !== normEmail(u.Email) && String(u.Email || '').trim())
+    .map(u => `${u.Email} → ${normEmail(u.Email)}`));
   ajouter('erreur', 'E-mails vides ou invalides',
     utilisateurs.filter(u => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(u.Email || ''))).map(u => `ligne ${u.id} : « ${u.Email || ''} »`));
 

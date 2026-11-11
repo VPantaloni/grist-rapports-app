@@ -239,7 +239,7 @@ import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrem
   deriverCle, creerVerificateur, verifierCle, ouvrirAvecPhrase, validerNouvellePhrase, validerChangementPhrase, actionCreerTable, actionsColonnesTable,
   actionsNouvellePhrase, actionsIndice, indiceTropProche, rangerCle, oublierCle, cleAuDemarrage, suivreCle, definirCle, cryptoDisponible } from '../commun/chiffrement.js';
 import { IMPORT, EXPORT, CAMPAGNES, LIEUX, DESCRIPTIONS_ROLES, CONTROLES_FICHES, TABLES_DONNEES, TABLE_FICHES, ROLES, PORTEES, ACTIONS, COLONNES_ACTION, matriceDroits, droitsCalcules,
-  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair, actionsMatriceDefaut } from './logique.js';
+  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair, actionsMatriceDefaut, TITRE_MAJUSCULES, actionsEmailsMinuscules } from './logique.js';
 
 const pref = preferences('Admin');   // dernier onglet ouvert, rôle affiché dans la matrice
 const prefApp = preferences('App');   // case « Voir en tant que », lue par le conteneur app/
@@ -467,7 +467,7 @@ function majFormulaire() {
 async function enregistrer() {
   const f = edition;
   if (validerUtilisateur(f, D.utilisateurs, f.id).length) return;
-  const champs = { Email: f.Email.trim(), Roles: ['L', ...f.Roles], Personne: f.Personne || 0, Actif: f.Actif };
+  const champs = { Email: f.Email.trim().toLowerCase(), Roles: ['L', ...f.Roles], Personne: f.Personne || 0, Actif: f.Actif };
   const action = f.id ? ['UpdateRecord', 'Utilisateurs', f.id, champs] : ['AddRecord', 'Utilisateurs', null, champs];
   if (await ecrire([action], f.id ? 'Compte enregistré' : 'Compte ajouté')) fermer();
 }
@@ -549,8 +549,11 @@ function afficherControles() {
   $('controles').innerHTML = rappel + (problemes.length ? '' : '<div class="alerte ok">Aucune erreur ni alerte.</div>') +
     res.filter(r => r.lignes.length).map(r => `<section class="controle ${classe[r.niveau]}">
       <h3>${esc(r.titre)} <span class="muted">(${r.lignes.length})</span></h3>
-      <ul>${r.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul></section>`).join('') +
+      <ul>${r.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+      ${r.titre === TITRE_MAJUSCULES ? '<button type="button" class="btn" id="emails-minuscules">Tout mettre en minuscules</button>' : ''}</section>`).join('') +
     `<details><summary>Contrôles sans problème</summary><ul class="petit">${res.filter(r => !r.lignes.length).map(r => `<li>${esc(r.titre)} : ✓</li>`).join('')}</ul></details>`;
+  const bm = $('emails-minuscules');
+  if (bm) bm.onclick = async () => { const a = actionsEmailsMinuscules(D.utilisateurs); if (a.length && await ecrire(a, `${a.length} e-mail(s) mis en minuscules`)) await charger(); };
 }
 
 // --- Onglet « Import » (SPEC § 4.5) : lecture → aperçu (rien d'écrit) → intégration confirmée ---
