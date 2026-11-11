@@ -5,6 +5,7 @@
 // Retours saisis : table Retours_PSTG (Positionnement { code : rang 1-4 }, chiffré). Visites CMi et IA-IPR : tirées
 // aussi des rapports PSTG de l'application (rien n'est recopié), comme les rapports MD dans le Suivi MD.
 import { norm } from '../commun/donnees.js';
+import { quotiteDe } from './stagiaires.js';
 import { couleurNiveau, lirePositionnement } from '../rapports/logique.js';
 
 /** @typedef {Record<string, any>} Ligne */
@@ -204,7 +205,7 @@ export function lignesPstg(stagiaires, D, f) {
   const mots = norm(f.q || '').split(/\s+/).filter(Boolean);
   return stagiaires.filter(s => s.Annee === f.annee && s.Suivi !== 'Écarté·e')
     .map(s => { const r = retoursDe(s, D); return { s, retours: r, cases: parColonne(r), signal: signal(r, prio), vigilance: vigilance(s, r, prio) }; })
-    .filter(l => (!f.vigilance || l.vigilance) && (!f.situation || l.s.Situation === f.situation) && (!f.quotite || l.s.Quotite === f.quotite)
+    .filter(l => (!f.vigilance || l.vigilance) && (!f.situation || l.s.Situation === f.situation) && (!f.quotite || quotiteDe(l.s) === f.quotite)
       && mots.every(m => norm([l.s.Nom, l.s.Prenom, l.s.Etab_nom, l.s.Etab_commune, l.s.Corps, l.s.Concours, l.s.Situation].join(' ')).includes(m)))
     .sort((a, b) => String(a.s.Nom).localeCompare(String(b.s.Nom), 'fr') || String(a.s.Prenom).localeCompare(String(b.s.Prenom), 'fr'));
 }

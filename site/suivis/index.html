@@ -143,6 +143,7 @@
 
 <script type="module">
 import { synchroniserCopies } from '../commun/professeurs.js';
+import { tableauTriable } from '../commun/tableaux.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
@@ -154,7 +155,7 @@ import { aujourdhui, rentreeDe, libelleAnnee, dateFr, dateIso, isoVersGrist } fr
 import { grillePour, echellePour, couleurNiveau, lirePositionnement, positionner, descripteurs } from '../rapports/logique.js';
 import { TABLE, TABLE_BILANS, PERIODE_ANS, ETATS_MD, estMd, identiteProf, ligneMd, mdsAAjouter, anneesSuivi, pastilles, lignesSuivi, filtrerMds,
   compterEtats, derniereAnnee, validerMd, validerBilan, sansEvaluation, calendrierAnnee, droitsSuivi } from './logique.js';
-import { TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
+import { quotiteImposee, TABLE_STAGIAIRES, TABLE_TUTORATS, CORPS, CONCOURS, QUOTITES, SUIVIS, codesStagiaires, stagiairesAAjouter, ligneStagiaire, ligneTuteur,
   statutStagiaire, tuteursDe, filtrerStagiaires, anneesStagiaires, manques, validerStagiaire, csvModele, lireCsvStagiaires,
   preparerImportStagiaires, sansVisite, visitesARelier, completerDepuisPlan, champsStagiaire, visitePour, cmisDe, visitesDe, droitsStagiaires,
   sansTuteur, iprObligatoire } from './stagiaires.js';
@@ -280,6 +281,11 @@ async function relierAuPlan() {
 
 // --- Affichage ---
 function afficher() {
+  afficherVue();
+  const t = $('contenu').querySelector('table.suivi, table.stg, table.pstg');
+  if (t) tableauTriable(t, 'suivis-' + t.className.split(' ')[0]);
+}
+function afficherVue() {
   document.querySelectorAll('#onglets [data-onglet]').forEach(b => b.classList.toggle('actif', b.dataset.onglet === onglet));
   if (onglet === 'pstg') { afficherPstg(); return; }
   if (erreurMd) { $('contenu').innerHTML = `<div class="alerte">${esc(erreurMd)}</div>`; return; }
@@ -310,14 +316,14 @@ function afficher() {
       <span>Visite tous les ${PERIODE_ANS} ans.</span></div>
     ${lignes.length ? `<table class="suivi"><thead><tr><th>MD</th>${annees.map(a => `<th class="${a === courante ? 'courante' : ''}">${esc(a.replace(/^20(\d\d)-20(\d\d)$/, '$1-$2'))}</th>`).join('')}
       <th>Dernière visite</th><th>État</th></tr></thead><tbody>
-      ${lignes.map(l => `<tr class="${l.md.En_poste === false ? 'ancien' : ''}"><td class="nom" data-md="${l.md.id}" title="Fiche du ou de la MD">
+      ${lignes.map(l => `<tr class="${l.md.En_poste === false ? 'ancien' : ''}"><td class="nom" data-md="${l.md.id}" data-filtre="${esc([nomMd(l.md), l.md.Etab_nom, l.md.Etab_commune, l.md.UAI].filter(Boolean).join(' '))}" data-tri="${esc(nomMd(l.md))}" title="Fiche du ou de la MD">
         <span class="n">${esc(nomMd(l.md))}</span>${l.md.En_poste === false ? ' <span class="etiquette">ancien·ne</span>' : ''}
         <span class="det">${esc([l.md.Etab_nom, l.md.Etab_commune].filter(Boolean).join(', ') || l.md.UAI || '')}</span></td>
         ${annees.map(a => { const c = l.cases.get(a); const lecture = !c && !droits.saisir;
-          return `<td class="case ${a === courante ? 'courante' : ''} ${c && c.source === 'rapport' ? 'rapport' : ''} ${lecture ? 'lecture' : ''}" data-case="${l.md.id}|${esc(a)}"
+          return `<td data-filtre="${c ? 'visite' : 'pas de visite'}" data-tri="${c ? 1 : ''}" class="case ${a === courante ? 'courante' : ''} ${c && c.source === 'rapport' ? 'rapport' : ''} ${lecture ? 'lecture' : ''}" data-case="${l.md.id}|${esc(a)}"
             ${c ? '' : `title="${esc(lecture ? 'Pas de visite' : `Pas de visite en ${a} : cliquer pour saisir un ancien bilan`)}"`}>${c ? ronds(c.positionnement, infobulle(c)) : '<span class="vide">·</span>'}</td>`; }).join('')}
         <td>${esc(derniereAnnee(l.cases) || '—')}</td>
-        <td><span class="etiquette e-${l.etat.cle}">${esc(l.etat.libelle)}</span></td></tr>`).join('')}
+        <td data-filtre="${esc(l.etat.libelle)}"><span class="etiquette e-${l.etat.cle}">${esc(l.etat.libelle)}</span></td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">${D.mds.length ? 'Aucun·e MD ne correspond aux filtres.' : 'Aucun·e MD suivi·e pour l\'instant : « Ajouter au suivi » ou « + MD ».'}</p>`}`;
 }
 
@@ -425,7 +431,7 @@ function afficherSuiviPstg() {
             const vide = (c.cle === 'tuteur1' || c.cle === 'auto') && sansTuteur(s);
             const oblig = c.cle === 'ipr1' && !rs.length && iprObligatoire(s);
             const lecture = !rs.length && (!saisir || vide);
-            return `<td class="cel ${lecture ? 'lecture' : ''}" data-cel="${s.id}|${c.cle}">${rs.length ? rs.map((r, i) => rond(r, `${s.id}|${c.cle}|${i}`)).join('')
+            return `<td data-filtre="${rs.length ? (rs.every(prevue) ? 'prévu' : 'fait') : oblig ? 'IA-IPR à prévoir' : vide ? 'sans objet' : 'rien'}" data-tri="${rs.length || ''}" class="cel ${lecture ? 'lecture' : ''}" data-cel="${s.id}|${c.cle}">${rs.length ? rs.map((r, i) => rond(r, `${s.id}|${c.cle}|${i}`)).join('')
               : oblig ? '<span class="oblig" title="Agrégé·e stagiaire : visite d\'un·e IA-IPR obligatoire (un·e CMi peut venir en plus)">IA-IPR !</span>'
               : `<span class="vide">${vide ? '—' : '·'}</span>`}</td>`; }).join('')}
           <td>${s.Avis ? `<span class="av ${COULEURS_TITULARISATION[s.Avis] || ''}">${esc(s.Avis)}</span>` : '<span class="vide">·</span>'}</td></tr>`; }).join('')}
@@ -642,7 +648,13 @@ function dessinerStagiaire(nouveau, ecrit) {
     for (const k of ['Nom', 'Prenom', 'Email', 'UAI', 'Etab_nom', 'Etab_commune', 'Motif', 'Notes']) x[k] = $(`s-${k}`).value.trim();
     for (const k of ['Civilite', 'Corps', 'Concours', 'Quotite', 'Situation', 'Suivi']) x[k] = $(`s-${k}`).value;
     x.Sans_tuteur = $('s-Sans_tuteur').checked; x.UAI = x.UAI.toUpperCase();
+    if (quotiteImposee(x)) x.Quotite = '100 %';   // agrégé·e interne : toujours 100 %
   };
+  // Agrégé·e interne : quotité 100 % posée d'office, non modifiable.
+  const quotiteAuto = () => { const q = $('s-Quotite'); if (!q) return;
+    const imp = quotiteImposee({ Corps: $('s-Corps').value, Concours: $('s-Concours').value });
+    if (imp) q.value = '100 %'; q.disabled = imp || !!dis; q.title = imp ? 'Agrégé·e interne : toujours 100 %' : ''; };
+  if ($('s-Corps')) { $('s-Corps').addEventListener('change', quotiteAuto); $('s-Concours').addEventListener('change', quotiteAuto); quotiteAuto(); }
   $('s-Suivi').addEventListener('change', () => { $('s-motif-l').hidden = $('s-Suivi').value !== 'Écarté·e'; });
   if ($('s-UAI') && ecrit) $('s-UAI').addEventListener('change', () => {
     const e = D.etabs.find(y => norm(y.UAI) === norm($('s-UAI').value));

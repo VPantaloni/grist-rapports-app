@@ -295,7 +295,7 @@ const CONCOURS_COURT = /** @type {Record<string, string>} */ ({ Externe: 'ext.',
 export function libelleStagiaire(s, secteur) {
   const corps = CORPS_CONCOURS[String(s.Corps || '')] || String(s.Corps || '');
   return [[corps, CONCOURS_COURT[String(s.Concours || '')] || ''].filter(Boolean).join(' '),
-    /^priv/i.test(secteur || '') ? 'PR' : /^pub/i.test(secteur || '') ? 'PU' : '', String(s.Quotite || '')].filter(Boolean).join(' · ');
+    /^priv/i.test(secteur || '') ? 'PR' : /^pub/i.test(secteur || '') ? 'PU' : '', String(s.Quotite || '') || (s.Corps === 'AGREG' && s.Concours === 'Interne' ? '100 %' : '')].filter(Boolean).join(' · ');
 }
 // Repères par clé de nom (matchKey « NOM PRENOM ») : { type: 'stg' | 'md', label, uai }.
 /**

@@ -119,6 +119,7 @@ import { norm, nomFiche } from '../commun/donnees.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { synchroniserCopies } from '../commun/professeurs.js';
+import { tableauTriable } from '../commun/tableaux.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
   filtrer, periodeDepassee, objectif, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
   valider, lireTableauColle, preparerImport, fichesCmiACreer, statutVisite, stagiaireDe, indexEdt, edtDe, liensOrphelins, etat } from './logique.js';
@@ -176,7 +177,7 @@ function afficher() {
   $('onglets').innerHTML = o.length > 1 ? o.map(k => `<button data-onglet="${k}" class="${k === onglet ? 'actif' : ''}">${k === 'suivi' ? 'Suivi' : 'Mes visites'}</button>`).join('') : '';
   const annees = [...new Set([rentreeDe(aujourdhui()), rentree, ...D.visites.map(v => rentreeDe(v.Mois_debut || v.Date_prevue)).filter(Boolean)])].sort();
   $('annee').innerHTML = annees.map(a => `<option value="${a}" ${a === rentree ? 'selected' : ''}>${libelleAnnee(a)}</option>`).join('');
-  if (onglet === 'suivi') afficherSuivi(); else afficherMes();
+  if (onglet === 'suivi') { afficherSuivi(); tableauTriable($('contenu').querySelector('table.plan'), 'plan-suivi'); } else afficherMes();
 }
 
 function afficherSuivi() {
@@ -212,10 +213,10 @@ function afficherSuivi() {
     ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th title="Emploi du temps versé (écran Emplois du temps)">EdT</th><th>État</th></tr></thead><tbody>
       ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(statut(v))}${v.Professeur ? '' : ' · hors fichier'}</span></td>
         <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}</span></td>
-        <td>${esc(nomFiche(personne(v.CMi)) || '—')}</td><td>${esc(periode(v))}</td><td class="large">${esc(dateFr(v.Visite_inspe))}</td>
-        <td>${esc(dateFr(v.Date_prevue)) || '<span class="muted">—</span>'}</td>
-        <td class="c">${marqueEdt(v)}</td>
-        <td>${pastille(e)}${periodeDepassee(v, e, auj) ? '<span class="det depasse">période dépassée</span>' : ''}${r ? `<span class="det">${r.Valideur ? 'IA-IPR : ' + esc(nomFiche(personne(r.Valideur))) : ''}</span>` : ''}</td></tr>`).join('')}
+        <td>${esc(nomFiche(personne(v.CMi)) || '—')}</td><td data-tri="${esc(String(v.Mois_debut || ''))}">${esc(periode(v))}</td><td class="large" data-tri="${esc(String(v.Visite_inspe || ''))}">${esc(dateFr(v.Visite_inspe))}</td>
+        <td data-tri="${esc(String(v.Date_prevue || ''))}">${esc(dateFr(v.Date_prevue)) || '<span class="muted">—</span>'}</td>
+        <td class="c" data-filtre="${esc({ oui: 'présent', absent: 'absent', non: 'aucun pour l\'établissement', masque: 'masqué' }[edtDe(v, D.edt)])}">${marqueEdt(v)}</td>
+        <td data-filtre="${esc(e.libelle)}" data-tri="${e.rang}">${pastille(e)}${periodeDepassee(v, e, auj) ? '<span class="det depasse">période dépassée</span>' : ''}${r ? `<span class="det">${r.Valideur ? 'IA-IPR : ' + esc(nomFiche(personne(r.Valideur))) : ''}</span>` : ''}</td></tr>`).join('')}
       </tbody></table>` : `<p class="vide">${toutes.length ? 'Aucune visite ne correspond aux filtres.' : 'Le plan de cette année est vide.' + (plan ? ' « + Visite » ou « Importer un plan » pour commencer.' : '')}</p>`}
     ${hp.length ? `<details class="bloc" open style="margin-top:14px"><summary class="ko">Rapports hors plan (${hp.length}) : visite oubliée au plan ?</summary>
       <table class="plan">${hp.map(r => `<tr><td><strong>${esc([r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' '))}</strong><span class="det">${esc(r.Etab_nom || '')}</span></td>

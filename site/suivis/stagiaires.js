@@ -84,13 +84,19 @@ export function separerNomPrenom(t) {
   return { nom: mots[0], prenom: mots.slice(1).join(' ') };
 }
 
+// Quotité : un·e agrégé·e interne stagiaire est toujours à 100 % (APP § 11, 2026-11-11) ; jamais demandée.
+/** @param {Ligne | null | undefined} s */
+export const quotiteImposee = s => !!s && s.Corps === 'AGREG' && s.Concours === 'Interne';
+/** @param {Ligne | null | undefined} s */
+export const quotiteDe = s => (!s ? '' : String(s.Quotite || '') || (quotiteImposee(s) ? '100 %' : ''));
+
 // Statut court affiché dans le plan : « AGREG int. · 100 % », « CERT · 50 % ».
 const ABREV = /** @type {Record<string, string>} */ ({ Externe: 'ext.', Interne: 'int.', '3e voie': '3e voie' });
 /** @param {Ligne | null | undefined} s ligne de Stagiaires */
 export function statutStagiaire(s) {
   if (!s) return '';
   const corps = [s.Corps === 'Autre' ? '' : s.Corps, ABREV[s.Concours] || ''].filter(Boolean).join(' ');
-  return [corps || 'Stagiaire', s.Quotite].filter(Boolean).join(' · ');
+  return [corps || 'Stagiaire', quotiteDe(s)].filter(Boolean).join(' · ');
 }
 
 // Année scolaire « 2026-2027 » d'une rentrée.
@@ -112,7 +118,7 @@ export function ligneStagiaire(p, etabs, annee) {
   const interne = estAgregInterne(p, Number(String(annee).slice(0, 4)));
   return { Annee: annee, Professeur: p.id, Civilite: String(p.Civilite || ''), Nom: String(p.Nom || ''), Prenom: String(p.Prenom || ''),
     Email: String(p.Email || ''), UAI: String(p.UAI || ''), Etab_nom: String(e.Nom || ''), Etab_commune: String(e.Commune || ''),
-    Corps: interne ? 'AGREG' : corpsDuGrade(p.Grade), Concours: interne ? 'Interne' : '', Quotite: '', Sans_tuteur: interne, Suivi: 'À suivre', Motif: '', Notes: '' };
+    Corps: interne ? 'AGREG' : corpsDuGrade(p.Grade), Concours: interne ? 'Interne' : '', Quotite: interne ? '100 %' : '', Sans_tuteur: interne, Suivi: 'À suivre', Motif: '', Notes: '' };
 }
 // Champs d'un·e tuteur·trice d'après sa ligne du fichier (ou une saisie libre).
 /** @param {Ligne | null} p @param {Ligne[]} etabs @param {{ nom?: string, prenom?: string, uai?: string }} [libre] */
@@ -198,7 +204,7 @@ export function manques(s, tuteurs, visites = [], o = {}) {
   const m = [];
   if (!s.Corps) m.push('corps');
   if (!s.Concours) m.push('concours');
-  if (!s.Quotite) m.push('quotité');
+  if (!quotiteDe(s)) m.push('quotité');
   if (!sansTuteur(s) && !tuteurs.length) m.push('tuteur·trice');
   if (!visites.length && !o.ipr) m.push('visite au plan');
   if (iprObligatoire(s) && !o.ipr) m.push('visite IA-IPR (agrégé·e)');
