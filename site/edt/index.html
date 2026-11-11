@@ -183,6 +183,10 @@ button,input,select{font:inherit;color:inherit}
 .lg-itv{background:var(--ghost)}
 
 /* ---------- planning ---------- */
+.vuebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px}
+.vuebar:empty{display:none}
+.vuebar .btn{display:inline-flex;align-items:center;gap:6px}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .plan{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .plan:empty{display:none}
 .plan h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:10px}
@@ -322,6 +326,7 @@ code{background:var(--surface2);padding:0 4px;border-radius:4px;font-size:12px}
     <span><i class="lg-meet"></i>Réunion d'équipe</span>
   </div>
 
+  <div class="vuebar" id="vuebar"></div>
   <section class="plan" id="plan" aria-live="polite"></section>
 </div>
 <div class="detail" id="detail"></div>
@@ -540,9 +545,18 @@ function planGroups(){
   }
   const map = new Map();
   for (const it of items){ const gk = it.uai+"|"+it.day; if (!map.has(gk)) map.set(gk, {key:gk, uai:it.uai, day:it.day, items:[]}); map.get(gk).items.push(it); }
+  // réunion d'équipe placée sur un jour sans visite (barre au-dessus du planning) : groupe de la réunion seule,
+  // avec les professeur·es choisi·es de cet établissement
+  for (const key of Object.keys(state.meetings)){
+    if (map.has(key)) continue;
+    const uai = key.split("|")[0], day = +key.split("|")[1];
+    const profs = state.selected.filter(k => state.teachers.get(k) && state.teachers.get(k).uais.has(uai));
+    if (!profs.length && state.uaiFilter !== uai) continue;
+    map.set(key, {key, uai, day, items:[], profs});
+  }
   const groups = [...map.values()].sort((a,b)=>a.day-b.day||a.uai.localeCompare(b.uai));
   for (const g of groups){
-    g.teachers = [...new Set(g.items.map(i => i.k))];
+    g.teachers = g.profs || [...new Set(g.items.map(i => i.k))];
     const m = state.meetings[g.key];
     if (m) g.items.push({k:null, t:null, type:"r", day:g.day, start:m.start, end:m.end, uai:g.uai});
     g.items.sort((a,b)=>a.start-b.start||({v:0,e:1,r:2}[a.type]-{v:0,e:1,r:2}[b.type]));
@@ -617,6 +631,34 @@ function placeColumn(es, prio){
   for (const e of es) placed.push(...subtractPlaced(e, placed));
   return placed.sort((a,b) => a.start - b.start);
 }
+/* Tranches horaires d'un tableau copié : bornes de tous les créneaux ; plages libres fusionnées, pause méridienne
+   signalée (11h30–14h), plages libres de moins de 20 min retirées. */
+function tranchesHoraires(allE){
+  const tset = new Set();
+  for (const e of allE){ tset.add(e.start); tset.add(e.end); }
+  const times = [...tset].sort((a,b) => a - b);
+  const segs = [];
+  for (let i = 0; i < times.length - 1; i++) segs.push({start:times[i], end:times[i+1]});
+  for (const s of segs) s.empty = !allE.some(e => e.start < s.end && e.end > s.start);
+  const LUNCH_A = 11*60+30, LUNCH_B = 14*60;
+  const rows = [];
+  for (const s of segs){
+    const last = rows[rows.length - 1];
+    if (s.empty && last && last.empty && last.end === s.start){ last.end = s.end; continue; }
+    rows.push({...s});
+  }
+  // une plage libre qui chevauche 11h30–14h est découpée : seule la partie dans cette fenêtre est la pause méridienne
+  const split = [];
+  for (const r of rows){
+    if (!r.empty || r.end <= LUNCH_A || r.start >= LUNCH_B){ split.push(r); continue; }
+    const a = Math.max(r.start, LUNCH_A), b = Math.min(r.end, LUNCH_B);
+    if (a > r.start) split.push({start:r.start, end:a, empty:true});
+    split.push({start:a, end:b, empty:true, lunch:(b - a) >= 30});
+    if (b < r.end) split.push({start:b, end:r.end, empty:true});
+  }
+  const kept = split.filter(r => !r.empty || r.lunch || (r.end - r.start) >= 20);
+  return kept;
+}
 function planTableHTML(g){
   const ks = g.teachers;
   const wi = weekInfo();
@@ -661,30 +703,7 @@ function planTableHTML(g){
   const allCols = [ipr, ...cols];
   const allE = allCols.flat();
   if (!allE.length) return "";
-  // tranches horaires
-  const tset = new Set();
-  for (const e of allE){ tset.add(e.start); tset.add(e.end); }
-  const times = [...tset].sort((a,b) => a - b);
-  const segs = [];
-  for (let i = 0; i < times.length - 1; i++) segs.push({start:times[i], end:times[i+1]});
-  for (const s of segs) s.empty = !allE.some(e => e.start < s.end && e.end > s.start);
-  const LUNCH_A = 11*60+30, LUNCH_B = 14*60;
-  const rows = [];
-  for (const s of segs){
-    const last = rows[rows.length - 1];
-    if (s.empty && last && last.empty && last.end === s.start){ last.end = s.end; continue; }
-    rows.push({...s});
-  }
-  // une plage libre qui chevauche 11h30–14h est découpée : seule la partie dans cette fenêtre est la pause méridienne
-  const split = [];
-  for (const r of rows){
-    if (!r.empty || r.end <= LUNCH_A || r.start >= LUNCH_B){ split.push(r); continue; }
-    const a = Math.max(r.start, LUNCH_A), b = Math.min(r.end, LUNCH_B);
-    if (a > r.start) split.push({start:r.start, end:a, empty:true});
-    split.push({start:a, end:b, empty:true, lunch:(b - a) >= 30});
-    if (b < r.end) split.push({start:b, end:r.end, empty:true});
-  }
-  const kept = split.filter(r => !r.empty || r.lunch || (r.end - r.start) >= 20);
+  const kept = tranchesHoraires(allE);
 
   const FONT = "font-family:Marianne,Arial,Helvetica,sans-serif";
   const SHORT = 20;                                     // tranche « courte » : moins de 20 min
@@ -743,6 +762,137 @@ function planTableHTML(g){
   h += `</table>`;
   h += `<p style="${FONT};font-size:9pt;color:#444444;background:#ffffff;display:inline-block;padding:3px 8px;margin:6px 0 0">${PICTO.v} visite · ${PICTO.e} entretien · ${PICTO.r} réunion d'équipe</p>`;
   return h;
+}
+/* Vue EdT copiée (bouton « Copier vue EdT ») : la grille affichée (jours, professeur·es, semaine choisie), en tableau
+   HTML coloré à styles en ligne, avec ou sans visite. Une colonne par jour et par professeur·e. */
+const CAL_DOWN = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 18 4 4 4-4"/><path d="M16 2v4"/><path d="M18 14v8"/><path d="M21 11.354V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7.343"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>';
+function joursAffiches(){
+  const allDays = state.showSat ? [0,1,2,3,4,5] : [0,1,2,3,4];
+  if (state.focusDay != null && !allDays.includes(state.focusDay)) allDays.push(state.focusDay);
+  if (isMobile()) return [allDays.includes(state.mobileDay) ? state.mobileDay : 0];
+  return state.focusDay != null ? [state.focusDay] : allDays;
+}
+const jourChoisi = () => isMobile() ? state.mobileDay : state.focusDay;
+// Établissement de la réunion : celui choisi, sinon le seul commun aux professeur·es affiché·es.
+function uaiReunion(){
+  if (state.uaiFilter) return state.uaiFilter;
+  const sets = state.selected.map(k => state.teachers.get(k).uais);
+  const communs = sets.length ? [...sets[0]].filter(u => sets.every(x => x.has(u))) : [];
+  return communs.length === 1 ? communs[0] : null;
+}
+function vueLibelleSemaine(wi){
+  if (state.mode === "date"){
+    const m = state.monday;
+    return `semaine du ${fmtDate(m, {day:"numeric", month:"long", year:"numeric"})}${wi.vac ? " (vacances)" : wi.ab ? ` (semaine ${wi.ab})` : ""}`;
+  }
+  return state.mode === "type" ? "semaine type (toutes alternances)" : `semaine ${state.mode}`;
+}
+function vueTableHTML(){
+  const wi = weekInfo(), days = joursAffiches(), ks = state.selected;
+  const groups = planGroups();
+  const cols = [];
+  for (const d of days) ks.forEach((k, li) => {
+    const p = state.plan[k] || {};
+    const list = teacherCourses(k, wi).filter(c => c.day === d);
+    const es = [];
+    for (const c of list){
+      const isV = p.visit === c.id;
+      if (!isV){ es.push({start:c.start, end:c.end, kind:"c", c}); continue; }
+      const [vs, ve] = partRange(c, p.visitPart);
+      es.push({start:vs, end:ve, kind:"v", c});
+      if (vs > c.start) es.push({start:c.start, end:vs, kind:"c", c});
+      if (ve < c.end) es.push({start:ve, end:c.end, kind:"c", c});
+    }
+    if (p.itv && p.itv.day === d) es.push({start:p.itv.start, end:p.itv.end, kind:"e"});
+    const t = state.teachers.get(k);
+    for (const g of groups.filter(g => g.day === d && t.uais.has(g.uai) && (!state.uaiFilter || g.uai === state.uaiFilter))){
+      const m = state.meetings[g.key]; if (!m) continue;
+      const cut = [];
+      for (const e of es){
+        if (e.kind !== "c" || e.end <= m.start || e.start >= m.end){ cut.push(e); continue; }
+        const a = Math.max(e.start, m.start), b = Math.min(e.end, m.end);
+        if (a > e.start) cut.push({...e, end:a});
+        cut.push({...e, start:a, end:b, inMeet:true});
+        if (b < e.end) cut.push({...e, start:b});
+      }
+      es.length = 0; es.push(...cut, {start:m.start, end:m.end, kind:"r"});
+    }
+    cols.push({d, k, li, first: li === 0, es: placeColumn(es, {v:0, e:1, c:2, r:3})});
+  });
+  const allE = cols.flatMap(c => c.es);
+  const FONT = "font-family:Marianne,Arial,Helvetica,sans-serif";
+  const uai = uaiReunion(), et = uai ? state.etabs.get(uai) : null;
+  const titre = `Emplois du temps${et && et.nom ? " — " + esc(et.nom) : ""} — ${esc(vueLibelleSemaine(wi))}`;
+  const kept = allE.length ? tranchesHoraires(allE) : [];
+  const th = `border:1px solid #c9ccd1;padding:4px 8px;background:#e4e7eb;color:#1e1f22;text-align:center;font-weight:bold;${FONT};font-size:10pt`;
+  const tdBase = `border:1px solid #c9ccd1;vertical-align:top;background:#ffffff;color:#1e1f22;${FONT}`;
+  const tdN = `${tdBase};padding:3px 7px;font-size:10pt`, tdS = `${tdBase};padding:1px 7px;font-size:8pt;line-height:1.15`;
+  const sep = c => c.first && days.length > 1 ? ";border-left:3px solid #8a8f98" : "";
+  const small = (txt, color) => `<span style="font-size:8.5pt;color:${color}">${txt}</span>`;
+  const dayLabel = d => state.mode === "date" ? (() => { const x = fmtDate(addDays(state.monday, d), {weekday:"long", day:"numeric", month:"long"}); return x.charAt(0).toUpperCase() + x.slice(1); })() : DAYS[d];
+  const cell = (e, compact, when) => {
+    const w = col => when && !compact ? "<br>" + small(when, col) : "";
+    if (e.kind === "e") return `background:${BG.e};color:${FG.e}">${PICTO.e} <b>Entretien</b>${w(FG.e)}`;
+    if (e.kind === "r") return `background:${BG.r};color:${FG.r}">${PICTO.r} <b>Réunion</b>${w(FG.r)}`;
+    const away = uai && e.c.uai !== uai;
+    const alt = e.c.alt !== "H" ? ` ${small("(" + esc(e.c.alt) + ")", "#7a5a00")}` : "";
+    const [bg, fg, pic] = e.kind === "v" ? [BG.v, FG.v, PICTO.v + " <b>Visite</b> "] : e.inMeet ? [BG.r, FG.r, PICTO.r + " "] : away ? ["#f4f4f5", "#777777", ""] : ["#ffffff", "#333333", ""];
+    const cl = esc(e.c.classe), lib = esc(shortLib(e.c.libelle)), autre = away ? " " + small("(" + esc(e.c.uai) + ")", "#777777") : "";
+    if (compact) return `background:${bg};color:${fg}${away ? ";font-style:italic" : ""}">${pic}${cl}${alt}${autre}`;
+    return `background:${bg};color:${fg}${away ? ";font-style:italic" : ""}">${pic}${cl}${alt}<br>${small(lib, fg)}${autre}${w(fg)}`;
+  };
+  let h = `<table style="border-collapse:collapse;${FONT};font-size:10pt;color:#1e1f22;background:#ffffff">`;
+  h += `<caption style="text-align:left;font-weight:bold;${FONT};font-size:12pt;padding:6px 8px;background:#ffffff;color:#1e1f22">${titre}${days.length === 1 ? " — " + esc(dayLabel(days[0])) : ""}${ks.length === 1 ? " — " + esc(tName(state.teachers.get(ks[0]))) : ""}</caption>`;
+  const multi = days.length > 1 && ks.length > 1;
+  h += `<tr><th style="${th}"${multi ? ' rowspan="2"' : ""}>Horaire</th>`;
+  if (days.length > 1) h += days.map(d => `<th style="${th}${days.length > 1 ? ";border-left:3px solid #8a8f98" : ""}"${ks.length > 1 ? ` colspan="${ks.length}"` : ""}>${esc(dayLabel(d))}</th>`).join("");
+  else h += ks.map(k => `<th style="${th}">${esc(tName(state.teachers.get(k)))}</th>`).join("");
+  h += `</tr>`;
+  if (multi) h += `<tr>${cols.map(c => `<th style="${th};font-weight:normal;font-size:9pt${sep(c)}">${esc(tName(state.teachers.get(c.k)))}</th>`).join("")}</tr>`;
+  if (!kept.length) h += `<tr><td colspan="${cols.length + 1}" style="${tdN};text-align:center;color:#666666;font-style:italic">Aucun cours sur cette période.</td></tr>`;
+  const coveredRows = e => kept.filter(r => r.start >= e.start && r.end <= e.end);
+  for (const r of kept){
+    const hour = `${fmtMin(r.start)} – ${fmtMin(r.end)}`, sh = r.end - r.start < 20, td = sh ? tdS : tdN;
+    if (r.empty){
+      h += `<tr><td style="${td};background:#f1f2f4;white-space:nowrap;color:#555555">${hour}</td><td colspan="${cols.length}" style="${td};background:#f1f2f4;color:#555555;font-style:italic;text-align:center">${r.lunch ? "Pause méridienne" : ""}</td></tr>`;
+      continue;
+    }
+    h += `<tr><td style="${td};background:#f8f9fa;white-space:nowrap;${sh ? "color:#555555" : "font-weight:bold"}">${hour}</td>`;
+    for (const c of cols){
+      const st = c.es.find(e => e.start === r.start);
+      if (st){
+        const n = coveredRows(st).length, compact = n === 1 && sh;
+        const when = n > 1 ? `${fmtMin(st.start)} – ${fmtMin(st.end)}` : "";
+        h += `<td${n > 1 ? ` rowspan="${n}"` : ""} style="${compact ? tdS : tdN}${sep(c)};${cell(st, compact, when)}</td>`;
+        continue;
+      }
+      if (c.es.some(e => e.start < r.start && e.end > r.start)) continue;
+      h += `<td style="${td}${sep(c)}"></td>`;
+    }
+    h += `</tr>`;
+  }
+  h += `</table><p style="${FONT};font-size:9pt;color:#444444;background:#ffffff;display:inline-block;padding:3px 8px;margin:6px 0 0">${PICTO.v} visite · ${PICTO.e} entretien · ${PICTO.r} réunion d'équipe · (Q1) semaine A, (Q2) semaine B · en italique : autre établissement</p>`;
+  return h;
+}
+// Version texte de la vue (collage sans mise en forme).
+function vueTexte(){
+  const wi = weekInfo();
+  return joursAffiches().map(d => DAYS[d] + "\n" + state.selected.map(k => {
+    const l = teacherCourses(k, wi).filter(c => c.day === d).sort((a, b) => a.start - b.start);
+    return "  " + tName(state.teachers.get(k)) + " : " + (l.length ? l.map(c => `${fmtMin(c.start)}-${fmtMin(c.end)} ${c.classe}${c.alt !== "H" ? " (" + c.alt + ")" : ""}`).join(", ") : "aucun cours");
+  }).join("\n")).join("\n");
+}
+function renderVuebar(){
+  const el = $("#vuebar");
+  if (!state.selected.length){ el.innerHTML = ""; return; }
+  const d = jourChoisi(), u = d != null ? uaiReunion() : null, key = u ? `${u}|${d}` : "";
+  let reu;
+  if (d == null) reu = `<span class="hint">Cliquez sur l'en-tête d'un jour pour y placer une réunion d'équipe, même sans visite.</span>`;
+  else if (!u) reu = `<span class="hint">Réunion d'équipe : choisissez d'abord l'établissement.</span>`;
+  else if (state.meetings[key]) reu = `<span class="hint">👥 Réunion d'équipe ${esc(DAYS[d].toLowerCase())} ${fmtMin(state.meetings[key].start)}–${fmtMin(state.meetings[key].end)}</span>
+    <button class="btn sm" data-act="meet-edit" data-key="${esc(key)}">Modifier</button>`;
+  else reu = `<button class="btn sm" data-act="meet-day" data-key="${esc(key)}" title="Place une heure de réunion commune ce jour-là, à l'heure où le plus de professeur·es de l'équipe n'ont pas cours">＋ Réunion d'équipe (${esc(DAYS[d].toLowerCase())})</button>`;
+  el.innerHTML = `<button class="btn lblue" data-act="copyview" title="Copie la vue affichée (jours, professeur·es, semaine) en tableau coloré, à coller dans un mail ou un document">${CAL_DOWN} Copier vue EdT</button>${reu}`;
 }
 /* =====================================================================
    Mails (modèles de la table Modeles_mail)
@@ -1258,7 +1408,7 @@ function renderPlan(){
       ${(() => { const s = mailsSansAdresse(g); return s.length ? `<div class="pinfo">ℹ Pas d'adresse connue pour ${esc(s.join(", "))} (table Professeurs) : à ajouter à la main.</div>` : ""; })()}
       <div class="prow">
         ${peutMemoriser() ? `<button class="btn" data-act="memo-save" data-etat="prop" data-g="${gi}" title="Enregistre ces créneaux (table EdT_memo), état « Planning proposé »">💾 Mémoriser le planning</button>
-        <button class="btn lgreen" data-act="memo-save" data-etat="calee" data-g="${gi}" title="Enregistre ces créneaux, état « Visite calée », et reporte la date dans le plan d'inspection">✅ Visite calée</button>` : `<span class="hint">Mémoriser : réservé (droits sur EdT_memo).</span>`}
+        <button class="btn lgreen" data-act="memo-save" data-etat="calee" data-g="${gi}" title="Enregistre ces créneaux, état « Visite calée », et reporte la date dans le plan d'inspection">✅ Visite calée</button>` : `<span class="hint">Mémoriser : pas de droit sur la table EdT_memo pour ce compte (Administration → Permissions → « Appliquer les droits par défaut »).</span>`}
         ${(() => { const m = memoOf(g); return m ? `<span class="hint">En mémoire : ${etatBadge(m.etat || ETATS.prop)}</span>` : ""; })()}
       </div>
     </div>`;
@@ -1588,6 +1738,8 @@ document.addEventListener("click", async e => {
     if (a === "itv-save"){ saveItv(act, act.dataset.k, +act.dataset.iday); return; }
     if (a === "itv-del"){ const p = state.plan[act.dataset.k]; if (p){ p.itv = null; savePlan(); } state.pop = null; renderWork(); return; }
     if (a === "itv-edit"){ const k = act.dataset.k, p = state.plan[k]; if (p && p.itv){ state.pop = {kind:"itv", k, ...p.itv}; renderWork(); } return; }
+    if (a === "copyview"){ const ok = await copier(vueTexte(), vueTableHTML()); toast(ok ? "Vue copiée : collez-la dans un mail ou un document (Ctrl+V)." : "Copie impossible dans ce navigateur.", !ok); return; }
+    if (a === "meet-day"){ const key = act.dataset.key, [u, d] = key.split("|"); state.meetings[key] = defaultMeetingFor({key, uai:u, day:+d, items:[]}); savePlan(); state.pop = {kind:"meet", key}; renderWork(); return; }
     if (a === "meet-edit"){ state.pop = {kind:"meet", key:act.dataset.key}; renderPop(); return; }
     if (a === "meet-save"){ const r = readTimes(act); if (!r) return; state.meetings[act.dataset.key] = {start:r[0], end:r[1]}; savePlan(); state.pop = null; renderWork(); toast("Réunion d'équipe enregistrée."); return; }
     if (a === "meet-del"){ delete state.meetings[act.dataset.key]; savePlan(); state.pop = null; renderWork(); return; }
@@ -1677,9 +1829,9 @@ window.addEventListener("resize", () => { const m = isMobile(); if (m !== lastMo
    Rendu
    ===================================================================== */
 function render(){
-  renderDepts(); renderEtabSelect(); renderRappel(); renderChips(); renderWeekbar(); renderBanners(); renderGrid(); renderPop(); renderPlan();
+  renderDepts(); renderEtabSelect(); renderRappel(); renderChips(); renderWeekbar(); renderBanners(); renderGrid(); renderPop(); renderVuebar(); renderPlan();
 }
-function renderWork(){ renderGrid(); renderPop(); renderPlan(); }
+function renderWork(){ renderGrid(); renderPop(); renderVuebar(); renderPlan(); }
 
 /* =====================================================================
    Démarrage

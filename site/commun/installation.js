@@ -2,7 +2,8 @@
 // Installation scriptée du document (écran installer/, SPEC § 7 bis) : d'après installation/schema.json, les tables,
 // colonnes, choix, libellés, références (colonne affichée), formules et données d'exemple d'un document neuf.
 // Logique pure, testée avec Node (tests/installation.test.js). N'ajoute que ce qui manque : une table ou une colonne
-// qui existe déjà n'est jamais modifiée (différence de type signalée seulement).
+// qui existe déjà n'est jamais modifiée (différence de type signalée seulement), sauf sa liste de choix, complétée
+// des choix du schéma qui y manquent (sans rien retirer ni changer aux autres réglages de la colonne).
 // Constaté sur grist.numerique.gouv.fr (2026-10-19, banc) : AddRawTable ne prend que le nom de la table (pas les
 // colonnes) ; les colonnes s'ajoutent ensuite (AddColumn), les colonnes par défaut de la table neuve sont retirées.
 // À confirmer par le banc : libellés et widgetOptions par AddColumn, recalcWhen des formules d'initialisation,
@@ -59,6 +60,33 @@ export function planStructure(schema, meta) {
   }
   return { tablesACreer, colonnesAAjouter, differences, existantes };
 }
+
+// Colonnes Choix / Liste de choix existantes auxquelles manquent des choix du schéma (ex. nouvelle table dans
+// Permissions.Table : la valeur s'affiche en rouge dans Grist tant qu'elle n'est pas dans la liste).
+/** @param {Schema} schema @param {Meta} meta @returns {{ table: string, colonne: string, manquants: string[], options: Record<string, any> }[]} */
+export function choixManquants(schema, meta) {
+  const parNom = new Map(meta.tables.map(t => [t.tableId, t]));
+  const res = [];
+  for (const t of schema.tables || []) {
+    const m = parNom.get(t.id);
+    if (!m) continue;
+    for (const c of t.colonnes) {
+      if (!c.choix || !c.choix.length) continue;
+      const e = meta.colonnes.find(x => x.parentId === m.id && x.colId === c.id);
+      if (!e || !/^Choice/.test(String(e.type))) continue;
+      /** @type {Record<string, any>} */
+      let options = {};
+      try { options = JSON.parse(e.widgetOptions || '{}') || {}; } catch (err) { options = {}; }
+      const deja = Array.isArray(options.choices) ? options.choices : [];
+      const manquants = c.choix.filter(x => !deja.includes(x));
+      if (manquants.length) res.push({ table: t.id, colonne: c.id, manquants, options: { ...options, choices: [...deja, ...manquants] } });
+    }
+  }
+  return res;
+}
+/** @param {Schema} schema @param {Meta} meta */
+export const actionsChoix = (schema, meta) => choixManquants(schema, meta)
+  .map(x => ['ModifyColumn', x.table, x.colonne, { widgetOptions: JSON.stringify(x.options) }]);
 
 // Description Grist d'une colonne (AddRawTable, AddColumn). formules : { 'Nom.py': texte } (fichiers choisis).
 /** @param {ColonneSchema} c @param {Record<string, string>} formules */

@@ -72,7 +72,7 @@ import { initialiserGrist } from '../commun/grist.js';
 import { columnsToRows } from '../commun/donnees.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { decoderTexte, lireCsv } from '../commun/import.js';
-import { ordreTables, planStructure, actionsTables, actionsColonnes, actionsAffichage, objetsCsv, colonnesDonnees, reglesAcces, etatRegles,
+import { ordreTables, planStructure, actionsTables, actionsColonnes, actionsAffichage, choixManquants, actionsChoix, objetsCsv, colonnesDonnees, reglesAcces, etatRegles,
   actionsRessources, actionsRegles, actionsRetraitKit, MEMO_REGLES } from '../commun/installation.js';
 import { zipStocke, telechargerFichier, dateFichier } from '../commun/export.js';
 import { rangerFichiers, texteRapport, nomTableEssai, widgetsPersonnalises, reconnaitre, versionSelonSite, brouillonSchema, rapportReprise,
@@ -304,6 +304,7 @@ async function analyser() {
   $('analyse').innerHTML = `<h3 class="petit">Ce qui sera fait</h3><ul class="plan">
     <li>Tables à créer (${plan.tablesACreer.length}) : ${plan.tablesACreer.map(t => `<code>${esc(t.id)}</code>`).join(', ') || 'aucune'}</li>
     <li>Colonnes à ajouter (${plan.colonnesAAjouter.length}) : ${plan.colonnesAAjouter.map(x => `<code>${esc(x.table)}.${esc(x.colonne.id)}</code>`).join(', ') || 'aucune'}</li>
+    ${(() => { const cm = choixManquants(schema, meta); return cm.length ? `<li>Choix à compléter (${cm.length}) : ${cm.map(x => `<code>${esc(x.table)}.${esc(x.colonne)}</code> + ${x.manquants.map(esc).join(', ')}`).join(' ; ')}</li>` : ''; })()}
     <li>Données d'exemple (tables vides seulement) : ${aImporter.map(t => `<code>${esc(t.id)}</code> ${csv[t.id].length}`).join(', ') || 'aucune'}</li>
     ${plan.existantes.length ? `<li class="muted">Tables déjà là (gardées telles quelles) : ${plan.existantes.map(esc).join(', ')}</li>` : ''}</ul>
     ${plan.differences.length ? `<div class="alerte">Différences (non modifiées) :<ul class="plan">${plan.differences.map(d => `<li>${esc(d)}</li>`).join('')}</ul></div>` : ''}
@@ -381,6 +382,8 @@ async function creerStructure() {
     if (tables.length) { await appliquer(tables); journal(`Tables créées : ${creees.join(', ')}.`); }
     const colonnes = actionsColonnes(schema, await lireMeta(), formules, creees);
     if (colonnes.length) { await appliquer(colonnes); journal(`Colonnes : ${colonnes.filter(a => a[0] === 'AddColumn').length} ajoutée(s), ${colonnes.filter(a => a[0] === 'RemoveColumn').length} par défaut retirée(s).`); }
+    const choix = actionsChoix(schema, await lireMeta());
+    if (choix.length) { await appliquer(choix); journal(`Listes de choix complétées : ${choix.map(a => a[1] + '.' + a[2]).join(', ')}.`); }
     const affichage = actionsAffichage(schema, await lireMeta());
     if (affichage.length) { await appliquer(affichage); journal(`Colonnes affichées des références : ${affichage.length / 2}.`); }
     toast('Structure créée');
