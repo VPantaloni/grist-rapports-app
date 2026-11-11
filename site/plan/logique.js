@@ -388,3 +388,45 @@ export function objectif(cmi, lignes) {
   const prevues = lignes.length, faites = lignes.filter(l => l.e.faite).length;
   return { dues, prevues, faites, manque: dues ? Math.max(0, dues - prevues) : 0 };
 }
+
+// --- Emploi du temps présent ? (colonne « EdT », APP § 11, 2026-11-11) ---
+// Table EDT : « M. NOM PRENOM (EDT) » par créneau ; noms chiffrés et masqués (« v1:… » ou vides) : on sait seulement si
+// l'établissement a des EdT.
+const cleNom = (/** @type {any} */ s) => norm(s).replace(/[^a-z0-9]+/g, ' ').trim();
+/** @param {Ligne[]} edt */
+export function indexEdt(edt) {
+  const uais = new Set(), masques = new Set(), cles = new Set();
+  for (const l of edt || []) {
+    const u = String(l.UAI || '').replace(/\s+/g, '').toUpperCase();
+    if (!u) continue;
+    uais.add(u);
+    const n = String(l.Nom ?? '').trim();
+    if (!n || /^v1:/.test(n)) { masques.add(u); continue; }
+    cles.add(u + '|' + cleNom(n.replace(/\(\s*EDT\s*\)/ig, '').replace(/^\s*(MME|MLLE|MM|M\.?)\s+/i, '')));
+  }
+  return { uais, masques, cles };
+}
+// 'oui' : EdT du ou de la professeur·e ; 'absent' : EdT de l'établissement sans ce·tte professeur·e ; 'non' : aucun EdT
+// pour l'établissement ; 'masque' : établissement versé, noms masqués (« Révéler »).
+/** @param {Ligne} v @param {ReturnType<typeof indexEdt>} idx */
+export function edtDe(v, idx) {
+  const u = String(v.UAI || '').replace(/\s+/g, '').toUpperCase();
+  if (!u || !idx.uais.has(u)) return 'non';
+  const nom = cleNom(v.Prof_nom), prenoms = cleNom(v.Prof_prenom).split(' ').filter(Boolean);
+  const essais = [nom + ' ' + prenoms.join(' '), nom + ' ' + (prenoms[0] || '')].map(s => s.trim());
+  if (essais.some(k => idx.cles.has(u + '|' + k))) return 'oui';
+  return idx.masques.has(u) ? 'masque' : 'absent';
+}
+
+// --- Rapport supprimé ---
+// Visites dont le rapport relié n'existe plus (supprimé) : lien à effacer ; l'état revient à « À caler » ou « Calée ».
+/** @param {Ligne[]} visites @param {Ligne[]} rapports */
+export const liensOrphelins = (visites, rapports) => visites.filter(v => v.Rapport && !rapports.some(r => r.id === v.Rapport));
+// Actions sur le plan quand un rapport est supprimé (écran Rapports) : lien effacé ; date calée effacée aussi si c'est le
+// rapport qui l'avait posée (historique « date calée au plan ») et qu'elle n'a pas changé depuis.
+/** @param {Ligne} r rapport supprimé @param {Ligne[]} visites */
+export function actionsRapportSupprime(r, visites) {
+  const posee = /date calée au plan/.test(String(r.Historique || ''));
+  return visites.filter(v => v.Rapport === r.id).map(v => ['UpdateRecord', TABLE, v.id,
+    { Rapport: 0, ...(posee && v.Date_prevue && v.Date_prevue === r.Date_visite ? { Date_prevue: null } : {}) }]);
+}

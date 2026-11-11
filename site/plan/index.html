@@ -25,6 +25,13 @@
   .compteurs button.actif { background: var(--sel); border-color: var(--accent); }
   .outils { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 10px 0 8px; }
   .outils input[type=search] { flex: 1; min-width: 180px; }
+  .edt { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; vertical-align: middle; }
+  .edt .ic { width: 14px; height: 14px; stroke-width: 3; }
+  .edt-oui { color: #fff; background: #16a34a; }
+  .edt-non, .edt-absent { color: #fff; background: var(--danger); }
+  .edt-absent { opacity: .75; }
+  .edt-masque { color: var(--muted); border: 1px solid var(--border); }
+  table.plan td.c { text-align: center; }
   table.plan { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.plan th { text-align: left; position: sticky; top: -12px; background: var(--bg); z-index: 1; }
   table.plan td, table.plan th { padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -109,12 +116,20 @@ import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
   hoteEcran } from '../commun/grist.js';
 import { norm, nomFiche } from '../commun/donnees.js';
+import { CHIFFREMENT } from '../commun/config.js';
+import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
+import { synchroniserCopies } from '../commun/professeurs.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
   filtrer, periodeDepassee, objectif, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
-  valider, lireTableauColle, preparerImport, fichesCmiACreer, statutVisite, stagiaireDe } from './logique.js';
+  valider, lireTableauColle, preparerImport, fichesCmiACreer, statutVisite, stagiaireDe, indexEdt, edtDe, liensOrphelins, etat } from './logique.js';
 
 const pref = preferences('Plan');
-const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [], stagiaires: [] };
+const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [], stagiaires: [], edt: indexEdt([]) };
+// EDT.Nom chiffré (SPEC § 5.8) : clé lue au démarrage (« Révéler » du conteneur) ; sans clé, seule la présence d'EdT
+// pour l'établissement est connue.
+let cle = null, cleLue = false;
+const cacheChiffre = new Map();
+let reparations = '';   // dernières écritures automatiques (évite de les répéter en boucle)
 // Statut affiché : calculé (stagiaire relié·e : corps, concours, quotité ; sinon grade du fichier), APP § 11.
 const statut = v => statutVisite(v, D);
 let moi = null, droits = droitsTable(null, TABLE), droitsRapports = droitsTable(null, 'Rapports');
@@ -128,6 +143,9 @@ const IC = {
   tel: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
   ecole: '<path d="M14 22v-4a2 2 0 1 0-4 0v4"/><path d="m18 10 3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10"/><path d="M18 5v17"/><path d="m4 6 7.106-3.553a2 2 0 0 1 1.788 0L20 6"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/>',
 };
+IC.oui = '<path d="M20 6 9 17l-5-5"/>';
+IC.non = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
+IC.masque = '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';
 const ic = k => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
 const personne = id => D.personnes.find(p => p.id === id);
 const etabDe = uai => D.etabs.find(e => String(e.UAI || '').toUpperCase() === String(uai || '').toUpperCase());
@@ -139,6 +157,10 @@ const filtreEffectif = () => (filtre.cmi === 'mes' ? { ...filtre, cmi: 0, cmis: 
 const pastille = e => `<span class="pastille e-${e.cle}">${esc(e.libelle)}</span>`;
 const visitesAnnee = () => D.visites.filter(v => rentreeDe(v.Mois_debut || v.Date_prevue) === rentree || (!v.Mois_debut && !v.Date_prevue));
 const nomProf = v => [v.Prof_nom, v.Prof_prenom].filter(Boolean).join(' ');
+// Colonne « EdT » : emploi du temps du ou de la professeur·e versé (écran Emplois du temps) ?
+const TITRES_EDT = { oui: 'Emploi du temps présent', absent: 'Emplois du temps de l\'établissement versés, mais pas celui de ce ou cette professeur·e',
+  non: 'Aucun emploi du temps pour cet établissement', masque: 'Établissement versé ; noms masqués : « Révéler » pour vérifier' };
+const marqueEdt = v => { const k = edtDe(v, D.edt); return `<span class="edt edt-${k}" title="${esc(TITRES_EDT[k])}" aria-label="${esc(TITRES_EDT[k])}">${ic(k === 'absent' ? 'non' : k)}</span>`; };
 
 // --- Ouverture de l'écran Rapports (conteneur) ---
 function ouvrirRapports(demande) {
@@ -187,11 +209,12 @@ function afficherSuivi() {
       <input type="search" id="f-q" placeholder="Rechercher (nom, établissement, UAI, statut)…" value="${esc(filtre.q)}">
       ${plan ? '<button id="nouvelle" class="primary">+ Visite</button><button id="importer">Importer un plan</button>' : ''}
     </div>
-    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th>État</th></tr></thead><tbody>
+    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th title="Emploi du temps versé (écran Emplois du temps)">EdT</th><th>État</th></tr></thead><tbody>
       ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(statut(v))}${v.Professeur ? '' : ' · hors fichier'}</span></td>
         <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}</span></td>
         <td>${esc(nomFiche(personne(v.CMi)) || '—')}</td><td>${esc(periode(v))}</td><td class="large">${esc(dateFr(v.Visite_inspe))}</td>
         <td>${esc(dateFr(v.Date_prevue)) || '<span class="muted">—</span>'}</td>
+        <td class="c">${marqueEdt(v)}</td>
         <td>${pastille(e)}${periodeDepassee(v, e, auj) ? '<span class="det depasse">période dépassée</span>' : ''}${r ? `<span class="det">${r.Valideur ? 'IA-IPR : ' + esc(nomFiche(personne(r.Valideur))) : ''}</span>` : ''}</td></tr>`).join('')}
       </tbody></table>` : `<p class="vide">${toutes.length ? 'Aucune visite ne correspond aux filtres.' : 'Le plan de cette année est vide.' + (plan ? ' « + Visite » ou « Importer un plan » pour commencer.' : '')}</p>`}
     ${hp.length ? `<details class="bloc" open style="margin-top:14px"><summary class="ko">Rapports hors plan (${hp.length}) : visite oubliée au plan ?</summary>
@@ -212,6 +235,7 @@ function carte({ v, r, e }) {
       ${etab && etab.Adresse ? `<span class="muted">${esc(etab.Adresse)}, ${esc(etab.Code_postal || '')} ${esc(etab.Commune || '')}</span>` : ''}
       ${c.mel ? `<a href="mailto:${esc(c.mel)}">${ic('mail')} ${esc(c.mel)}</a>` : ''}
       ${c.tel ? `<a href="tel:${esc(c.telLien)}">${ic('tel')} ${esc(c.tel)}</a>` : ''}</div>
+    <div class="ligne"><span>Emploi du temps</span>${marqueEdt(v)} <span class="petit muted">${esc(TITRES_EDT[edtDe(v, D.edt)])}</span></div>
     <div class="ligne"><span>Date calée</span>${m ? `<input type="date" data-date="${v.id}" value="${esc(dateIso(v.Date_prevue))}">` : `<strong>${esc(dateFr(v.Date_prevue)) || '—'}</strong>`}</div>
     ${m ? `<textarea data-notes="${v.id}" placeholder="Notes (créneau, salle, contact pris…)">${esc(v.Notes || '')}</textarea>` : v.Notes ? `<div class="petit">${esc(v.Notes)}</div>` : ''}
     <div class="actions">${!r && hoteEcran('edt') ? `<button data-edt="${v.id}" title="Emplois du temps de l'établissement : cours à visiter, entretien, réunion, mail">Emploi du temps</button>` : ''}${r ? `<button data-rapport="${r.id}">Ouvrir le rapport</button>` : rediger ? `<button class="primary" data-rediger="${v.id}">Rédiger le rapport</button>` : ''}</div>
@@ -261,6 +285,7 @@ function afficherSaisie() {
     </div>
     <label class="champ"><span>Notes</span><textarea id="v-Notes">${esc(f.Notes || '')}</textarea></label>
     ${r ? `<p class="petit">Rapport relié : ${esc(r.Statut || '')} (visite du ${esc(dateFr(r.Date_visite))}). <button type="button" class="lien" data-rapport="${r.id}">Ouvrir</button></p>` : ''}
+    ${f.id ? (() => { const e = etat(f, r, aujourdhui()); return `<p class="petit muted">État : ${pastille(e)} — calculé, pas saisi : d'après le rapport relié (son statut), sinon la date calée (à venir : « Calée » ; passée : « En cours »), sinon « À caler ». ${r ? '' : 'Pour revenir à « À caler », vider la date calée.'}</p>`; })() : ''}
     ${f.id && !r && hoteEcran('edt') ? `<p class="petit"><button type="button" class="lien" data-edt="${f.id}">Voir l'emploi du temps et préparer la visite</button></p>` : ''}
     <ul class="erreurs" id="v-erreurs"></ul>
     <div class="actions"><button type="button" id="v-ok" class="primary">Enregistrer</button><button type="button" id="v-annuler">Annuler</button>
@@ -361,19 +386,37 @@ async function enregistrerImport() {
 const change = detecteurChangement();
 const occupe = () => !!saisie || $('dlg-import').open || (document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName) && $('contenu').contains(document.activeElement));
 const charger = sansChevauchement(async () => {
-  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs', 'Stagiaires'];
+  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs', 'Stagiaires', 'EDT'];
   const T = Object.fromEntries(noms.map((n, i) => [n, null]));
-  const lus = await Promise.all(noms.map(lireTable));
+  const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
   noms.forEach((n, i) => { T[n] = lus[i]; });
+  if (CHIFFREMENT && !cleLue) { cleLue = true; cle = await cleAuDemarrage(ligneChiffrementValide(lus[noms.length].lignes || [])); }
+  const edt = await lignesLisibles(cle, 'EDT', T.EDT.lignes || [], CHIFFREMENT, cacheChiffre);
   if (T.Visites.erreur) {
     message(`Impossible de lire la table Visites : ${T.Visites.erreur} — elle n'existe pas encore (Installer → Créer la structure), ou tes droits ne permettent pas de la lire.`, true);
     $('app').hidden = true; return;
   }
-  D.visites = T.Visites.lignes; D.rapports = T.Rapports.lignes || []; D.personnes = T.Personnes.lignes || [];
+  D.rapports = T.Rapports.lignes || []; D.personnes = T.Personnes.lignes || [];
   D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.stagiaires = T.Stagiaires.lignes || [];   // absente : statut tiré du grade
+  D.edt = indexEdt(edt);
   moi = identifierMoi(T.Utilisateurs.lignes || []).moi;
   droits = droitsTable(moi, TABLE); droitsRapports = droitsTable(moi, 'Rapports');
-  if (!change([T.Visites.lignes, T.Rapports.lignes, T.Personnes.lignes, T.Stagiaires.lignes, moi && moi.Droits, rentree, onglet]) && !$('app').hidden) return;
+  // Lien avec Professeurs (APP § 11, 2026-11-11) : visites de l'année en cours sans rapport = copie à jour du fichier
+  // (UAI, nom, établissement) ; affichée pour tous, écrite par qui peut modifier le plan.
+  const enCours = rentreeDe(aujourdhui());
+  const orphelins = T.Rapports.erreur ? [] : liensOrphelins(T.Visites.lignes, D.rapports);
+  const sync = synchroniserCopies(TABLE, T.Visites.lignes, D.profs, D.etabs,
+    v => (!v.Rapport || orphelins.includes(v)) && (rentreeDe(v.Mois_debut || v.Date_prevue) === enCours || (!v.Mois_debut && !v.Date_prevue)));
+  D.visites = sync.lignes.map(v => (orphelins.some(o => o.id === v.id) ? { ...v, Rapport: 0 } : v));
+  const reparer = [...(droits.M === 'Oui' ? sync.actions : []),
+    ...orphelins.filter(v => peutModifier(droits, moi, v)).map(v => ['UpdateRecord', TABLE, v.id, { Rapport: 0 }])];
+  const sig = JSON.stringify(reparer);
+  if (reparer.length && sig !== reparations) {
+    reparations = sig;
+    ecrire(reparer, [sync.actions.length && droits.M === 'Oui' ? `${sync.n} visite(s) mise(s) à jour d'après le fichier des professeur·es` : '',
+      orphelins.length ? `${orphelins.length} lien(s) vers un rapport supprimé effacé(s)` : ''].filter(Boolean).join(' ; '));
+  }
+  if (!change([D.visites, T.Rapports.lignes, T.Personnes.lignes, T.Stagiaires.lignes, D.profs, edt, moi && moi.Droits, rentree, onglet]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
   if (!occupe()) afficher();
 });
@@ -381,6 +424,7 @@ const charger = sansChevauchement(async () => {
 if (await initialiserGrist()) {
   grist.ready({ requiredAccess: 'full', allowSelectBy: false });
   grist.onRecords(regrouper(charger));
+  if (CHIFFREMENT) suivreCle(k => { cle = k; cacheChiffre.clear(); charger(); });
   installerBulles();
   $('recharger').addEventListener('click', () => relireSansCache(charger));
   $('annee').addEventListener('change', () => { rentree = Number($('annee').value); pref.ecrire('Annee', String(rentree)); afficher(); });

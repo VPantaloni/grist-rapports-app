@@ -192,6 +192,7 @@
 </dialog>
 
 <script type="module">
+import { actionsRapportSupprime } from '../plan/logique.js';
 import { liste, nomFiche, norm } from '../commun/donnees.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
@@ -388,6 +389,10 @@ async function creer() {
   if (erreurs.length) return;
   const etab = D.etabs.find(e => e.UAI === p.UAI) || {};
   const rub = rubriquesDuType(D.rubriques, t.id);
+  // Plan d'inspection : visite à relier (demandée depuis le plan, sinon celle prévue pour ce·tte professeur·e) ; si elle
+  // n'a pas de date calée, la date du rapport y est posée (notée dans l'historique : effacée si le rapport est supprimé).
+  const vPlan = visiteAssociee(D.visites, { visite: c.visite, prof: p.id, auteur });
+  const datePosee = !!(vPlan && !vPlan.Date_prevue);
   const champs = {
     Type: t.id, Professeur: p.id, Prof_civilite: p.Civilite || '', Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '',
     Prof_statut: statutAffiche(p), Stagiaire_hors_liste: pstgHorsListe(t.Code, p), UAI: p.UAI || '', Etab_nom: etab.Nom || '',
@@ -396,14 +401,13 @@ async function creer() {
     Contenu: JSON.stringify(contenuInitial(rub, { civilite: p.Civilite, nom: p.Nom, prenom: p.Prenom })),
     Structure: JSON.stringify(structureDe(rub)), Positionnement: '', Commentaires: '', Statut: 'Brouillon',
     Auteur: auteur, Valideur: (personne(auteur) || {}).Fonction === 'IA-IPR' ? auteur : c.valideur || 0,
-    Historique: ajouterHistorique('[]', initialesMoi() || (moi && moi.Email) || '', 'créé' + (pstgHorsListe(t.Code, p) ? ' ; PSTG hors liste' : '')),
+    Historique: ajouterHistorique('[]', initialesMoi() || (moi && moi.Email) || '', 'créé' + (pstgHorsListe(t.Code, p) ? ' ; PSTG hors liste' : '') + (datePosee ? ' ; date calée au plan' : '')),
   };
   const res = await ecrireRapport([['AddRecord', TABLE, null, champs]], 'Rapport créé');
   if (!res) return;
   const id = res.retValues && res.retValues[0];
-  // Plan d'inspection : relier la visite (demandée depuis le plan, sinon celle prévue pour ce·tte professeur·e).
-  const v = id ? visiteAssociee(D.visites, { visite: c.visite, prof: p.id, auteur }) : null;
-  if (v) await ecrire([['UpdateRecord', 'Visites', v.id, { Rapport: id, ...(v.Date_prevue ? {} : { Date_prevue: champs.Date_visite }) }]], 'Visite du plan reliée');
+  const v = id ? vPlan : null;
+  if (v) await ecrire([['UpdateRecord', 'Visites', v.id, { Rapport: id, ...(datePosee ? { Date_prevue: champs.Date_visite } : {}) }]], 'Visite du plan reliée');
   creation = null; onglet = id ? ongletDe(id) : 'redaction';
   if (id) { choisir(id); replier(true); }
   afficherListe(); afficherFiche();
@@ -979,6 +983,9 @@ function brancherFiche(r) {
       Historique: ajouterHistorique(x.Historique, qui, 'transmis au secrétariat') }]], 'Rapport marqué transmis');
   });
   if ($('b-supprimer')) boutonConfirmation($('b-supprimer'), 'Confirmer la suppression', async () => {
+    // Plan d'inspection d'abord : lien vers ce rapport effacé (et la date calée que le rapport avait posée).
+    const plan = actionsRapportSupprime(r, D.visites);
+    if (plan.length) await ecrire(plan, 'Visite du plan : rapport retiré');
     if (await ecrire([['RemoveRecord', TABLE, r.id]], 'Rapport supprimé')) { choisir(0); await charger(); afficherFiche(); }
   });
 }

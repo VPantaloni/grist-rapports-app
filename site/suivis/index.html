@@ -142,6 +142,7 @@
 <input type="file" id="fichier-csv" accept=".csv,.tsv,.txt,text/csv" hidden>
 
 <script type="module">
+import { synchroniserCopies } from '../commun/professeurs.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
@@ -201,6 +202,7 @@ function infobulle(c) {
 }
 
 // --- Lecture ---
+let copiesEcrites = '';   // dernières mises à jour d'après Professeurs (pas de répétition en boucle)
 const charger = sansChevauchement(async () => {
   const noms = [TABLE, TABLE_BILANS, TABLE_STAGIAIRES, TABLE_TUTORATS, TABLE_RETOURS, TABLE_GRILLES, 'Rapports', 'Professeurs', 'Etablissements', 'Personnes', 'Types_rapport', 'Competences_MD', 'Parametres', 'Visites', 'Utilisateurs'];
   const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
@@ -222,16 +224,28 @@ const charger = sansChevauchement(async () => {
   }
   D.mds = T[TABLE].lignes || [];
   D.bilans = erreurMd ? [] : await lignesLisibles(cle, TABLE_BILANS, T[TABLE_BILANS].lignes || [], CHIFFREMENT, cache);
-  D.stagiaires = T[TABLE_STAGIAIRES].lignes || []; D.tutorats = T[TABLE_TUTORATS].lignes || [];
+  D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || [];
+  // Lien avec Professeurs (APP § 11, 2026-11-11) : pour l'année en cours, identité, e-mail et établissement des
+  // stagiaires et tuteur·trices relié·es suivent le fichier des professeur·es (affichage pour tous, écriture si droit).
+  const auj = new Date(), anneeEnCours = auj.getMonth() >= 7 ? `${auj.getFullYear()}-${auj.getFullYear() + 1}` : `${auj.getFullYear() - 1}-${auj.getFullYear()}`;
+  const syncS = synchroniserCopies(TABLE_STAGIAIRES, T[TABLE_STAGIAIRES].lignes || [], D.profs, D.etabs, x => x.Annee === anneeEnCours);
+  const idsEnCours = new Set(syncS.lignes.filter(x => x.Annee === anneeEnCours).map(x => x.id));
+  const syncT = synchroniserCopies(TABLE_TUTORATS, T[TABLE_TUTORATS].lignes || [], D.profs, D.etabs, x => idsEnCours.has(x.Stagiaire));
+  D.stagiaires = syncS.lignes; D.tutorats = syncT.lignes;
+  const majCopies = [...(droitsStg.modifier ? syncS.actions : []), ...(droitsStg.tuteurs ? syncT.actions : [])];
+  if (majCopies.length && JSON.stringify(majCopies) !== copiesEcrites) {
+    copiesEcrites = JSON.stringify(majCopies);
+    ecrire(majCopies, `${majCopies.length} fiche(s) mise(s) à jour d'après le fichier des professeur·es`);
+  }
   D.retours = T[TABLE_RETOURS].erreur ? [] : await lignesLisibles(cle, TABLE_RETOURS, T[TABLE_RETOURS].lignes || [], CHIFFREMENT, cache);
   D.grilles = T[TABLE_GRILLES].lignes || [];
   erreurRetours = T[TABLE_RETOURS].erreur || T[TABLE_GRILLES].erreur || '';
   droitsRet = droitsTable(moi, TABLE_RETOURS);
   D.rapports = await lignesLisibles(cle, 'Rapports', T.Rapports.lignes || [], CHIFFREMENT, cache);
-  D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.personnes = T.Personnes.lignes || [];
+  D.personnes = T.Personnes.lignes || [];
   D.types = T.Types_rapport.lignes || []; D.competences = T.Competences_MD.lignes || []; D.visites = T.Visites.lignes || [];
   D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
-  if (!change([T[TABLE].lignes, T[TABLE_BILANS].lignes, T[TABLE_STAGIAIRES].lignes, T[TABLE_TUTORATS].lignes, T[TABLE_RETOURS].lignes, T[TABLE_GRILLES].lignes, T.Rapports.lignes, T.Visites.lignes, moi && moi.Droits, !!cle]) && !$('app').hidden) return;
+  if (!change([T[TABLE].lignes, T[TABLE_BILANS].lignes, T[TABLE_STAGIAIRES].lignes, T[TABLE_TUTORATS].lignes, T[TABLE_RETOURS].lignes, T[TABLE_GRILLES].lignes, T.Rapports.lignes, T.Visites.lignes, D.profs, moi && moi.Droits, !!cle]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
   if (await relierAuPlan()) return;
   if (!occupe()) afficher();
