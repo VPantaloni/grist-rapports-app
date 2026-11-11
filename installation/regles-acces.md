@@ -46,7 +46,7 @@ jamais donné par la matrice.
 
 | Nom | Table | Attribut de l'utilisateur | Colonne |
 |---|---|---|---|
-| `Profil` | `Utilisateurs` | `user.Email` | `Email_cle` (formule `($Email or "").strip().lower()` : majuscules indifférentes) |
+| `Profil` | `Utilisateurs` | `user.Email` | `Email_cle` (formule `($Email or "").strip()` : espaces autour ignorés ; majuscules comprises) |
 
 Les conditions écrivent ensuite `user.Profil.Roles`, `user.Profil.Droits`, `user.Profil.Personne`, `user.Profil.Actif`.
 Compte absent de `Utilisateurs` : `user.Profil` est vide (faux).
@@ -278,7 +278,7 @@ newRec.CampagneActive` aux conditions de modification (U) et `and newRec.Campagn
 | « Blocked by row create access rules » à la création | condition qui suit une référence depuis `newRec` | colonne d'aide (formule) dans la table |
 | Écriture refusée en « Voir en tant que » mais pas avec le vrai compte | limites de ce mode | tester les écritures avec un vrai compte |
 | Un visiteur non connecté (fenêtre privée) lit des données | accès public actif, et D4 absente ou règle sans `user.IsLoggedIn` | désactiver l'accès public ; ajouter D4, revoir les règles ; refaire le test |
-| Compte non reconnu | e-mail de `Utilisateurs` différent de `user.Email` (règles écrites avant la colonne `Email_cle` : majuscules) | réécrire les règles (Installer, volet 3) ou mettre l'e-mail en minuscules (Administration → Contrôles) |
+| Compte non reconnu | e-mail de `Utilisateurs` différent de `user.Email` (majuscules ou espaces : Grist compare à l'identique) | réécrire les règles (Installer, volet 3) et recopier l'adresse exacte du compte (avatar → profil), une ligne par façon de se connecter |
 | Rôle jamais reconnu (`"Administrateur·trice" in …` faux) | point médian retapé (`.` ou `•`) | coller les rôles depuis cette fiche ou APP § 8 |
 | Les admins ne peuvent plus modifier les comptes | règle de colonne `Moi` avec un U refusé | ne laisser que R refusé sur cette règle |
 | Erreur sur `user.Profil.Roles` pour un compte inconnu | règle qui lit le profil avant D2 | commencer la condition par `user.Profil and …` |
