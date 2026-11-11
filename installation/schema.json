@@ -65,6 +65,23 @@
           "role": "CMi : nombre de visites attendues selon la lettre de mission (affiché sur son plan et dans le bilan)"
         },
         {
+          "id": "Agenda",
+          "libelle": "Agenda",
+          "type": "Choice",
+          "choix": [
+            "Google Agenda",
+            "Outlook (Microsoft 365)",
+            "Fichier .ics"
+          ],
+          "role": "agenda où inscrire une visite calée (Emplois du temps) ; vide = les trois boutons ; réglé dans Mon compte"
+        },
+        {
+          "id": "Compte_agenda",
+          "libelle": "Compte Google",
+          "type": "Text",
+          "role": "adresse du compte Google Agenda (ouvre le bon compte) ; facultatif"
+        },
+        {
           "id": "Nom_complet",
           "libelle": "Nom complet",
           "type": "Text",

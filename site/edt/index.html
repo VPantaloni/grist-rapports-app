@@ -185,6 +185,8 @@ button,input,select{font:inherit;color:inherit}
 /* ---------- planning ---------- */
 .vuebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px}
 .vuebar:empty{display:none}
+.agenda-choix{display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap}
+[data-act="agenda"]{display:inline-flex;align-items:center;gap:5px}
 .vuebar .btn{display:inline-flex;align-items:center;gap:6px}
 .ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .plan{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
@@ -347,7 +349,8 @@ import { CHIFFREMENT } from '../commun/config.js';
 import { DAYS, DAYS_SHORT, DEPTS, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
   versGrist, parseName, parseAlt, parseJour, ingest, lireCalendrier, isVisible, suggestionsFor, pack, canSplit, partRange, reunionParDefaut, libresSur,
   parseSiiprien, lireFichierEdt, lireLigneChiffrement, contextesPossibles, reperes, reperesDe, modelesPour, remplirModele, planningTexte, champsVisites, mailEtablissement, destinataires, lienMailto,
-  visitesDuPlanning, profDeVisite } from './logique.js';
+  visitesDuPlanning, profDeVisite, evenementVisite, lienGoogle, lienOutlook, fichierIcs, AGENDAS } from './logique.js';
+import { telechargerFichier } from '../commun/export.js';
 
 /* =====================================================================
    État
@@ -361,6 +364,7 @@ const ETATS = {prop:"Planning proposé", calee:"Visite calée"};
 const ICO = {
   savePlus: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V12"/><path d="M16 13H8a1 1 0 0 0-1 1v7"/><path d="M19 22v-6"/><path d="M22 19h-6"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>',
   saveCheck: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4v4.35"/><path d="m16 19 2 2 4-4"/><path d="M17 15.13V14a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>',
+  calPlus: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><path d="M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8"/><path d="M3 10h18"/><path d="M16 19h6"/><path d="M19 16v6"/></svg>',
   calCheck: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>',
 };
 const state = {
@@ -420,7 +424,7 @@ const charger = sansChevauchement(async () => {
   if (state.uaiFilter && !state.uais.has(state.uaiFilter)) state.uaiFilter = "";
   resolvePlan();
   state.calendar = lireCalendrier(T.Calendrier);
-  state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {nom: String(e.Nom || ""), ville: String(e.Commune || "")}]));
+  state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {nom: String(e.Nom || ""), ville: String(e.Commune || ""), adresse: String(e.Adresse || ""), cp: String(e.Code_postal || "")}]));
   state.reperes = reperes({ stagiaires: T.Stagiaires, mds: T.Maitres_delegues, etabs: T.Etablissements }, anneeScolaire());
   state.masque = masque() && (r[0].lignes || []).some(l => /^v1:/.test(String(l.Nom)));
   state.auxMsg = err.EdT_memo ? "Table EdT_memo absente ou illisible : les plannings ne peuvent pas être mémorisés (écran Installer, « Créer la structure »)." : "";
@@ -1357,6 +1361,27 @@ function memoOf(g){
   const di = g.date ? isoDay(g.date) : "";
   return memoGroups().find(m => m.uai === g.uai && (di ? (m.date && isoDay(m.date) === di) : (!m.date && norm(m.jour) === norm(DAYS[g.day])))) || null;
 }
+/* Agenda (APP § 11, 2026-11-12) : un événement par visite dans un établissement (un jour), détail des créneaux en
+   description, adresse de l'établissement en lieu. Agenda choisi dans Mon compte (Personnes.Agenda) : un bouton ;
+   sinon les trois (Google Agenda, Outlook, fichier .ics). */
+const maFiche = () => (state.T.Personnes || []).find(p => p.id === moiPers()) || null;
+function agendaBoutons(attrs, petit = false){
+  const f = maFiche(), pref = f && AGENDAS.includes(f.Agenda) ? f.Agenda : "";
+  const court = {"Google Agenda": "Google", "Outlook (Microsoft 365)": "Outlook", "Fichier .ics": ".ics"};
+  const b = (k, lib) => `<button class="btn sm" data-act="agenda" data-ag="${esc(k)}" ${attrs} title="Ajouter la visite à l'agenda (${esc(k)}) : un événement pour la journée dans l'établissement, créneaux en description">${ICO.calPlus} ${esc(lib)}</button>`;
+  if (pref) return b(pref, petit ? "Agenda" : "Ajouter à mon agenda");
+  return `<span class="agenda-choix">${petit ? "" : `<span class="hint">Mon agenda :</span>`}${AGENDAS.map(k => b(k, court[k])).join("")}</span>`;
+}
+function ajouterAgenda(rows, date, uai, quel){
+  const e = state.etabs.get(uai) || {};
+  const ev = evenementVisite({ lignes: rows, date, etab: { nom: e.nom, commune: e.ville, adresse: e.adresse, cp: e.cp, uai } });
+  if (!ev){ toast("Aucun créneau horaire à inscrire.", true); return; }
+  if (quel === "Fichier .ics"){ telechargerFichier(`visite-${ev.jour}-${uai}.ics`, fichierIcs(ev), "text/calendar;charset=utf-8"); toast("Fichier .ics téléchargé : ouvrez-le pour l'ajouter à votre agenda."); return; }
+  const f = maFiche();
+  const url = quel === "Outlook (Microsoft 365)" ? lienOutlook(ev) : lienGoogle(ev, f ? f.Compte_agenda : "");
+  window.open(url, "_blank", "noopener");
+  toast("Agenda ouvert dans un nouvel onglet : vérifiez puis enregistrez l'événement.");
+}
 function renderMemo(groups){
   const uais = memoRelevantUais(groups);
   const list = memoGroups().filter(m => uais.has(m.uai));
@@ -1368,6 +1393,7 @@ function renderMemo(groups){
     return `<li>${etatBadge(m.etat)}<b>${m.date ? esc(longDate(m.date)) : esc(m.jour) + " (sans date)"}</b>
       <span class="hint">${esc(etabLabel(m.uai))} · ${esc(names.join(", "))}${nR ? " · réunion" : ""}${m.auteur ? " · " + esc(nomPersonne(m.auteur)) : ""}${m.saved ? " · enregistré le " + m.saved.toLocaleDateString("fr-FR", {timeZone:"UTC"}) : ""}</span>
       <button class="btn sm" data-act="memo-load" data-m="${i}">Charger</button>
+      ${m.date ? agendaBoutons(`data-m="${i}"`, true) : ""}
       ${peutSupprimerMemo(m) ? `<button class="btn sm" data-act="memo-del" data-m="${i}">Supprimer</button>` : ""}</li>`;
   }).join("")}</ul></div>`;
 }
@@ -1419,6 +1445,7 @@ function renderPlan(){
           return `<button class="btn${m && !cal ? " lblue" : ""}" data-act="memo-save" data-etat="prop" data-g="${gi}" title="${m ? "Planning déjà en mémoire : cliquer pour l'enregistrer à nouveau (état « Planning proposé »)" : "Enregistre ces créneaux (table EdT_memo), état « Planning proposé »"}">${m && !cal ? ICO.saveCheck + " Planning mémorisé" : ICO.savePlus + " Mémoriser le planning"}</button>
         <button class="btn lgreen" data-act="memo-save" data-etat="calee" data-g="${gi}" title="Enregistre ces créneaux, état « Visite calée », et reporte la date dans le plan d'inspection">${ICO.calCheck} Visite calée${cal ? " ✓" : ""}</button>`; })() : `<span class="hint">Mémoriser : pas de droit sur la table EdT_memo pour ce compte (Administration → Permissions → « Appliquer les droits par défaut »).</span>`}
         ${(() => { const m = memoOf(g); return m ? `<span class="hint">En mémoire : ${etatBadge(m.etat || ETATS.prop)}</span>` : ""; })()}
+        ${g.date ? agendaBoutons(`data-g="${gi}"`) : ""}
       </div>
     </div>`;
   });
@@ -1753,6 +1780,11 @@ document.addEventListener("click", async e => {
     if (a === "meet-save"){ const r = readTimes(act); if (!r) return; state.meetings[act.dataset.key] = {start:r[0], end:r[1]}; savePlan(); state.pop = null; renderWork(); toast("Réunion d'équipe enregistrée."); return; }
     if (a === "meet-del"){ delete state.meetings[act.dataset.key]; savePlan(); state.pop = null; renderWork(); return; }
     if (a === "clearplan"){ if (act.dataset.ok !== "1"){ act.dataset.ok = "1"; act.textContent = "Confirmer : tout effacer"; return; } state.plan = {}; state.planDates = {}; state.meetings = {}; state.pop = null; savePlan(); renderWork(); return; }
+    if (a === "agenda"){
+      const quel = act.dataset.ag;
+      if (act.dataset.m != null){ const mg = state.memoRefs[+act.dataset.m]; if (mg && mg.date) ajouterAgenda(mg.rows, mg.date, mg.uai, quel); return; }
+      const gg = state.groupRefs[+act.dataset.g]; if (gg && gg.date) ajouterAgenda(memoRowsFor(gg, ETATS.calee), gg.date, gg.uai, quel); return;
+    }
     if (a === "memo-load"){
       const mg = state.memoRefs[+act.dataset.m]; if (!mg) return;
       memoApply(mg); return;

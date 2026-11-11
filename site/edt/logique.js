@@ -410,3 +410,57 @@ export function profDeVisite(v, teachers) {
   const l = [...teachers.values()].filter(t => t.mkey === k);
   return l.find(t => t.uais.has(norm(v.UAI))) || l[0] || null;
 }
+
+// --- Agenda (APP § 11, 2026-11-12) : un événement par visite dans un établissement (un jour) ---
+// lignes : créneaux du planning, forme EdT_memo { Type, Debut, Fin (HH:MM), Professeur, Classe, Libelle } ;
+// etab : { nom, adresse, cp, commune, uai } ; date : Date (UTC, jour de la visite).
+// Début = premier créneau, fin = dernier ; détail des créneaux dans la description ; adresse de l'établissement en lieu.
+/** @param {{ lignes: any[], etab: any, date: Date }} p */
+export function evenementVisite({ lignes, etab, date }) {
+  const hm = (/** @type {any} */ s) => { const m = /^(\d{1,2})[:h](\d{2})/.exec(String(s || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+  const ls = (lignes || []).filter(l => hm(l.Debut) !== null && hm(l.Fin) !== null).sort((a, b) => /** @type {number} */ (hm(a.Debut)) - /** @type {number} */ (hm(b.Debut)));
+  if (!ls.length || !date) return null;
+  const debut = Math.min(...ls.map(l => /** @type {number} */ (hm(l.Debut)))), fin = Math.max(...ls.map(l => /** @type {number} */ (hm(l.Fin))));
+  const jour = `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`;
+  const t = (/** @type {number} */ m) => `T${String(Math.floor(m / 60)).padStart(2, '0')}${String(m % 60).padStart(2, '0')}00`;
+  const h = (/** @type {number} */ m) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+  const e = etab || {};
+  const nomEtab = [e.nom, e.commune ? `(${e.commune})` : ''].filter(Boolean).join(' ') || String(e.uai || '');
+  const visites = ls.filter(l => /visite/i.test(String(l.Type)));
+  const titre = `${visites.length ? 'Visite' + (visites.length > 1 ? 's' : '') : 'Réunion d\'équipe'} – ${nomEtab}`;
+  const description = ls.map(l => `${h(/** @type {number} */ (hm(l.Debut)))}–${h(/** @type {number} */ (hm(l.Fin)))} · ${l.Type}${l.Professeur ? ' · ' + l.Professeur : ''}${l.Classe ? ' · ' + l.Classe : ''}${l.Libelle ? ' · ' + l.Libelle : ''}`).join('\n');
+  const lieu = [nomEtab, e.adresse, [e.cp, e.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return { titre, description, lieu, debut: jour + t(debut), fin: jour + t(fin), jour, uai: String(e.uai || '') };
+}
+// Lien « nouvel événement » de Google Agenda (heures de Paris) ; compte : adresse Google (choix du compte), facultatif.
+/** @param {any} ev @param {string} [compte] */
+export function lienGoogle(ev, compte = '') {
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: ev.titre, dates: `${ev.debut}/${ev.fin}`, ctz: 'Europe/Paris', details: ev.description, location: ev.lieu });
+  if (String(compte).trim()) q.set('authuser', String(compte).trim());
+  return 'https://calendar.google.com/calendar/render?' + q.toString();
+}
+// Lien « nouvel événement » d'Outlook sur le web (Microsoft 365).
+/** @param {any} ev */
+export function lienOutlook(ev) {
+  const iso = (/** @type {string} */ s) => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:00`;
+  const q = new URLSearchParams({ path: '/calendar/action/compose', rru: 'addevent', subject: ev.titre, startdt: iso(ev.debut), enddt: iso(ev.fin), body: ev.description, location: ev.lieu });
+  return 'https://outlook.office.com/calendar/deeplink/compose?' + q.toString();
+}
+// Fichier .ics (tout agenda : messagerie académique, Thunderbird, Apple, Outlook…), heures de Paris.
+/** @param {any} ev @param {Date} [maintenant] */
+export function fichierIcs(ev, maintenant = new Date()) {
+  const ech = (/** @type {string} */ s) => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  const stamp = maintenant.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const plier = (/** @type {string} */ l) => { const out = []; let s = l; while (s.length > 74) { out.push(s.slice(0, 74)); s = ' ' + s.slice(74); } out.push(s); return out.join('\r\n'); };
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Rapports et suivis//Visites//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VTIMEZONE', 'TZID:Europe/Paris',
+    'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0200', 'TZNAME:CEST', 'DTSTART:19700329T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT',
+    'BEGIN:STANDARD', 'TZOFFSETFROM:+0200', 'TZOFFSETTO:+0100', 'TZNAME:CET', 'DTSTART:19701025T030000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT', `UID:visite-${ev.jour}-${ev.uai || 'x'}-${ev.debut.slice(9)}@rapports-et-suivis`, `DTSTAMP:${stamp}`,
+    `DTSTART;TZID=Europe/Paris:${ev.debut}`, `DTEND;TZID=Europe/Paris:${ev.fin}`,
+    `SUMMARY:${ech(ev.titre)}`, `LOCATION:${ech(ev.lieu)}`, `DESCRIPTION:${ech(ev.description)}`, 'END:VEVENT', 'END:VCALENDAR']
+    .map(plier).join('\r\n') + '\r\n';
+}
+// Agendas proposés (Personnes.Agenda) ; vide = les trois boutons.
+export const AGENDAS = ['Google Agenda', 'Outlook (Microsoft 365)', 'Fichier .ics'];

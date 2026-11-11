@@ -7,6 +7,14 @@
 <link rel="icon" type="image/svg+xml" href="../commun/favicon.svg?v=2">
 <link rel="stylesheet" href="../commun/style.css">
 <style>
+  #sig-zone { border: 1px dashed var(--border); border-radius: 8px; min-height: 70px; display: flex; align-items: center; justify-content: center; padding: 8px; background: #fff; }
+  #sig-zone:focus { outline: 2px solid var(--accent); }
+  #sig-zone img { max-height: 90px; max-width: 100%; }
+  #reglages .ligne-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+  #reglages .champ { display: block; margin: 8px 0; font-size: 13px; }
+  #reglages .champ input, #reglages .champ select { display: block; width: 100%; max-width: 360px; margin-top: 3px; }
+  #reglages .petit-titre { font-size: 14px; margin: 12px 0 4px; }
+  #reglages input[type=file] { max-width: 100%; font-size: 12px; }
   header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   header h1 { font-size: 15px; margin: 0 12px 0 0; }
   nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
@@ -105,6 +113,10 @@
         <div id="identification"></div>
         <dl id="compte"></dl>
         <div id="option-voir"></div>
+      </section>
+      <section id="sec-reglages" hidden>
+        <h2>Ma signature et mon agenda</h2>
+        <div id="reglages"></div>
       </section>
       <section>
         <h2>Mes droits</h2>
@@ -234,6 +246,8 @@ import { zipStocke, csv, structure, libellesReferences, csvTable, lignesReimport
   from '../commun/export.js';
 import { requetesAGeocoder, geocoder, appliquerGeocodage, choixAutomatique, sansCoordonnees, PAUSE_MS } from '../commun/geocodage.js';
 import { CHIFFREMENT } from '../commun/config.js';
+import { tailleSignature } from '../rapports/logique.js';
+import { AGENDAS } from '../edt/logique.js';
 import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrementValide, signatureChiffrement, tableChiffree,
   dechiffrerLignes, lignesLisibles, chiffrerActions, completerCodes, actionsCodesManquants, regrouperMaj, actionsRechiffrement, nouveauxParametres,
   deriverCle, creerVerificateur, verifierCle, ouvrirAvecPhrase, validerNouvellePhrase, validerChangementPhrase, actionCreerTable, actionsColonnesTable,
@@ -295,6 +309,83 @@ function adressePageApp() {
   return { adresse: h.adressePage(), detail: h.diagAdresse ? h.diagAdresse() : '' };
 }
 
+// --- Mon compte : signature, titre de signature, agenda (APP § 11, 2026-11-12) ---
+// Fiche Personnes (Titre_signature, Agenda, Compte_agenda) et table Signatures (la sienne) ; chacun·e ne modifie que
+// sa fiche et sa signature (règles « Limité »). Pas redessiné pendant une saisie.
+let sigNouvelle = null;   // image collée ou choisie, pas encore enregistrée
+function lireImageSignature(fichier) {
+  return new Promise((ok, ko) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const { l, h } = tailleSignature(im.naturalWidth, im.naturalHeight);
+        const c = document.createElement('canvas'); c.width = l; c.height = h;
+        c.getContext('2d').drawImage(im, 0, 0, l, h);
+        ok(c.toDataURL('image/png'));
+      };
+      im.onerror = () => { toast('Image illisible.', true); ko(new Error('image')); };
+      im.src = String(lecteur.result);
+    };
+    lecteur.readAsDataURL(fichier);
+  });
+}
+const maSignature = moi => ((D.lectures.Signatures && D.lectures.Signatures.lignes) || [])
+  .find(x => String(x.Email || '').trim().toLowerCase() === String(moi.Email || '').trim().toLowerCase());
+function afficherReglages(moi, fiche) {
+  const zone = $('reglages');
+  if (zone.contains(document.activeElement) && document.activeElement !== document.body) return;
+  $('sec-reglages').hidden = false;
+  const sig = maSignature(moi);
+  const img = sigNouvelle || (sig && sig.Image) || '';
+  const aCol = c => !!fiche && c in fiche;
+  zone.innerHTML = `
+    <h3 class="petit-titre">Ma signature</h3>
+    <div id="sig-zone" tabindex="0" title="Clique ici puis colle l'image de ta signature (Ctrl / Cmd + V)">${img
+      ? `<img src="${esc(img)}" alt="Ma signature">` : '<span class="muted">Clique ici puis colle l\'image de ta signature (Ctrl / Cmd + V), ou choisis un fichier.</span>'}</div>
+    <div class="ligne-actions"><input type="file" id="sig-fichier-moi" accept="image/*">
+      ${sigNouvelle ? '<button id="sig-enreg" class="btn">Enregistrer la signature</button><button id="sig-annul" class="lien">Annuler</button>' : ''}
+      ${!sigNouvelle && sig ? '<button id="sig-suppr" class="lien">Supprimer la signature enregistrée</button>' : ''}</div>
+    <p class="muted petit">Proposée quand tu signes un rapport ; visible de toi seul·e.</p>
+    ${fiche ? `
+    <label class="champ">Titre au-dessus de la signature
+      <input id="reg-titre" value="${esc(fiche.Titre_signature || '')}" placeholder="La chargée de mission, L'IA-IPR…"></label>
+    ${aCol('Agenda') ? `
+    <h3 class="petit-titre">Mon agenda</h3>
+    <p class="muted petit">Dans Emplois du temps, une visite datée s'inscrit dans ton agenda en un clic : un événement pour la
+      journée dans l'établissement (créneaux en description, adresse en lieu). <strong>Google Agenda</strong> et
+      <strong>Outlook</strong> s'ouvrent dans un nouvel onglet, l'événement pré-rempli : il reste à l'enregistrer.
+      <strong>Fichier .ics</strong> : un fichier à ouvrir, pour tout autre agenda (messagerie académique, Thunderbird, Apple…).
+      Pas besoin de partager ton agenda : rien n'est lu ni écrit sans toi.</p>
+    <label class="champ">Agenda
+      <select id="reg-agenda"><option value="">Choisir à chaque fois</option>${AGENDAS.map(a => `<option ${fiche.Agenda === a ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select></label>
+    <label class="champ" id="reg-compte-l" ${fiche.Agenda === 'Google Agenda' ? '' : 'hidden'}>Compte Google (facultatif : ouvre le bon compte si tu en as plusieurs)
+      <input id="reg-compte" type="email" value="${esc(fiche.Compte_agenda || '')}" placeholder="prenom.nom@gmail.com"></label>`
+    : '<p class="muted petit">Agenda : colonnes Personnes.Agenda et Compte_agenda absentes (Installer → « Créer la structure »).</p>'}
+    <div class="ligne-actions"><button id="reg-enreg" class="btn pri">Enregistrer</button></div>`
+    : '<p class="muted petit">Pas de fiche reliée à ce compte : titre de signature et agenda indisponibles.</p>'}`;
+  const choisir = d => { sigNouvelle = d; afficherReglages(moi, fiche); };
+  $('sig-zone').addEventListener('paste', e => {
+    const f = [...(e.clipboardData ? e.clipboardData.items : [])].find(i => i.type.startsWith('image/'));
+    if (f) { e.preventDefault(); lireImageSignature(f.getAsFile()).then(choisir); } else toast('Le presse-papiers ne contient pas d\'image.', true);
+  });
+  $('sig-fichier-moi').addEventListener('change', e => { const f = e.target.files[0]; if (f) lireImageSignature(f).then(choisir); });
+  if ($('sig-annul')) $('sig-annul').onclick = () => choisir(null);
+  if ($('sig-enreg')) $('sig-enreg').onclick = async () => {
+    const auj = Math.floor(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) / 1000);
+    const a = sig ? ['UpdateRecord', 'Signatures', sig.id, { Image: sigNouvelle, Modifie_le: auj }]
+      : ['AddRecord', 'Signatures', null, { Email: String(moi.Email).trim().toLowerCase(), Image: sigNouvelle, Modifie_le: auj }];
+    if (await ecrire([a], 'Signature enregistrée')) sigNouvelle = null;
+  };
+  if ($('sig-suppr')) $('sig-suppr').onclick = async () => { await ecrire([['RemoveRecord', 'Signatures', sig.id]], 'Signature supprimée'); };
+  if ($('reg-agenda')) $('reg-agenda').onchange = e => { $('reg-compte-l').hidden = e.target.value !== 'Google Agenda'; };
+  if ($('reg-enreg')) $('reg-enreg').onclick = async () => {
+    const champs = { Titre_signature: $('reg-titre').value.trim() };
+    if ($('reg-agenda')) { champs.Agenda = $('reg-agenda').value; champs.Compte_agenda = ($('reg-compte').value || '').trim(); }
+    await ecrire([['UpdateRecord', TABLE_FICHES, fiche.id, champs]], 'Réglages enregistrés');
+  };
+}
+
 function afficherMoi() {
   const { moi, statut } = ident;
   const [classe, texte] = TEXTES_IDENTIFICATION[statut];
@@ -318,6 +409,7 @@ function afficherMoi() {
       <dt>Fiche</dt><dd>${personne ? esc(nomPersonne(personne)) : '<span class="muted">aucune</span>'}</dd>
       <dt>Actif</dt><dd>${moi.Actif ? 'oui' : '<span class="ko">non — aucun droit</span>'}</dd>`;
     $('droits').innerHTML = tableDroits(matriceDroits(moi.Droits));
+    afficherReglages(moi, personne);
   } else {
     $('compte').innerHTML = '';
     $('droits').innerHTML = '<p class="muted">Droits inconnus tant que je ne suis pas identifié·e.</p>';

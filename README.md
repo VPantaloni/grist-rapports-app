@@ -67,6 +67,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Stagiaires` | Booléen | IA-IPR en copie du mail pour tout rapport PSTG |
 | `Email` | Texte | unique ; adresse professionnelle |
 | `nb_visites_dues` | Entier | CMi : nombre de visites attendues selon la lettre de mission (affiché sur son plan et dans le bilan) |
+| `Agenda` | Choix | agenda où inscrire une visite calée (Emplois du temps) ; vide = les trois boutons ; réglé dans Mon compte |
+| `Compte_agenda` | Texte | adresse du compte Google Agenda (ouvre le bon compte) ; facultatif |
 | `Nom_complet` | Texte (formule) | colonne affichée des références |
 
 #### `Etablissements` — établissements de l'académie (annuaire de l'éducation, open data) ; importés depuis l'Administration

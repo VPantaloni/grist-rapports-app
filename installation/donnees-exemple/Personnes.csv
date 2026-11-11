@@ -1,8 +1,8 @@
-﻿Prenom,Nom,Fonction,Initiales,Referent,Titre_signature,Stagiaires,Email,nb_visites_dues
-Claire,Fontaine,IA-IPR,CF,,L'IA-IPR,true,claire.fontaine@ac-exemple.example,
-Bruno,Leroy,IA-IPR,BL,,L'IA-IPR,true,bruno.leroy@ac-exemple.example,
-Nadia,Benali,IA-IPR,NB,,L'IA-IPR,false,nadia.benali@ac-exemple.example,
-Julie,Moreau,CMi,JM,Claire Fontaine,La chargée de mission,false,julie.moreau@ac-exemple.example,5
-Thomas,Girard,CMi,TG,Bruno Leroy,Le chargé de mission,false,thomas.girard@ac-exemple.example,4
-Inès,Robert,CMi,IR,Nadia Benali,La chargée de mission,false,ines.robert@ac-exemple.example,3
-Paul,Lambert,CMi,PL,,Le chargé de mission,false,paul.lambert@ac-exemple.example,
+﻿Prenom,Nom,Fonction,Initiales,Referent,Titre_signature,Stagiaires,Email,nb_visites_dues,Agenda,Compte_agenda
+Claire,Fontaine,IA-IPR,CF,,L'IA-IPR,true,claire.fontaine@ac-exemple.example,,,
+Bruno,Leroy,IA-IPR,BL,,L'IA-IPR,true,bruno.leroy@ac-exemple.example,,,
+Nadia,Benali,IA-IPR,NB,,L'IA-IPR,false,nadia.benali@ac-exemple.example,,,
+Julie,Moreau,CMi,JM,Claire Fontaine,La chargée de mission,false,julie.moreau@ac-exemple.example,5,Google Agenda,julie.moreau.agenda@gmail.example
+Thomas,Girard,CMi,TG,Bruno Leroy,Le chargé de mission,false,thomas.girard@ac-exemple.example,4,Fichier .ics,
+Inès,Robert,CMi,IR,Nadia Benali,La chargée de mission,false,ines.robert@ac-exemple.example,3,,
+Paul,Lambert,CMi,PL,,Le chargé de mission,false,paul.lambert@ac-exemple.example,,,
