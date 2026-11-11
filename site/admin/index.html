@@ -374,7 +374,7 @@ function afficherReglages(moi, fiche) {
   if ($('sig-enreg')) $('sig-enreg').onclick = async () => {
     const auj = Math.floor(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) / 1000);
     const a = sig ? ['UpdateRecord', 'Signatures', sig.id, { Image: sigNouvelle, Modifie_le: auj }]
-      : ['AddRecord', 'Signatures', null, { Email: String(moi.Email).trim(), Image: sigNouvelle, Modifie_le: auj }];
+      : ['AddRecord', 'Signatures', null, { Email: String(moi.Email).trim().toLowerCase(), Image: sigNouvelle, Modifie_le: auj }];
     if (await ecrire([a], 'Signature enregistrée')) sigNouvelle = null;
   };
   if ($('sig-suppr')) $('sig-suppr').onclick = async () => { await ecrire([['RemoveRecord', 'Signatures', sig.id]], 'Signature supprimée'); };
@@ -559,7 +559,7 @@ function majFormulaire() {
 async function enregistrer() {
   const f = edition;
   if (validerUtilisateur(f, D.utilisateurs, f.id).length) return;
-  const champs = { Email: f.Email.trim(), Roles: ['L', ...f.Roles], Personne: f.Personne || 0, Actif: f.Actif };
+  const champs = { Email: f.Email.trim().toLowerCase(), Roles: ['L', ...f.Roles], Personne: f.Personne || 0, Actif: f.Actif };
   const action = f.id ? ['UpdateRecord', 'Utilisateurs', f.id, champs] : ['AddRecord', 'Utilisateurs', null, champs];
   if (await ecrire([action], f.id ? 'Compte enregistré' : 'Compte ajouté')) fermer();
 }
@@ -642,10 +642,10 @@ function afficherControles() {
     res.filter(r => r.lignes.length).map(r => `<section class="controle ${classe[r.niveau]}">
       <h3>${esc(r.titre)} <span class="muted">(${r.lignes.length})</span></h3>
       <ul>${r.lignes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
-      ${r.titre === TITRE_MAJUSCULES ? '<button type="button" class="btn" id="emails-minuscules">Retirer les espaces</button>' : ''}</section>`).join('') +
+      ${r.titre === TITRE_MAJUSCULES ? '<button type="button" class="btn" id="emails-minuscules">Tout mettre en minuscules</button>' : ''}</section>`).join('') +
     `<details><summary>Contrôles sans problème</summary><ul class="petit">${res.filter(r => !r.lignes.length).map(r => `<li>${esc(r.titre)} : ✓</li>`).join('')}</ul></details>`;
   const bm = $('emails-minuscules');
-  if (bm) bm.onclick = async () => { const a = actionsEmailsMinuscules(D.utilisateurs); if (a.length && await ecrire(a, `${a.length} e-mail(s) corrigé(s)`)) await charger(); };
+  if (bm) bm.onclick = async () => { const a = actionsEmailsMinuscules(D.utilisateurs); if (a.length && await ecrire(a, `${a.length} e-mail(s) mis en minuscules`)) await charger(); };
 }
 
 // --- Onglet « Import » (SPEC § 4.5) : lecture → aperçu (rien d'écrit) → intégration confirmée ---

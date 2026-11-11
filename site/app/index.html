@@ -355,7 +355,7 @@ async function chargerMenu() {
           <a class="bouton" href="${connexion}" target="_top">Se connecter</a></div>`
       : `<div class="connexion"><p><strong>Aucun écran disponible.</strong> Tu n'es pas connecté·e à Grist, ou ton compte
           n'est pas encore déclaré dans l'application : l'e-mail de la table Utilisateurs doit être exactement celui de ton
-          compte Grist (avatar en haut à droite), majuscules comprises.</p>
+          compte Grist (avatar en haut à droite), écrit en minuscules.</p>
           <a class="bouton" href="${connexion}" target="_top">Se connecter ou changer de compte</a>
           <p class="petit muted">Détail pour l'administration : ${diagnosticCompte(utilisateurs, util.erreur)}</p></div>`;
   } else $('ecrans').querySelectorAll('.vide, .connexion').forEach(el => el.remove());   // « Chargement… », message

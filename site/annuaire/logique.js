@@ -92,10 +92,10 @@ export const compteDe = (p, utilisateurs) => utilisateurs.find(u => u.Personne =
 // Action « Donner accès » : crée le compte (rôle = fonction) ou complète le compte existant (fiche, rôle, actif).
 /** @param {Ligne} p @param {Ligne[]} utilisateurs @returns {any[] | null} null si pas d'e-mail */
 export function actionsAcces(p, utilisateurs) {
-  const email = String(p.Email || '').trim();   // à l'identique de l'adresse du compte Grist (majuscules comprises)
+  const email = String(p.Email || '').trim().toLowerCase();   // Grist donne l'e-mail du compte en minuscules
   if (!email) return null;
   const u = compteDe(p, utilisateurs);
   if (!u) return [['AddRecord', 'Utilisateurs', null, { Email: email, Roles: ['L', p.Fonction], Personne: p.id, Actif: true }]];
   const roles = liste(u.Roles);
-  return [['UpdateRecord', 'Utilisateurs', u.id, { Personne: p.id, Actif: true, Roles: ['L', ...new Set([...roles, p.Fonction])] }]];
+  return [['UpdateRecord', 'Utilisateurs', u.id, { ...(u.Email !== String(u.Email || '').trim().toLowerCase() ? { Email: String(u.Email).trim().toLowerCase() } : {}), Personne: p.id, Actif: true, Roles: ['L', ...new Set([...roles, p.Fonction])] }]];
 }
