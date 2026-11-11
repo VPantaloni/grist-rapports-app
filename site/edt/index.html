@@ -213,6 +213,8 @@ button,input,select{font:inherit;color:inherit}
 .etat{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:9px;white-space:nowrap}
 .etat.prop{background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
 .etat.cal{background:color-mix(in srgb,var(--ghost) 18%,var(--surface));color:var(--ghost)}
+.etat .ic{width:13px;height:13px;vertical-align:-2px}
+.prow .btn{display:inline-flex;align-items:center;gap:6px}
 .ver{color:var(--muted);font-size:11px;text-align:right;margin-top:4px}
 .btn.avis:hover{filter:brightness(1.08)}
 a.btn{display:inline-flex;align-items:center;text-decoration:none;height:auto;min-height:32px;padding:5px 14px}
@@ -355,6 +357,12 @@ const pref = preferences('Edt');
 const ls = { get(k){ try { return JSON.parse(pref.lire(k, "null")); } catch(e){ return null; } }, set(k, v){ pref.ecrire(k, JSON.stringify(v)); } };
 const MAX_T = 40;
 const ETATS = {prop:"Planning proposé", calee:"Visite calée"};
+// Icônes Lucide (licence ISC) : save-plus (mémoriser), save-check (mémorisé), calendar-check (visite calée).
+const ICO = {
+  savePlus: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V12"/><path d="M16 13H8a1 1 0 0 0-1 1v7"/><path d="M19 22v-6"/><path d="M22 19h-6"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>',
+  saveCheck: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4v4.35"/><path d="m16 19 2 2 4-4"/><path d="M17 15.13V14a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>',
+  calCheck: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>',
+};
 const state = {
   courses: [], teachers: new Map(), uais: new Map(), etabs: new Map(), calendar: new Map(),
   selected: [], uaiFilter: "", mode: "type", userMode: false, monday: null,
@@ -1343,7 +1351,7 @@ function memoRelevantUais(groups){
 function etatBadge(etat){
   if (!etat) return "";
   const cal = /cal/i.test(norm(etat));
-  return `<span class="etat ${cal ? "cal" : "prop"}">${cal ? "✅" : "📝"} ${esc(etat)}</span> `;
+  return `<span class="etat ${cal ? "cal" : "prop"}">${cal ? ICO.calCheck : ICO.saveCheck} ${esc(etat)}</span> `;
 }
 function memoOf(g){
   const di = g.date ? isoDay(g.date) : "";
@@ -1396,7 +1404,7 @@ function renderPlan(){
       ${g.warn.map(w => `<div class="pwarn">⚠ ${esc(w)}</div>`).join("")}
       ${g.info.map(w => `<div class="pinfo">ℹ ${esc(w)}</div>`).join("")}
       ${(() => { const vp = visitesDuPlanning(state.T.Visites || [], g.uai, g.teachers.map(k => state.teachers.get(k)), rentree());
-        return vp.length ? `<div class="pinfo">📅 Au plan : ${vp.map(v => esc(`${v.Prof_nom} ${v.Prof_prenom || ""}`.trim()) + (v.CMi ? " (" + esc(nomPersonne(v.CMi)) + ")" : "") + (v.Date_prevue ? " — calée le " + esc(fmtDate(parseAnyDate(v.Date_prevue), {day:"numeric", month:"long"})) : "")).join(" · ")}. « ✅ Visite calée » y reporte la date.</div>`
+        return vp.length ? `<div class="pinfo">📅 Au plan : ${vp.map(v => esc(`${v.Prof_nom} ${v.Prof_prenom || ""}`.trim()) + (v.CMi ? " (" + esc(nomPersonne(v.CMi)) + ")" : "") + (v.Date_prevue ? " — calée le " + esc(fmtDate(parseAnyDate(v.Date_prevue), {day:"numeric", month:"long"})) : "")).join(" · ")}. « Visite calée » y reporte la date.</div>`
           : `<div class="pinfo">Aucune visite au plan pour ${g.teachers.length > 1 ? "ces professeur·es" : "ce ou cette professeur·e"} cette année.</div>`; })()}
       ${hasMeet ? "" : `<div class="padd"><button class="btn sm" data-act="meet-add" data-g="${gi}" title="Ajoute une heure de réunion commune à tous les professeur·es">＋ Réunion d'équipe</button></div>`}
       <div class="prow mails">
@@ -1407,8 +1415,9 @@ function renderPlan(){
       </div>
       ${(() => { const s = mailsSansAdresse(g); return s.length ? `<div class="pinfo">ℹ Pas d'adresse connue pour ${esc(s.join(", "))} (table Professeurs) : à ajouter à la main.</div>` : ""; })()}
       <div class="prow">
-        ${peutMemoriser() ? `<button class="btn" data-act="memo-save" data-etat="prop" data-g="${gi}" title="Enregistre ces créneaux (table EdT_memo), état « Planning proposé »">💾 Mémoriser le planning</button>
-        <button class="btn lgreen" data-act="memo-save" data-etat="calee" data-g="${gi}" title="Enregistre ces créneaux, état « Visite calée », et reporte la date dans le plan d'inspection">✅ Visite calée</button>` : `<span class="hint">Mémoriser : pas de droit sur la table EdT_memo pour ce compte (Administration → Permissions → « Appliquer les droits par défaut »).</span>`}
+        ${peutMemoriser() ? (() => { const m = memoOf(g), cal = m && m.etat === ETATS.calee;
+          return `<button class="btn${m && !cal ? " lblue" : ""}" data-act="memo-save" data-etat="prop" data-g="${gi}" title="${m ? "Planning déjà en mémoire : cliquer pour l'enregistrer à nouveau (état « Planning proposé »)" : "Enregistre ces créneaux (table EdT_memo), état « Planning proposé »"}">${m && !cal ? ICO.saveCheck + " Planning mémorisé" : ICO.savePlus + " Mémoriser le planning"}</button>
+        <button class="btn lgreen" data-act="memo-save" data-etat="calee" data-g="${gi}" title="Enregistre ces créneaux, état « Visite calée », et reporte la date dans le plan d'inspection">${ICO.calCheck} Visite calée${cal ? " ✓" : ""}</button>`; })() : `<span class="hint">Mémoriser : pas de droit sur la table EdT_memo pour ce compte (Administration → Permissions → « Appliquer les droits par défaut »).</span>`}
         ${(() => { const m = memoOf(g); return m ? `<span class="hint">En mémoire : ${etatBadge(m.etat || ETATS.prop)}</span>` : ""; })()}
       </div>
     </div>`;
