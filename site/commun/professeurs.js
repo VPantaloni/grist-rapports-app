@@ -83,11 +83,12 @@ export function uaiReel(p, profs, etabs, idx) {
   if (communs.length) return communs[0];
   return cand.length === 1 && !estEtablissementScolaire(u, etabs) ? cand[0] : '';
 }
-// Établissement scolaire connu ? (absent de Etablissements, ou sigle RECT, DSDEN… = service administratif)
+// Établissement scolaire connu ? (absent de Etablissements, sigle RECT, DSDEN… ou nom « Rectorat… » = service administratif)
 /** @param {string} uai @param {Ligne[]} etabs */
 export function estEtablissementScolaire(uai, etabs) {
   const e = (etabs || []).find(x => uaiDe(x.UAI) === uaiDe(uai));
-  return !!e && !/^(RECT|DSDEN|DSD|IA|SERV|ADM)/i.test(texte(e.Sigle));
+  return !!e && !/^(RECT|DSDEN|DSD|IA|SERV|ADM)/i.test(texte(e.Sigle))
+    && !/\b(rectorat|dsden|direction des services|inspection acad|services? d[eé]partementa)/i.test(texte(e.Nom));
 }
 // Discipline en forme courte (colonne du plan) : MATHEMATIQUES → MATHS, NUMERIQUE SCIENCES INFORMATIQUES → NSI.
 /** @param {any} d */

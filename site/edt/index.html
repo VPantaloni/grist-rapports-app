@@ -45,14 +45,14 @@ button,input,select{font:inherit;color:inherit}
 .eopt .nm{color:var(--ink)}
 .eopt small{display:block;white-space:normal}
 .eopt.cur{box-shadow:inset 3px 0 0 var(--accent)}
-.eopt.e-vide .nm,.eopt.e-vide .u{color:#c2410c}
+.eopt.e-vide .nm,.eopt.e-vide .u{color:#9ca3af}
 .eopt.e-absent .nm,.eopt.e-absent .u{color:var(--danger,#b91c1c)}
 .etat-etab{padding:8px 10px;border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
-.etat-etab.vide{background:#ffedd5;color:#7c2d12}
+.etat-etab.vide{background:#f3f4f6;color:#4b5563}
 .etat-etab.absent{background:#fee2e2;color:#7f1d1d}
-@media (prefers-color-scheme: dark){ .etat-etab.vide{background:#431407;color:#fed7aa} .etat-etab.absent{background:#450a0a;color:#fecaca} }
+@media (prefers-color-scheme: dark){ .etat-etab.vide{background:#27272a;color:#d4d4d8} .etat-etab.absent{background:#450a0a;color:#fecaca} }
 .legende-etab{font-size:11px;color:var(--muted);padding:4px 10px}
-.legende-etab b.o{color:#c2410c} .legende-etab b.r{color:var(--danger,#b91c1c)}
+.legende-etab b.o{color:#9ca3af} .legende-etab b.r{color:var(--danger,#b91c1c)}
 .eopt mark{background:color-mix(in srgb,var(--accent) 25%,transparent);color:inherit;border-radius:2px}
 .btn-add{height:34px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);font-weight:700;cursor:pointer;white-space:nowrap;margin-left:auto}
 .btn-add:hover{filter:brightness(1.08)}
@@ -447,7 +447,7 @@ const charger = sansChevauchement(async () => {
   render();
 });
 
-// Établissement connu : emplois du temps versés, ou dans la table Etablissements (même sans EdT : orange ou rouge).
+// Établissement connu : emplois du temps versés, ou dans la table Etablissements (même sans EdT : gris clair ou rouge).
 const uaiConnu = u => state.uais.has(u) || state.etabs.has(u);
 /* Ouverture depuis le plan d'inspection : { visite: id } → établissement et professeur·e de la visite */
 function traiterDemande(d){
@@ -1069,7 +1069,7 @@ function flagsHTML(t){
 function renderDepts(){
   $("#depts").innerHTML = DEPTS.map(d => `<button data-dep="${d}" class="${state.depts.includes(d)?"on":""}" aria-pressed="${state.depts.includes(d)}" title="Département ${d}${state.depts.length ? "" : " (aucun coché = tous)"}">${d}</button>`).join("");
 }
-// Tous les établissements de la table Etablissements, plus ceux des EdT : sans EdT = orange (« à ajouter depuis
+// Tous les établissements de la table Etablissements, plus ceux des EdT : sans EdT = gris clair (« à ajouter depuis
 // Siiprien ») ; EdT absent de Siiprien (case cochée par un·e IA-IPR) = rouge.
 function etabItems(){
   const cnt = (set, f) => [...set].filter(k => f(state.teachers.get(k))).length;
@@ -1108,7 +1108,7 @@ function refreshEtabDropdown(){
     const extra = [o.ville, o.etat === "ok" ? `${o.n} prof${o.n>1?"s":""}` : o.etat === "absent" ? "EdT absent de Siiprien" : "pas encore d'EdT", o.st ? `${o.st} stag.` : "", o.md ? `${o.md} MD` : ""].filter(Boolean).join(" · ");
     return `<div class="opt eopt e-${o.etat}${i===eIndex?" hl":""}${o.u===state.uaiFilter?" cur":""}" data-e="${esc(o.u)}"><span class="u">${hiWords(o.u, rawWords)}</span><span class="nm">${hiWords(o.nom, rawWords)}</span><small>${hiWords(extra, rawWords)}</small></div>`;
   }).join("") + (list.length > 120 ? `<div class="empty-opt">… ${list.length - 120} autres, affinez la recherche</div>` : "")
-    + (list.some(o => o.etat !== "ok") ? `<div class="legende-etab"><b class="o">orange</b> : pas encore d'EdT (à ajouter depuis Siiprien) · <b class="r">rouge</b> : EdT absent de Siiprien</div>` : "")
+    + (list.some(o => o.etat !== "ok") ? `<div class="legende-etab"><b class="o">gris clair</b> : pas encore d'EdT (à ajouter depuis Siiprien) · <b class="r">rouge</b> : EdT absent de Siiprien</div>` : "")
     + (eItems.length === 1 && words.length ? `<div class="empty-opt">Aucun établissement ne correspond.</div>` : "");
   dd.classList.add("open"); inp.setAttribute("aria-expanded", "true");
   const hl = dd.querySelector(".hl"); if (hl) hl.scrollIntoView({block:"nearest"});

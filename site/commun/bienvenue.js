@@ -41,7 +41,7 @@ export const TEXTES = {
     titre: 'Emplois du temps',
     ipr: [
       ['Choisir', 'Un établissement (tous ceux de l\'académie), puis un·e ou plusieurs professeur·es, ou « Toute l\'équipe ».'],
-      ['Couleurs des établissements', 'Orange : pas encore d\'emplois du temps (« Ajouter EdT via Siiprien ») ; rouge : absents de Siiprien (case à cocher).'],
+      ['Couleurs des établissements', 'Gris clair : pas encore d\'emplois du temps (« Ajouter EdT via Siiprien ») ; rouge : absents de Siiprien (case à cocher).'],
       ['Préparer la visite', 'Cliquez sur un cours : visite, entretien, réunion d\'équipe ; le planning se construit sous la grille.'],
       ['Ensuite', 'Mémoriser, « Visite calée » (date reportée au plan), mail par modèle, ajout à votre agenda.'],
     ],
@@ -49,7 +49,7 @@ export const TEXTES = {
       ['Choisir', 'Un établissement, puis un·e ou plusieurs professeur·es, ou « Toute l\'équipe ».'],
       ['Préparer la visite', 'Cliquez sur un cours : visite, entretien, réunion d\'équipe ; le planning se construit sous la grille.'],
       ['Ensuite', 'Mémoriser, « Visite calée » (date reportée au plan), mail par modèle, ajout à votre agenda (réglé dans Mon compte).'],
-      ['EdT manquant', 'Établissement en orange ou en rouge : les emplois du temps ne sont pas versés ; vos IA-IPR les ajoutent depuis Siiprien.'],
+      ['EdT manquant', 'Établissement en gris clair ou en rouge : les emplois du temps ne sont pas versés ; vos IA-IPR les ajoutent depuis Siiprien.'],
     ],
   },
   rapports: {

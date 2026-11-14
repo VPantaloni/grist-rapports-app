@@ -70,7 +70,8 @@ if (typeof document !== 'undefined') {
 }
 
 // Rend un tableau triable et filtrable ; cle : identifiant stable (ex. 'plan-suivi'). À rappeler après chaque
-// affichage (l'état — tri, filtres — est gardé par clé). En-tête : data-filtre="non" (pas de filtre), data-tri="non".
+// affichage (l'état — tri, filtres — est gardé par clé). En-tête : data-filtre="non" (pas de filtre), data-tri="non",
+// data-valeurs="a|b" (valeurs toujours proposées par le filtre).
 /** @param {HTMLTableElement | null} table @param {string} cle */
 export function tableauTriable(table, cle) {
   if (!table || !table.tHead || !table.tBodies[0]) return;
@@ -83,7 +84,13 @@ export function tableauTriable(table, cle) {
   if (!table.classList.contains('triable')) lignes.forEach((tr, i) => { tr.dataset.ordre = String(i); });
   table.classList.add('triable');
   const cellules = (/** @type {HTMLTableRowElement} */ tr) => [...tr.cells];
-  const valeursCol = (/** @type {number} */ i) => [...new Set(lignes.map(l => texteFiltre(cellules(l)[i] || l)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+  // Valeurs du filtre : celles des lignes, plus celles annoncées par l'en-tête (data-valeurs="a|b|c" : toujours proposées,
+  // même absentes du tableau, dans cet ordre).
+  const valeursCol = (/** @type {number} */ i) => {
+    const fixes = (ths[i] && ths[i].dataset.valeurs ? ths[i].dataset.valeurs.split('|') : []).filter(Boolean);
+    const vues = [...new Set(lignes.map(l => texteFiltre(cellules(l)[i] || l)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }));
+    return [...fixes, ...vues.filter(v => !fixes.includes(v))];
+  };
   const nomCol = (/** @type {HTMLElement} */ th) => (th.querySelector('.libelle-col') || th).textContent?.trim() || '';
   const majBoutons = () => ths.forEach((th, i) => {
     const bt = th.querySelector('.btn-tri'), bf = th.querySelector('.btn-filtre');

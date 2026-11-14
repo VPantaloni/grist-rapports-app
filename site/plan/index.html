@@ -229,7 +229,7 @@ function afficherSuivi() {
       <input type="search" id="f-q" placeholder="Rechercher (nom, établissement, UAI, statut)…" value="${esc(filtre.q)}">
       ${plan ? '<button id="nouvelle" class="primary">+ Visite</button><button id="importer">Importer un plan</button>' : ''}
     </div>
-    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th title="Discipline d'affectation (fichier des professeur·es)">Disc.</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th title="Emploi du temps versé (écran Emplois du temps)">EdT</th><th>État</th></tr></thead><tbody>
+    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th title="Discipline d'affectation (fichier des professeur·es)">Disc.</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th title="Emploi du temps versé (écran Emplois du temps)" data-valeurs="${esc(Object.values(FILTRES_EDT).join('|'))}">EdT</th><th>État</th></tr></thead><tbody>
       ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(statut(v))}${v.Professeur ? '' : ' · hors fichier'}</span></td>
         <td class="c" data-filtre="${esc(disciplineDe(v))}">${marqueDisc(v)}</td>
         <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}${v.UAI_choisi ? ' <span class="etab-choisi" title="Établissement choisi par un·e IA-IPR">· choisi</span>' : ''}</span></td>
@@ -293,6 +293,8 @@ function infoEtab(f) {
     if (f.UAI_choisi) lignes.push(`<button type="button" class="lien" data-uai-fichier>Revenir à l'établissement du fichier (${esc(u)})</button>`);
   }
   if (f.UAI) lignes.push(`Emploi du temps : ${marqueEdt(f)} ${esc(TITRES_EDT[edtDe(f, D.edt)])} ${caseSiiprien(f.UAI)}`);
+  // Sans la colonne Visites.UAI_choisi, l'établissement choisi serait remplacé au prochain chargement par celui du fichier.
+  if (f.UAI_choisi && !colonneChoisi) lignes.push('<span style="color:var(--danger)">Colonne « Établissement choisi » (UAI_choisi) absente de la table Visites : le choix ne serait pas gardé. Installer → « Créer la structure », puis réessayer.</span>');
   return lignes.length ? `<div class="petit" style="margin:-4px 0 8px">${lignes.map(l => `<div>${l}</div>`).join('')}</div>` : '';
 }
 function ouvrirSaisie(v) {
