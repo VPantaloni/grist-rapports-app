@@ -54,6 +54,7 @@
 
 <script type="module">
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
 import { liste } from '../commun/donnees.js';
@@ -208,6 +209,7 @@ const charger = sansChevauchement(async () => {
     COLS[o.table] = [...new Set([...meta, ...Object.keys((T[o.table] || [])[0] || {})])];
   }
   moi = identifierMoi(T.Utilisateurs).moi;
+  bienvenue('modeles', profilDe(moi));
   if (!change([r.slice(0, 7).map(x => x.lignes), sel, cle]) && !$('app').hidden) return;
   message(''); $('app').hidden = false;
   remplirFiltres(); afficherOnglets(); afficherListe();

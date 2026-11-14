@@ -31,6 +31,11 @@
   .edt-non, .edt-absent { color: #fff; background: var(--danger); }
   .edt-absent { opacity: .75; }
   .edt-masque { color: var(--muted); border: 1px solid var(--border); }
+  .edt-siiprien { color: var(--danger); }
+  .edt-siiprien .ic { width: 20px; height: 20px; stroke-width: 2.4; }
+  .disc { font-size: 11px; font-weight: 600; letter-spacing: .02em; padding: 1px 6px; border-radius: 3px; background: var(--sel); white-space: nowrap; }
+  .disc-NSI { background: #fde68a; color: #713f12; }
+  .etab-choisi { font-size: 11px; color: var(--accent); }
   table.plan td.c { text-align: center; }
   table.plan { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.plan th { text-align: left; position: sticky; top: -12px; background: var(--bg); z-index: 1; }
@@ -70,6 +75,7 @@
   dialog::backdrop { background: rgba(0,0,0,.35); }
   dialog h2 { margin: 0 0 10px; font-size: 17px; }
   .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
+  .grille .large2 { grid-column: span 2; } @media (max-width: 520px) { .grille .large2 { grid-column: auto; } }
   .suggestions { border: 1px solid var(--border); border-radius: 4px; max-height: 180px; overflow-y: auto; margin-top: 2px; }
   .suggestions div { padding: 4px 8px; cursor: pointer; font-size: 13px; } .suggestions div:hover { background: var(--sel); }
   #imp-fichier { max-width: 100%; font-size: 12px; }
@@ -118,8 +124,9 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
 import { norm, nomFiche } from '../commun/donnees.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
-import { synchroniserCopies } from '../commun/professeurs.js';
+import { synchroniserCopies, uaiReel, disciplineCourte } from '../commun/professeurs.js';
 import { tableauTriable } from '../commun/tableaux.js';
+import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
   filtrer, periodeDepassee, objectif, bilanParCmi, rapportsHorsPlan, visiteDepuisRapport, grouperMesVisites, contacts, peutModifier, peutPlanifier, onglets,
   valider, lireTableauColle, preparerImport, fichesCmiACreer, statutVisite, stagiaireDe, indexEdt, edtDe, liensOrphelins, etat } from './logique.js';
@@ -130,7 +137,7 @@ const D = { visites: [], rapports: [], personnes: [], profs: [], etabs: [], stag
 // pour l'établissement est connue.
 let cle = null, cleLue = false;
 const cacheChiffre = new Map();
-let reparations = '';   // dernières écritures automatiques (évite de les répéter en boucle)
+let reparations = '', dernierEdt = [];   // dernières écritures automatiques (évite de les répéter en boucle)
 // Statut affiché : calculé (stagiaire relié·e : corps, concours, quotité ; sinon grade du fichier), APP § 11.
 const statut = v => statutVisite(v, D);
 let moi = null, droits = droitsTable(null, TABLE), droitsRapports = droitsTable(null, 'Rapports');
@@ -146,7 +153,8 @@ const IC = {
 };
 IC.oui = '<path d="M20 6 9 17l-5-5"/>';
 IC.non = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
-IC.masque = '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';
+IC.siiprien = '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';   // circle-question-mark
+IC.masque = '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>';   // eye-off
 const ic = k => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
 const personne = id => D.personnes.find(p => p.id === id);
 const etabDe = uai => D.etabs.find(e => String(e.UAI || '').toUpperCase() === String(uai || '').toUpperCase());
@@ -160,8 +168,19 @@ const visitesAnnee = () => D.visites.filter(v => rentreeDe(v.Mois_debut || v.Dat
 const nomProf = v => [v.Prof_nom, v.Prof_prenom].filter(Boolean).join(' ');
 // Colonne « EdT » : emploi du temps du ou de la professeur·e versé (écran Emplois du temps) ?
 const TITRES_EDT = { oui: 'Emploi du temps présent', absent: 'Emplois du temps de l\'établissement versés, mais pas celui de ce ou cette professeur·e',
-  non: 'Aucun emploi du temps pour cet établissement', masque: 'Établissement versé ; noms masqués : « Révéler » pour vérifier' };
+  non: 'Aucun emploi du temps pour cet établissement : à ajouter depuis Siiprien (IA-IPR)', masque: 'Établissement versé ; noms masqués : « Révéler » pour vérifier',
+  siiprien: 'Emploi du temps inconnu : pas dans Siiprien (signalé par un·e IA-IPR)' };
+const FILTRES_EDT = { oui: 'présent', absent: 'absent', non: 'aucun pour l\'établissement', masque: 'masqué', siiprien: 'pas dans Siiprien' };
+// Discipline d'affectation, forme courte (MATHS, NSI) : d'après la fiche Professeurs reliée.
+const disciplineDe = v => { const p = v.Professeur ? D.profs.find(x => x.id === v.Professeur) : null; return p ? (p.Discipline_courte || disciplineCourte(p.Discipline)) : ''; };
+const marqueDisc = v => { const d = disciplineDe(v); return d ? `<span class="disc disc-${esc(d)}">${esc(d)}</span>` : '<span class="muted">—</span>'; };
 const marqueEdt = v => { const k = edtDe(v, D.edt); return `<span class="edt edt-${k}" title="${esc(TITRES_EDT[k])}" aria-label="${esc(TITRES_EDT[k])}">${ic(k === 'absent' ? 'non' : k)}</span>`; };
+// Case « EdT absent de Siiprien » de l'établissement (IA-IPR, admins : droit de modifier Etablissements).
+const caseSiiprien = uai => {
+  const e = etabDe(uai);
+  if (!e || D.edt.uais.has(String(uai || '').toUpperCase()) || droitsTable(moi, 'Etablissements').M !== 'Oui' || !('Edt_absent' in e)) return '';
+  return `<label class="petit"><input type="checkbox" data-siiprien="${e.id}" ${e.Edt_absent ? 'checked' : ''}> EdT de cet établissement absent de Siiprien</label>`;
+};
 
 // --- Ouverture de l'écran Rapports (conteneur) ---
 function ouvrirRapports(demande) {
@@ -210,12 +229,13 @@ function afficherSuivi() {
       <input type="search" id="f-q" placeholder="Rechercher (nom, établissement, UAI, statut)…" value="${esc(filtre.q)}">
       ${plan ? '<button id="nouvelle" class="primary">+ Visite</button><button id="importer">Importer un plan</button>' : ''}
     </div>
-    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th title="Emploi du temps versé (écran Emplois du temps)">EdT</th><th>État</th></tr></thead><tbody>
+    ${lignes.length ? `<table class="plan"><thead><tr><th>Professeur·e</th><th title="Discipline d'affectation (fichier des professeur·es)">Disc.</th><th>Établissement</th><th>CMi</th><th>Période</th><th class="large">INSPE</th><th>Date calée</th><th title="Emploi du temps versé (écran Emplois du temps)">EdT</th><th>État</th></tr></thead><tbody>
       ${lignes.map(({ v, r, e }) => `<tr class="cliquable" data-id="${v.id}"><td><strong>${esc(nomProf(v))}</strong><span class="det">${esc(statut(v))}${v.Professeur ? '' : ' · hors fichier'}</span></td>
-        <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}</span></td>
+        <td class="c" data-filtre="${esc(disciplineDe(v))}">${marqueDisc(v)}</td>
+        <td>${esc(v.Etab_nom || '')}<span class="det">${esc((etabDe(v.UAI) || {}).Commune || '')} ${esc(v.UAI || '')}${v.UAI_choisi ? ' <span class="etab-choisi" title="Établissement choisi par un·e IA-IPR">· choisi</span>' : ''}</span></td>
         <td>${esc(nomFiche(personne(v.CMi)) || '—')}</td><td data-tri="${esc(String(v.Mois_debut || ''))}">${esc(periode(v))}</td><td class="large" data-tri="${esc(String(v.Visite_inspe || ''))}">${esc(dateFr(v.Visite_inspe))}</td>
         <td data-tri="${esc(String(v.Date_prevue || ''))}">${esc(dateFr(v.Date_prevue)) || '<span class="muted">—</span>'}</td>
-        <td class="c" data-filtre="${esc({ oui: 'présent', absent: 'absent', non: 'aucun pour l\'établissement', masque: 'masqué' }[edtDe(v, D.edt)])}">${marqueEdt(v)}</td>
+        <td class="c" data-filtre="${esc(FILTRES_EDT[edtDe(v, D.edt)])}">${marqueEdt(v)}</td>
         <td data-filtre="${esc(e.libelle)}" data-tri="${e.rang}">${pastille(e)}${periodeDepassee(v, e, auj) ? '<span class="det depasse">période dépassée</span>' : ''}${r ? `<span class="det">${r.Valideur ? 'IA-IPR : ' + esc(nomFiche(personne(r.Valideur))) : ''}</span>` : ''}</td></tr>`).join('')}
       </tbody></table>` : `<p class="vide">${toutes.length ? 'Aucune visite ne correspond aux filtres.' : 'Le plan de cette année est vide.' + (plan ? ' « + Visite » ou « Importer un plan » pour commencer.' : '')}</p>`}
     ${hp.length ? `<details class="bloc" open style="margin-top:14px"><summary class="ko">Rapports hors plan (${hp.length}) : visite oubliée au plan ?</summary>
@@ -231,7 +251,7 @@ function carte({ v, r, e }) {
   const dep = periodeDepassee(v, e, aujourdhui());
   return `<div class="carte ${dep ? 'depassee' : ''}" data-id="${v.id}">
     <h3><span>${esc(nomProf(v))}</span>${pastille(e)}</h3>${dep ? '<span class="depasse">Période de visite dépassée</span>' : ''}
-    <div class="petit muted">${esc(statut(v))}${statut(v) ? ' · ' : ''}période ${esc(periode(v) || '—')}${v.Visite_inspe ? ` · INSPE le ${esc(dateFr(v.Visite_inspe))}` : ''}</div>
+    <div class="petit muted">${disciplineDe(v) ? marqueDisc(v) + ' ' : ''}${esc(statut(v))}${statut(v) ? ' · ' : ''}période ${esc(periode(v) || '—')}${v.Visite_inspe ? ` · INSPE le ${esc(dateFr(v.Visite_inspe))}` : ''}</div>
     <div class="contact"><span>${ic('ecole')} <strong>${esc(v.Etab_nom || (etab && etab.Nom) || '')}</strong>&nbsp;${esc((etab && etab.Commune) || '')} <span class="muted">${esc(v.UAI || '')}</span></span>
       ${etab && etab.Adresse ? `<span class="muted">${esc(etab.Adresse)}, ${esc(etab.Code_postal || '')} ${esc(etab.Commune || '')}</span>` : ''}
       ${c.mel ? `<a href="mailto:${esc(c.mel)}">${ic('mail')} ${esc(c.mel)}</a>` : ''}
@@ -259,6 +279,22 @@ function afficherMes() {
 }
 
 // --- Saisie d'une visite (IA-IPR) ---
+let colonneChoisi = false;   // colonne Visites.UAI_choisi présente (document à jour)
+const etabTexte = (uai, nom) => { const e = etabDe(uai); return uai ? `${(e && e.Nom) || nom || ''}${e && e.Commune ? ` (${e.Commune})` : ''} – ${uai}` : ''; };
+// UAI du fichier des professeur·es (ou établissement réel d'après les EdT).
+const uaiFichier = f => { const p = f.Professeur ? D.profs.find(x => x.id === f.Professeur) : null; return p ? (uaiReel(p, D.profs, D.etabs, D.edt) || String(p.UAI || '').toUpperCase()) : String(f.UAI || '').toUpperCase(); };
+// Sous l'établissement : affectation du fichier, EdT de l'établissement, case « absent de Siiprien ».
+function infoEtab(f) {
+  const p = f.Professeur ? D.profs.find(x => x.id === f.Professeur) : null;
+  const autres = p ? D.profs.filter(x => norm(x.Nom) === norm(p.Nom) && norm(x.Prenom) === norm(p.Prenom)).map(x => String(x.UAI || '').toUpperCase()) : [];
+  const u = uaiFichier(f), lignes = [];
+  if (p && (u !== String(f.UAI || '').toUpperCase() || autres.length > 1)) {
+    lignes.push(`Fichier des professeur·es : ${[...new Set(autres)].map(x => esc(etabTexte(x))).join(' ; ')}${u !== String(p.UAI || '').toUpperCase() ? ` · d'après les EdT : <strong>${esc(etabTexte(u))}</strong>` : ''}`);
+    if (f.UAI_choisi) lignes.push(`<button type="button" class="lien" data-uai-fichier>Revenir à l'établissement du fichier (${esc(u)})</button>`);
+  }
+  if (f.UAI) lignes.push(`Emploi du temps : ${marqueEdt(f)} ${esc(TITRES_EDT[edtDe(f, D.edt)])} ${caseSiiprien(f.UAI)}`);
+  return lignes.length ? `<div class="petit" style="margin:-4px 0 8px">${lignes.map(l => `<div>${l}</div>`).join('')}</div>` : '';
+}
 function ouvrirSaisie(v) {
   saisie = v ? { ...v } : { id: null, Professeur: 0, Prof_nom: '', Prof_prenom: '', UAI: '', Etab_nom: '', Stagiaire: 0, Statut_plan: '', CMi: typeof filtre.cmi === 'number' ? filtre.cmi : 0,
     Mois_debut: null, Mois_fin: null, Visite_inspe: null, Date_prevue: null, Notes: '', Rapport: 0 };
@@ -276,7 +312,9 @@ function afficherSaisie() {
     <div class="grille">
       <label class="champ"><span>Nom</span><input type="text" id="v-Prof_nom" value="${esc(f.Prof_nom)}" ${f.Professeur ? 'readonly' : ''}></label>
       <label class="champ"><span>Prénom</span><input type="text" id="v-Prof_prenom" value="${esc(f.Prof_prenom)}" ${f.Professeur ? 'readonly' : ''}></label>
-      <label class="champ"><span>UAI</span><input type="text" id="v-UAI" value="${esc(f.UAI)}" ${f.Professeur ? 'readonly' : ''}></label>
+      <label class="champ large2"><span>Établissement réel (nom, ville ou UAI)${f.UAI_choisi ? ' <span class="etab-choisi">· choisi à la main</span>' : ''}</span>
+        <input type="text" id="v-etab" autocomplete="off" value="${esc(etabTexte(f.UAI, f.Etab_nom))}" placeholder="Rechercher un établissement…">
+        <div class="suggestions" id="v-esugg" hidden></div></label>
       <div class="champ"><span>Statut</span><div class="petit" style="padding:6px 0" title="Calculé : liste des stagiaires (Suivis → Suivi PSTG) ou grade du fichier des professeur·es">${esc(statut(f) || '—')}${f.Stagiaire ? ' <span class="muted">(stagiaire suivi·e)</span>' : ''}</div></div>
       <label class="champ"><span>CMi</span><select id="v-CMi"><option value="0">—</option>${cmis().map(p => `<option value="${p.id}" ${p.id === f.CMi ? 'selected' : ''}>${esc(nomFiche(p))}</option>`).join('')}</select></label>
       <label class="champ"><span>Mois de début</span><select id="v-Mois_debut">${optMois(f.Mois_debut)}</select></label>
@@ -284,6 +322,7 @@ function afficherSaisie() {
       <label class="champ"><span>Visite INSPE</span><input type="date" id="v-Visite_inspe" value="${esc(dateIso(f.Visite_inspe))}"></label>
       <label class="champ"><span>Date calée</span><input type="date" id="v-Date_prevue" value="${esc(dateIso(f.Date_prevue))}"></label>
     </div>
+    ${infoEtab(f)}
     <label class="champ"><span>Notes</span><textarea id="v-Notes">${esc(f.Notes || '')}</textarea></label>
     ${r ? `<p class="petit">Rapport relié : ${esc(r.Statut || '')} (visite du ${esc(dateFr(r.Date_visite))}). <button type="button" class="lien" data-rapport="${r.id}">Ouvrir</button></p>` : ''}
     ${f.id ? (() => { const e = etat(f, r, aujourdhui()); return `<p class="petit muted">État : ${pastille(e)} — calculé, pas saisi : d'après le rapport relié (son statut), sinon la date calée (à venir : « Calée » ; passée : « En cours »), sinon « À caler ». ${r ? '' : 'Pour revenir à « À caler », vider la date calée.'}</p>`; })() : ''}
@@ -292,8 +331,10 @@ function afficherSaisie() {
     <div class="actions"><button type="button" id="v-ok" class="primary">Enregistrer</button><button type="button" id="v-annuler">Annuler</button>
       ${f.id ? '<button type="button" id="v-suppr" class="danger" title="Supprimer cette visite du plan (double clic)">Supprimer</button>' : ''}</div>`;
   const lire = () => {
-    for (const c of ['Prof_nom', 'Prof_prenom', 'UAI', 'Notes']) f[c] = $('v-' + c).value.trim();
-    f.UAI = f.UAI.toUpperCase();
+    for (const c of ['Prof_nom', 'Prof_prenom', 'Notes']) f[c] = $('v-' + c).value.trim();
+    // UAI saisi à la main (sans choisir dans la liste) : gardé tel quel
+    const t = $('v-etab').value.trim();
+    if (t !== etabTexte(f.UAI, f.Etab_nom) && /^\d{7}[A-Za-z]$/.test(t)) { f.UAI = t.toUpperCase(); f.Etab_nom = (etabDe(f.UAI) || {}).Nom || ''; f.UAI_choisi = !!f.Professeur; }
     f.CMi = Number($('v-CMi').value) || 0;
     f.Mois_debut = Number($('v-Mois_debut').value) || null; f.Mois_fin = Number($('v-Mois_fin').value) || null;
     if (f.Mois_debut && !f.Mois_fin) f.Mois_fin = f.Mois_debut;
@@ -312,8 +353,31 @@ function afficherSaisie() {
     if (!d) return;
     lire();
     const p = D.profs.find(x => x.id === Number(d.dataset.prof));
-    Object.assign(f, { Professeur: p.id, Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '', UAI: p.UAI || '', Etab_nom: (etabDe(p.UAI) || {}).Nom || '' });
+    const u = uaiReel(p, D.profs, D.etabs, D.edt) || String(p.UAI || '').toUpperCase();
+    Object.assign(f, { Professeur: p.id, Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '', UAI: u, Etab_nom: (etabDe(u) || {}).Nom || '', UAI_choisi: false });
     f.Stagiaire = stagiaireDe(f, D.stagiaires, f.Mois_debut ? rentreeDe(f.Mois_debut) : rentree);
+    afficherSaisie();
+  });
+  $('v-etab').addEventListener('input', () => {
+    const mots = norm($('v-etab').value).split(/\s+/).filter(Boolean);
+    if (!mots.length) { $('v-esugg').hidden = true; return; }
+    const t = D.etabs.filter(e => mots.every(m => norm([e.UAI, e.Nom, e.Commune].join(' ')).includes(m))).slice(0, 12);
+    $('v-esugg').innerHTML = t.length ? t.map(e => `<div data-uai="${esc(e.UAI)}"><strong>${esc(e.Nom || '')}</strong> · ${esc(e.Commune || '')} <span class="muted">${esc(e.UAI)}</span>${D.edt.uais.has(String(e.UAI).toUpperCase()) ? ' <span class="petit">· EdT versés</span>' : ''}</div>`).join('')
+      : '<div class="muted">Aucun établissement : saisir l\'UAI (7 chiffres et une lettre).</div>';
+    $('v-esugg').hidden = false;
+  });
+  $('v-esugg').addEventListener('click', ev => {
+    const d = ev.target.closest('[data-uai]');
+    if (!d) return;
+    lire();
+    const e = etabDe(d.dataset.uai);
+    Object.assign(f, { UAI: String(e.UAI).toUpperCase(), Etab_nom: e.Nom || '', UAI_choisi: !!f.Professeur && String(e.UAI).toUpperCase() !== uaiFichier(f) });
+    afficherSaisie();
+  });
+  $('f-visite').querySelector('[data-uai-fichier]')?.addEventListener('click', () => {
+    lire();
+    const u = uaiFichier(f);
+    Object.assign(f, { UAI: u, Etab_nom: (etabDe(u) || {}).Nom || '', UAI_choisi: false });
     afficherSaisie();
   });
   $('v-q').addEventListener('change', () => { if (!$('v-q').value.trim() && f.Professeur) { lire(); f.Professeur = 0; afficherSaisie(); } });
@@ -330,8 +394,13 @@ function afficherSaisie() {
     if (!f.Stagiaire) f.Stagiaire = stagiaireDe(f, D.stagiaires, f.Mois_debut ? rentreeDe(f.Mois_debut) : rentree);
     const champs = Object.fromEntries(['Professeur', 'Prof_nom', 'Prof_prenom', 'UAI', 'Etab_nom', 'Stagiaire', 'CMi', 'Mois_debut', 'Mois_fin',
       'Visite_inspe', 'Date_prevue', 'Notes'].map(k => [k, f[k] ?? null]));
-    const ok = f.id ? await ecrire([['UpdateRecord', TABLE, f.id, champs]], 'Visite enregistrée', charger)
-      : await ecrire([['AddRecord', TABLE, null, { ...champs, Rapport: f.Rapport || 0 }]], 'Visite ajoutée au plan', charger);
+    if (colonneChoisi) champs.UAI_choisi = !!f.UAI_choisi;
+    // Établissement choisi : reporté sur la fiche du ou de la stagiaire (liste Suivi PSTG), si le compte peut la modifier.
+    const stg = f.Stagiaire ? D.stagiaires.find(x => x.id === f.Stagiaire) : null;
+    const majStg = stg && droitsTable(moi, 'Stagiaires').M === 'Oui' && String(stg.UAI || '').toUpperCase() !== f.UAI
+      ? [['UpdateRecord', 'Stagiaires', stg.id, { UAI: f.UAI, Etab_nom: f.Etab_nom || '', Etab_commune: (etabDe(f.UAI) || {}).Commune || '', ...('UAI_choisi' in stg ? { UAI_choisi: !!f.UAI_choisi } : {}) }]] : [];
+    const ok = f.id ? await ecrire([['UpdateRecord', TABLE, f.id, champs], ...majStg], 'Visite enregistrée' + (majStg.length ? ' (établissement reporté sur la fiche du ou de la stagiaire)' : ''), charger)
+      : await ecrire([['AddRecord', TABLE, null, { ...champs, Rapport: f.Rapport || 0 }], ...majStg], 'Visite ajoutée au plan', charger);
     if (ok) { saisie = null; $('dlg-visite').close(); }
   });
 }
@@ -399,15 +468,18 @@ const charger = sansChevauchement(async () => {
   }
   D.rapports = T.Rapports.lignes || []; D.personnes = T.Personnes.lignes || [];
   D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.stagiaires = T.Stagiaires.lignes || [];   // absente : statut tiré du grade
-  D.edt = indexEdt(edt);
+  D.edt = indexEdt(edt, D.etabs); dernierEdt = edt;
+  colonneChoisi = !T.Visites.erreur && (T.Visites.lignes || []).length ? 'UAI_choisi' in T.Visites.lignes[0] : colonneChoisi;
   moi = identifierMoi(T.Utilisateurs.lignes || []).moi;
+  bienvenue('plan', profilDe(moi));
   droits = droitsTable(moi, TABLE); droitsRapports = droitsTable(moi, 'Rapports');
   // Lien avec Professeurs (APP § 11, 2026-11-11) : visites de l'année en cours sans rapport = copie à jour du fichier
   // (UAI, nom, établissement) ; affichée pour tous, écrite par qui peut modifier le plan.
   const enCours = rentreeDe(aujourdhui());
   const orphelins = T.Rapports.erreur ? [] : liensOrphelins(T.Visites.lignes, D.rapports);
   const sync = synchroniserCopies(TABLE, T.Visites.lignes, D.profs, D.etabs,
-    v => (!v.Rapport || orphelins.includes(v)) && (rentreeDe(v.Mois_debut || v.Date_prevue) === enCours || (!v.Mois_debut && !v.Date_prevue)));
+    v => (!v.Rapport || orphelins.includes(v)) && (rentreeDe(v.Mois_debut || v.Date_prevue) === enCours || (!v.Mois_debut && !v.Date_prevue)),
+    { edt: D.edt.masques.size ? null : D.edt, garderEtab: !!D.edt.masques.size });
   D.visites = sync.lignes.map(v => (orphelins.some(o => o.id === v.id) ? { ...v, Rapport: 0 } : v));
   const reparer = [...(droits.M === 'Oui' ? sync.actions : []),
     ...orphelins.filter(v => peutModifier(droits, moi, v)).map(v => ['UpdateRecord', TABLE, v.id, { Rapport: 0 }])];
@@ -461,6 +533,15 @@ if (await initialiserGrist()) {
     if (ed) { $('dlg-visite').close(); saisie = null; const h = hoteEcran('edt'); if (h) h.ouvrirEcran('edt', { visite: Number(ed.dataset.edt) }); return; }
     const ra = e.target.closest('[data-rapport]'); if (ra) { $('dlg-visite').close(); saisie = null; ouvrirRapports({ rapport: Number(ra.dataset.rapport) }); } });
   $('dlg-visite').addEventListener('close', () => { saisie = null; });
+  // « EdT absent de Siiprien » : écrit tout de suite dans Etablissements
+  $('f-visite').addEventListener('change', async e => {
+    const c = e.target.closest('[data-siiprien]');
+    if (!c) return;
+    if (await ecrire([['UpdateRecord', 'Etablissements', Number(c.dataset.siiprien), { Edt_absent: c.checked }]], c.checked ? 'Signalé : EdT absent de Siiprien' : 'Signalement retiré', charger)) {
+      const et = D.etabs.find(x => x.id === Number(c.dataset.siiprien)); if (et) et.Edt_absent = c.checked;
+      D.edt = indexEdt(dernierEdt, D.etabs); if (saisie) afficherSaisie();
+    }
+  });
   $('imp-analyser').addEventListener('click', analyserImport);
   $('imp-fichier').addEventListener('change', async () => {
     const f = $('imp-fichier').files[0];

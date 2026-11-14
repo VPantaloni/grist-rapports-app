@@ -152,6 +152,12 @@
           "role": "standard de l'établissement (Annuaire de l'éducation)"
         },
         {
+          "id": "Edt_absent",
+          "libelle": "EdT absent de Siiprien",
+          "type": "Bool",
+          "role": "coché par un·e IA-IPR (Emplois du temps, plan) : emplois du temps introuvables dans Siiprien ; « ? » rouge au plan"
+        },
+        {
           "id": "Departement",
           "libelle": "Département",
           "type": "Text"
@@ -243,9 +249,22 @@
         },
         {
           "id": "Discipline",
-          "libelle": "Discipline",
+          "libelle": "Discipline d'affectation",
           "type": "Text",
-          "role": "Nom_disc_affect"
+          "role": "Nom_disc_affect (MATHEMATIQUES, NUMERIQUE SCIENCES INFORMATIQUES…)"
+        },
+        {
+          "id": "Discipline_recrut",
+          "libelle": "Discipline de recrutement",
+          "type": "Text",
+          "role": "Nom_disc_recrut"
+        },
+        {
+          "id": "Discipline_courte",
+          "libelle": "Discipline (court)",
+          "type": "Text",
+          "formule": "(lambda d: {\"MATHEMATIQUES\": \"MATHS\", \"NUMERIQUE SCIENCES INFORMATIQUES\": \"NSI\"}.get(d, d[:8]))(($Discipline or \"\").strip().upper())",
+          "role": "forme courte de la discipline d'affectation, affichée au plan : MATHS, NSI"
         },
         {
           "id": "UAI",
@@ -777,6 +796,12 @@
           "role": "recopié"
         },
         {
+          "id": "UAI_choisi",
+          "libelle": "Établissement choisi",
+          "type": "Bool",
+          "role": "coché quand un·e IA-IPR choisit l'établissement réel : il n'est plus remplacé par celui du fichier ou de l'EdT"
+        },
+        {
           "id": "Stagiaire",
           "libelle": "Stagiaire",
           "type": "Ref:Stagiaires",
@@ -1003,6 +1028,12 @@
           "id": "Etab_commune",
           "libelle": "Commune",
           "type": "Text"
+        },
+        {
+          "id": "UAI_choisi",
+          "libelle": "Établissement choisi",
+          "type": "Bool",
+          "role": "coché quand un·e IA-IPR choisit l'établissement réel (plan d'inspection) : il n'est plus remplacé par celui du fichier ou de l'EdT"
         },
         {
           "id": "Corps",
@@ -1791,6 +1822,13 @@
       "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
       "droits": "-U",
       "libelle": "Visites.Etab_nom : seul·es les IA-IPR remplissent le plan"
+    },
+    {
+      "table": "Visites",
+      "colonne": "UAI_choisi",
+      "condition": "user.Access != OWNER and (not user.Profil or not (\"Administrateur·trice\" in user.Profil.Roles or \"IA-IPR\" in user.Profil.Roles))",
+      "droits": "-U",
+      "libelle": "Visites.UAI_choisi : seul·es les IA-IPR remplissent le plan"
     },
     {
       "table": "Visites",

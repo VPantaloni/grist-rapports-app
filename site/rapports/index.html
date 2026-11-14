@@ -193,6 +193,7 @@
 
 <script type="module">
 import { actionsRapportSupprime } from '../plan/logique.js';
+import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { liste, nomFiche, norm } from '../commun/donnees.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
@@ -1195,6 +1196,7 @@ const charger = sansChevauchement(async () => {
   D.signatures = T.Signatures.lignes || []; D.visites = T.Visites.lignes || [];   // Visites : table du plan (absente = aucune)
   D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
   moi = identifierMoi(T.Utilisateurs.lignes).moi;
+  bienvenue('rapports', profilDe(moi));
   droits = droitsTable(moi, TABLE);
   if (sel && !D.rapports.some(x => x.id === sel)) choisir(0);
   const demande = demandeConteneur();   // venue du Plan d'inspection, prise une seule fois

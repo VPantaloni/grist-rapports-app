@@ -49,6 +49,7 @@
 
 <script type="module">
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement } from '../commun/grist.js';
 import { liste } from '../commun/donnees.js';
@@ -166,6 +167,7 @@ const charger = sansChevauchement(async () => {
   if (p.erreur) { message(`Impossible de lire la table ${TABLE} : ${p.erreur}`, true); $('app').hidden = true; return; }
   D.personnes = p.lignes; D.utilisateurs = u.lignes || []; D.rapports = r.lignes || []; D.phrases = ph.lignes || [];
   moi = identifierMoi(D.utilisateurs).moi;
+  bienvenue('annuaire', profilDe(moi));
   droits = droitsTable(moi, TABLE);
   admin = !!moi && liste(moi.Roles).includes('Administrateur·trice');
   if (sel && !personne(sel)) choisir(0);

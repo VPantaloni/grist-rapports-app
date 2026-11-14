@@ -32,6 +32,7 @@
     border: 30px solid rgba(255,255,255,.08); }
   .bandeau .logo { width: clamp(72px, 18vh, 116px); height: clamp(72px, 18vh, 116px); flex: none; border-radius: 16px; box-shadow: 0 0 0 3px rgba(255,255,255,.35), 0 6px 16px rgba(0,0,0,.18); }
   .bandeau .txt { min-width: 0; padding-right: 64px; }
+  .bandeau .version { position: absolute; right: 14px; bottom: 6px; z-index: 1; font-size: 10.5px; opacity: .6; letter-spacing: .02em; }
   .bandeau h1 { font-size: clamp(22px, 4.4vh, 30px); line-height: 1.15; margin: 0; font-weight: 700; }
   .bandeau .bonjour { font-size: 14px; margin: 3px 0 0; opacity: .95; }
   .bandeau p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
@@ -80,6 +81,8 @@ import { $, esc, message, toast, installerBulles } from '../commun/interface.js'
 import { identifierMoi } from '../commun/droits.js';
 import { initialiserGrist, lireTable, sansChevauchement, regrouper, relectureReguliere, hoteEcran, detecteurChangement } from '../commun/grist.js';
 import { ICONES } from '../commun/icones.js';
+import { VERSION_APP } from '../commun/config.js';
+import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { menuVisible, ajouterMonCompte, compteMenu, MENU_DEFAUT } from '../app/logique.js';
 import { profil, libelleRole, cartes, compteurs, anneeScolaire } from './logique.js';
 
@@ -97,6 +100,7 @@ const charger = sansChevauchement(async () => {
   const nav = T.Navigation.length ? T.Navigation : MENU_DEFAUT;
   const menu = ajouterMonCompte(menuVisible(nav, moi, !!compte.tous)).filter(e => e.cle !== 'accueil' && (!hoteEcran('accueil') || hoteEcran(e.cle)));
   const p = profil(moi);
+  bienvenue('accueil', p);
   const fiche = moi ? T.Personnes.find(x => x.id === moi.Personne) : null;
   const auj = aujourdhui();
   const nb = compteurs({ visites: T.Visites, rapports: T.Rapports, stagiaires: T.Stagiaires, retours: T.Retours_PSTG, personnes: T.Personnes,
@@ -107,7 +111,8 @@ const charger = sansChevauchement(async () => {
     <div class="bonjour">Bonjour${fiche ? ' ' + esc(fiche.Prenom) : ''} !</div>
     <p>${p === 'ipr' ? 'Le plan d\'inspection, les rapports à relire et le suivi des stagiaires et des MD, au même endroit.'
       : 'Vos visites, les emplois du temps pour les préparer, et vos rapports, de la rédaction à la signature.'}</p>
-    <div class="puces">${libelleRole(moi) ? `<span>${esc(libelleRole(moi))}</span>` : ''}<span>${total ? `${total} point${total > 1 ? 's' : ''} à voir` : 'Rien en attente'}</span></div></div>`;
+    <div class="puces">${libelleRole(moi) ? `<span>${esc(libelleRole(moi))}</span>` : ''}<span>${total ? `${total} point${total > 1 ? 's' : ''} à voir` : 'Rien en attente'}</span></div></div>
+    <span class="version">version ${esc(VERSION_APP)}</span>`;
   const liste = cartes(menu, p).slice(0, 6);
   $('cartes').innerHTML = liste.length ? liste.map(c => { const n = nb.filter(x => x.ecran === c.cle); return `
     <button class="carte" data-ecran="${esc(c.cle)}" aria-label="${esc(c.titre)} : ${esc(c.accroche)}">

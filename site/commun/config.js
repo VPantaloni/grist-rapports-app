@@ -4,6 +4,8 @@
 
 // À ADAPTER : préfixe des préférences personnelles (localStorage), propre à l'application, sans espace ni accent.
 export const PREFIXE = 'rapports';
+// Version datée de l'application, affichée discrètement sur le bandeau de l'accueil : à changer à chaque mise en ligne.
+export const VERSION_APP = '14/11/26';
 
 // À ADAPTER : chiffrement de certains champs dans le navigateur (SPEC § 5.8, commun/chiffrement.js) ; null = aucun.
 // champs : { Table: { Colonne: 'texte' | 'nombre' | 'liste' } } ; codes : { Table: colonne du pseudonyme « C-0417 » }

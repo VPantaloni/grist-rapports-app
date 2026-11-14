@@ -84,6 +84,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Commune` | Texte | Commune |
 | `Mel` | Texte | ce.<uai>@ac-orleans-tours.fr |
 | `Telephone` | Texte | standard de l'établissement (Annuaire de l'éducation) |
+| `Edt_absent` | Booléen | coché par un·e IA-IPR (Emplois du temps, plan) : emplois du temps introuvables dans Siiprien ; « ? » rouge au plan |
 | `Departement` | Texte | Département |
 | `Bassin` | Texte | Bassin |
 | `Lat` | Numérique | Latitude |
@@ -103,7 +104,9 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Type_nomination` | Texte | STG, STR, AIS = stagiaire ; SER = en service |
 | `Entree_grade` | Date | avec Mode_acces : repère les agrégé·es internes stagiaires (1er septembre de l'année) |
 | `Mode_acces` | Texte | CONC INTER = concours interne |
-| `Discipline` | Texte | Nom_disc_affect |
+| `Discipline` | Texte | Nom_disc_affect (MATHEMATIQUES, NUMERIQUE SCIENCES INFORMATIQUES…) |
+| `Discipline_recrut` | Texte | Nom_disc_recrut |
+| `Discipline_courte` | Texte (formule) | forme courte de la discipline d'affectation, affichée au plan : MATHS, NSI |
 | `UAI` | Texte | Rne de l'affectation |
 | `Email` | Texte | mail_ouvert |
 | `Etablissement` | Référence → Etablissements (formule) | établissement d'après l'UAI |
@@ -221,6 +224,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Prof_prenom` | Texte | Prénom |
 | `UAI` | Texte | UAI |
 | `Etab_nom` | Texte | recopié |
+| `UAI_choisi` | Booléen | coché quand un·e IA-IPR choisit l'établissement réel : il n'est plus remplacé par celui du fichier ou de l'EdT |
 | `Stagiaire` | Référence → Stagiaires | visite d'un·e stagiaire : statut affiché calculé (corps, concours, quotité) |
 | `Statut_plan` | Texte | ancienne saisie libre (« AGREG 50 % ») : n'est plus saisie ; le statut affiché est calculé (Stagiaires ou grade) |
 | `CMi` | Référence → Personnes | portée « Limité » des CMi (ses visites) |
@@ -272,6 +276,7 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `UAI` | Texte | UAI |
 | `Etab_nom` | Texte | Établissement |
 | `Etab_commune` | Texte | Commune |
+| `UAI_choisi` | Booléen | coché quand un·e IA-IPR choisit l'établissement réel (plan d'inspection) : il n'est plus remplacé par celui du fichier ou de l'EdT |
 | `Corps` | Choix | proposé d'après le Grade, modifiable |
 | `Concours` | Choix | Concours |
 | `Quotite` | Choix | Quotité |

@@ -39,7 +39,7 @@ export const MATRICE_DEFAUT = (() => {
   /** @type {Record<string, [string[], string[]]>} table : [IA-IPR, CMi] */
   const m = {
     Personnes: [[O, N, L, N], [O, N, L, N]],
-    Etablissements: [[O, N, N, N], [O, N, N, N]],
+    Etablissements: [[O, N, O, N], [O, N, N, N]],   // IA-IPR : « EdT absent de Siiprien »
     Professeurs: [[O, N, N, N], [O, N, N, N]],
     Types_rapport: [[O, N, O, N], [O, N, N, N]],
     Rubriques: [[O, O, O, O], [O, N, N, N]],
@@ -121,6 +121,7 @@ export const IMPORT = {
     entreegrade: { type: 'date', synonymes: ['entree_grade'], libelle: 'entrée dans le grade (agrégé·es internes stagiaires)', exemple: '01/09/2026' },
     modeacces: { type: 'texte', synonymes: ['mode_acces'], libelle: 'mode d\'accès au grade (CONC INTER = concours interne)', exemple: 'CONC INTER' },
     discipline: { type: 'texte', synonymes: ['nom_disc_affect', 'nomdiscaffect'], libelle: 'discipline d\'affectation', exemple: 'MATHEMATIQUES' },
+    disciplinerecrut: { type: 'texte', synonymes: ['nom_disc_recrut', 'nomdiscrecrut'], libelle: 'discipline de recrutement', exemple: 'MATHEMATIQUES' },
     email: { type: 'email', synonymes: ['mail_ouvert', 'mailouvert', 'mail'], libelle: 'e-mail', exemple: 'sophie.germain@exemple.example' },
     uai: { type: 'texte', obligatoire: true, synonymes: ['rne'], libelle: 'UAI (Rne) de l\'affectation', exemple: '0450939B' },
     etabnom: { type: 'texte', synonymes: ['etab_nom'], libelle: 'nom de l\'établissement', exemple: 'ALAIN FOURNIER' },
@@ -135,7 +136,7 @@ export const IMPORT = {
     telephone: { type: 'texte', libelle: 'téléphone de l\'établissement (Annuaire de l\'éducation)' },
     lat: { type: 'decimal', min: -90, max: 90, synonymes: ['Latitude WGS84'], libelle: 'latitude' },
     lon: { type: 'decimal', min: -180, max: 180, synonymes: ['Longitude WGS84'], libelle: 'longitude' },
-    sigle: { type: 'texte', synonymes: ['Sigle de l\'UAI'], libelle: 'sigle (CLG, LYC…), fichier des établissements', exemple: 'CLG' },
+    sigle: { type: 'texte', synonymes: ['Sigle de l\'UAI', 'etab_categorie', 'etabcategorie'], libelle: 'sigle (CLG, LYC… ; RECT = Rectorat), fichier des établissements ou catégorie du fichier des professeur·es', exemple: 'CLG' },
   },
   annuaire: { uai: 'uai', priorite: 'annuaire', colonnes: { etabnom: 'nom', etabville: 'commune', etabcodepostal: 'codePostal', etabdepartement: 'libelleDepartement', mel: 'email', telephone: 'telephone', lat: 'lat', lon: 'lon' } },
   tables: [
@@ -145,7 +146,7 @@ export const IMPORT = {
     // Professeur·es : une ligne par affectation (nom + prénom + UAI) ; le fichier de l'année fait référence.
     { table: 'Professeurs', cle: ['Nom', 'Prenom', 'UAI'], fusion: 'remplacer', champs: { Civilite: 'civilite', Nom: 'nom', Prenom: 'prenom',
       Statut: 'statut', Grade: 'grade', Echelon: 'echelon', Type_nomination: 'typenomination', Entree_grade: 'entreegrade',
-      Mode_acces: 'modeacces', Discipline: 'discipline',
+      Mode_acces: 'modeacces', Discipline: 'discipline', Discipline_recrut: 'disciplinerecrut',
       UAI: 'uai', Email: 'email' } },
   ],
 };

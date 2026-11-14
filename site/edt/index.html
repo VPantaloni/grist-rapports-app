@@ -45,6 +45,14 @@ button,input,select{font:inherit;color:inherit}
 .eopt .nm{color:var(--ink)}
 .eopt small{display:block;white-space:normal}
 .eopt.cur{box-shadow:inset 3px 0 0 var(--accent)}
+.eopt.e-vide .nm,.eopt.e-vide .u{color:#c2410c}
+.eopt.e-absent .nm,.eopt.e-absent .u{color:var(--danger,#b91c1c)}
+.etat-etab{padding:8px 10px;border-radius:var(--radius);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.etat-etab.vide{background:#ffedd5;color:#7c2d12}
+.etat-etab.absent{background:#fee2e2;color:#7f1d1d}
+@media (prefers-color-scheme: dark){ .etat-etab.vide{background:#431407;color:#fed7aa} .etat-etab.absent{background:#450a0a;color:#fecaca} }
+.legende-etab{font-size:11px;color:var(--muted);padding:4px 10px}
+.legende-etab b.o{color:#c2410c} .legende-etab b.r{color:var(--danger,#b91c1c)}
 .eopt mark{background:color-mix(in srgb,var(--accent) 25%,transparent);color:inherit;border-radius:2px}
 .btn-add{height:34px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);font-weight:700;cursor:pointer;white-space:nowrap;margin-left:auto}
 .btn-add:hover{filter:brightness(1.08)}
@@ -339,6 +347,7 @@ code{background:var(--surface2);padding:0 4px;border-radius:4px;font-size:12px}
 
 <script type="module">
 import { esc, toast, message, installerBulles, preferences, copier } from '../commun/interface.js';
+import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, relectureReguliere, relireSansCache, detecteurChangement,
   demandeConteneur } from '../commun/grist.js';
@@ -412,6 +421,7 @@ const charger = sansChevauchement(async () => {
   if (!change([r.map(x => x.lignes), !!cle]) && !$("#app").hidden){ if (dem){ traiterDemande(dem); render(); } return; }
   state.T = T;
   state.moi = identifierMoi(T.Utilisateurs).moi;
+  bienvenue("edt", profilDe(state.moi));
   const roles = state.moi ? liste(state.moi.Roles) : [];
   state.profil = roles.includes("IA-IPR") || roles.includes("Administrateur·trice") ? "ipr" : "cmi";
   state.droitsEdt = droitsTable(state.moi, "EDT");
@@ -421,10 +431,11 @@ const charger = sansChevauchement(async () => {
   const d = ingest(T.EDT);
   state.courses = d.courses; state.teachers = d.teachers; state.uais = d.uais; state.badRows = d.bad;
   state.selected = state.selected.filter(k => state.teachers.has(k));
-  if (state.uaiFilter && !state.uais.has(state.uaiFilter)) state.uaiFilter = "";
+  state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {id: e.id, nom: String(e.Nom || ""), ville: String(e.Commune || ""), adresse: String(e.Adresse || ""), cp: String(e.Code_postal || ""), absent: e.Edt_absent === true, colAbsent: "Edt_absent" in e}]));
+  state.droitsEtab = droitsTable(state.moi, "Etablissements");
+  if (state.uaiFilter && !uaiConnu(state.uaiFilter)) state.uaiFilter = "";
   resolvePlan();
   state.calendar = lireCalendrier(T.Calendrier);
-  state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {nom: String(e.Nom || ""), ville: String(e.Commune || ""), adresse: String(e.Adresse || ""), cp: String(e.Code_postal || "")}]));
   state.reperes = reperes({ stagiaires: T.Stagiaires, mds: T.Maitres_delegues, etabs: T.Etablissements }, anneeScolaire());
   state.masque = masque() && (r[0].lignes || []).some(l => /^v1:/.test(String(l.Nom)));
   state.auxMsg = err.EdT_memo ? "Table EdT_memo absente ou illisible : les plannings ne peuvent pas être mémorisés (écran Installer, « Créer la structure »)." : "";
@@ -436,6 +447,8 @@ const charger = sansChevauchement(async () => {
   render();
 });
 
+// Établissement connu : emplois du temps versés, ou dans la table Etablissements (même sans EdT : orange ou rouge).
+const uaiConnu = u => state.uais.has(u) || state.etabs.has(u);
 /* Ouverture depuis le plan d'inspection : { visite: id } → établissement et professeur·e de la visite */
 function traiterDemande(d){
   if (d){ state.demande = d; state.demandeTraitee = 0; }
@@ -443,7 +456,7 @@ function traiterDemande(d){
   if (!v || state.demandeTraitee === v.id) return;
   state.demandeTraitee = v.id;
   const u = norm(v.UAI);
-  if (state.uais.has(u)){ state.uaiFilter = u; const dp = deptOf(u); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp); }
+  if (uaiConnu(u)){ state.uaiFilter = u; const dp = deptOf(u); if (state.depts.length && !state.depts.includes(dp)) state.depts.push(dp); }
   const t = profDeVisite(v, state.teachers);
   if (t && !state.selected.includes(t.key)) state.selected = [t.key, ...state.selected.filter(k => state.teachers.get(k).uais.has(u))].slice(0, MAX_T);
   state.visiteRappel = v.id;
@@ -465,7 +478,7 @@ function restoreSelection(){
   state.restored = true;
   const s = ls.get("Sel");
   if (!s) return false;
-  if (s.uai && state.uais.has(s.uai)) state.uaiFilter = s.uai;
+  if (s.uai && uaiConnu(s.uai)) state.uaiFilter = s.uai;
   if (Array.isArray(s.sel)) state.selected = s.sel.filter(k => state.teachers.has(k)).slice(0, MAX_T);
   state.showSat = !!s.sat; state.suggest = s.sug !== false;
   if (Array.isArray(s.dep)) state.depts = s.dep.filter(d => DEPTS.includes(d));
@@ -1056,13 +1069,18 @@ function flagsHTML(t){
 function renderDepts(){
   $("#depts").innerHTML = DEPTS.map(d => `<button data-dep="${d}" class="${state.depts.includes(d)?"on":""}" aria-pressed="${state.depts.includes(d)}" title="Département ${d}${state.depts.length ? "" : " (aucun coché = tous)"}">${d}</button>`).join("");
 }
+// Tous les établissements de la table Etablissements, plus ceux des EdT : sans EdT = orange (« à ajouter depuis
+// Siiprien ») ; EdT absent de Siiprien (case cochée par un·e IA-IPR) = rouge.
 function etabItems(){
   const cnt = (set, f) => [...set].filter(k => f(state.teachers.get(k))).length;
-  return [...state.uais.entries()].filter(([u]) => inDepts(u)).map(([u,set]) => {
-    const e = state.etabs.get(u) || {};
-    return {u, nom:e.nom || "", ville:e.ville || "", n:set.size, md:cnt(set, mdOf), st:cnt(set, pstgOf)};
+  const uais = new Set([...state.uais.keys(), ...state.etabs.keys()]);
+  return [...uais].filter(u => u && inDepts(u)).map(u => {
+    const e = state.etabs.get(u) || {}, set = state.uais.get(u) || new Set();
+    return {u, nom:e.nom || "", ville:e.ville || "", n:set.size, md:cnt(set, mdOf), st:cnt(set, pstgOf), etat: etatEtab(u)};
   }).sort((a,b) => (a.nom || a.u).localeCompare(b.nom || b.u, "fr"));
 }
+// 'ok' : EdT versés ; 'vide' : pas encore d'EdT ; 'absent' : EdT absent de Siiprien.
+function etatEtab(u){ if (state.uais.has(u)) return "ok"; const e = state.etabs.get(u); return e && e.absent ? "absent" : "vide"; }
 function etabText(u){ const e = state.etabs.get(u); return e && e.nom ? `${u} — ${e.nom}${e.ville ? " (" + e.ville + ")" : ""}` : u; }
 function renderEtabSelect(){
   const inp = $("#etabq");
@@ -1087,9 +1105,10 @@ function refreshEtabDropdown(){
   const rawWords = eTyped ? inp.value.trim().split(/\s+/).filter(Boolean) : [];
   dd.innerHTML = eItems.map((o, i) => {
     if (o.all) return `<div class="opt eopt${i===eIndex?" hl":""}${!state.uaiFilter?" cur":""}" data-e=""><span class="nm">Tous les établissements</span>${state.depts.length ? ` <small>départements ${esc(state.depts.join(", "))}</small>` : ""}</div>`;
-    const extra = [o.ville, `${o.n} prof${o.n>1?"s":""}`, o.st ? `${o.st} stag.` : "", o.md ? `${o.md} MD` : ""].filter(Boolean).join(" · ");
-    return `<div class="opt eopt${i===eIndex?" hl":""}${o.u===state.uaiFilter?" cur":""}" data-e="${esc(o.u)}"><span class="u">${hiWords(o.u, rawWords)}</span><span class="nm">${hiWords(o.nom, rawWords)}</span><small>${hiWords(extra, rawWords)}</small></div>`;
+    const extra = [o.ville, o.etat === "ok" ? `${o.n} prof${o.n>1?"s":""}` : o.etat === "absent" ? "EdT absent de Siiprien" : "pas encore d'EdT", o.st ? `${o.st} stag.` : "", o.md ? `${o.md} MD` : ""].filter(Boolean).join(" · ");
+    return `<div class="opt eopt e-${o.etat}${i===eIndex?" hl":""}${o.u===state.uaiFilter?" cur":""}" data-e="${esc(o.u)}"><span class="u">${hiWords(o.u, rawWords)}</span><span class="nm">${hiWords(o.nom, rawWords)}</span><small>${hiWords(extra, rawWords)}</small></div>`;
   }).join("") + (list.length > 120 ? `<div class="empty-opt">… ${list.length - 120} autres, affinez la recherche</div>` : "")
+    + (list.some(o => o.etat !== "ok") ? `<div class="legende-etab"><b class="o">orange</b> : pas encore d'EdT (à ajouter depuis Siiprien) · <b class="r">rouge</b> : EdT absent de Siiprien</div>` : "")
     + (eItems.length === 1 && words.length ? `<div class="empty-opt">Aucun établissement ne correspond.</div>` : "");
   dd.classList.add("open"); inp.setAttribute("aria-expanded", "true");
   const hl = dd.querySelector(".hl"); if (hl) hl.scrollIntoView({block:"nearest"});
@@ -1154,6 +1173,15 @@ function renderBanners(){
   const wi = weekInfo(); const b = [];
   if (state.masque) b.push(`<div class="banner">🔒 Noms des professeur·es chiffrés et masqués : « Révéler » (menu de l'application) pour voir les emplois du temps.</div>`);
   if (state.auxMsg) b.push(`<div class="banner">${esc(state.auxMsg)}</div>`);
+  const ue = state.uaiFilter, ee = ue ? etatEtab(ue) : "ok";
+  if (ue && ee !== "ok" && !state.masque){
+    const et = state.etabs.get(ue) || {}, ipr = state.droitsEdt.C === "Oui";
+    const caseS = et.colAbsent && state.droitsEtab && state.droitsEtab.M === "Oui"
+      ? `<label><input type="checkbox" data-siiprien="${esc(ue)}" ${et.absent ? "checked" : ""}> N'est pas dans Siiprien</label>` : "";
+    b.push(ee === "vide"
+      ? `<div class="etat-etab vide"><span>Pas encore d'emplois du temps pour <b>${esc(etabLabel(ue))}</b>.</span>${ipr ? `<button class="btn sm pri" data-act="imp-etab">＋ Ajouter EdT via Siiprien</button>` : `<span class="hint">Un·e IA-IPR peut les ajouter depuis Siiprien.</span>`}${caseS}</div>`
+      : `<div class="etat-etab absent"><span>Emplois du temps de <b>${esc(etabLabel(ue))}</b> absents de Siiprien (signalé par un·e IA-IPR) : à demander à l'établissement.</span>${ipr ? `<button class="btn sm" data-act="imp-etab">＋ Ajouter EdT via Siiprien</button>` : ""}${caseS}</div>`);
+  }
   if (state.mode === "date" && !state.calendar.size) b.push(`<div class="banner">Table Calendrier vide ou absente : impossible de savoir si cette semaine est A ou B. Tous les cours sont affichés.</div>`);
   else if (state.mode === "date" && wi.missing && state.calendar.size) b.push(`<div class="banner">Cette semaine n'est pas dans le calendrier : tous les cours sont affichés (Q1 et Q2).</div>`);
   if (wi.vac) b.push(`<div class="banner">Vacances scolaires cette semaine.</div>`);
@@ -1536,7 +1564,8 @@ function addTeam(){
    Ajouter les EdT d'un établissement (collage Siiprien) ou un fichier (IA-IPR)
    ===================================================================== */
 const existingForUai = u => (state.T.EDT || []).filter(r => norm(r.UAI) === u);
-function openImport(){
+function openImport(uaiDefaut = ""){
+  state.impUaiDefaut = uaiDefaut;
   if (masque()){ toast("Noms chiffrés masqués : « Révéler » (menu de l'application) avant d'ajouter des emplois du temps.", true); return; }
   const m = $("#modal"), body = $("#modalBody");
   m.querySelector(".modal").classList.add("wide");
@@ -1568,7 +1597,7 @@ function renderImportPreview(){
     const f = lireFichierEdt(txt);
     if (!f.erreur){ preparerFichier(f, "Tableau collé"); return; }
   }
-  const keepUai = state.imp && state.imp.uaiEdited ? state.imp.uai : r.uai;
+  const keepUai = state.imp && state.imp.uaiEdited ? state.imp.uai : (r.uai || state.impUaiDefaut || "");
   state.imp = {...r, uai: keepUai, uaiEdited: state.imp?.uaiEdited || false, mode: state.imp?.mode || "replace"};
   renderImportBox();
 }
@@ -1692,6 +1721,8 @@ async function doImport(){
   const actions = [];
   if (old.length) actions.push(["BulkRemoveRecord", "EDT", old.map(x => x.id)]);
   actions.push(["BulkAddRecord", "EDT", recs.map(() => null), cols]);
+  // EdT versés : l'établissement n'est plus « absent de Siiprien »
+  if (state.droitsEtab && state.droitsEtab.M === "Oui") for (const u of uais){ const e = state.etabs.get(u); if (e && e.absent) actions.push(["UpdateRecord", "Etablissements", e.id, { Edt_absent: false }]); }
   const ok = await ecrireChiffre(actions, `${recs.length} créneaux ${old.length ? "remplacés" : "ajoutés"}${r.nom ? " (" + r.nom + ")" : ""}`);
   if (!ok) return false;
   $("#modal").classList.remove("open");
@@ -1769,6 +1800,7 @@ document.addEventListener("click", async e => {
   if (act){
     const a = act.dataset.act;
     if (a === "rappel-x"){ state.visiteRappel = 0; renderRappel(); return; }
+    if (a === "imp-etab"){ openImport(state.uaiFilter); return; }
     if (a === "visit"){ setVisit(+act.dataset.id, act.dataset.part || null); renderWork(); return; }
     if (a === "unvisit"){ unVisit(act.dataset.k); renderWork(); return; }
     if (a === "itv-save"){ saveItv(act, act.dataset.k, +act.dataset.iday); return; }
@@ -1823,8 +1855,13 @@ document.addEventListener("click", async e => {
   if (!t.closest("#profBox")) $("#dd").classList.remove("open");
   if (!t.closest("#etabBox") && $("#edd").classList.contains("open")) closeEtab();
 });
-document.addEventListener("change", e => {
+document.addEventListener("change", async e => {
   const t = e.target;
+  if (t.dataset && t.dataset.siiprien){
+    const et = state.etabs.get(t.dataset.siiprien); if (!et) return;
+    await ecrire([["UpdateRecord", "Etablissements", et.id, { Edt_absent: t.checked }]], t.checked ? "Signalé : EdT absent de Siiprien" : "Signalement retiré", charger);
+    return;
+  }
   if (t.id === "tSat"){ state.showSat = t.checked; saveSelection(); render(); }
   else if (t.id === "tSug"){ state.suggest = t.checked; saveSelection(); render(); }
   else if (t.id === "wdate"){

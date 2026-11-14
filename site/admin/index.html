@@ -117,6 +117,7 @@
       <section id="sec-reglages" hidden>
         <h2>Ma signature et mon agenda</h2>
         <div id="reglages"></div>
+        <p class="petit muted" style="margin-top:10px">Fenêtres « Comment ça marche » écartées par « Ne plus montrer » : <button type="button" class="lien" id="revoir-aides">les montrer de nouveau</button></p>
       </section>
       <section>
         <h2>Mes droits</h2>
@@ -232,6 +233,7 @@
 import { liste, nomFiche, empreinteSaisie } from '../commun/donnees.js';
 import { installerChoix } from '../commun/choix.js';
 import { identifierMoi } from '../commun/droits.js';
+import { bienvenue, profilDe, remettreBienvenues } from '../commun/bienvenue.js';
 import { $, esc, message, installerBulles, preferences, boutonConfirmation, toast } from '../commun/interface.js';
 import { initialiserGrist, lireTable, ecrire as ecrireGrist, hote, sansChevauchement, regrouper, relectureReguliere,
   relireSansCache } from '../commun/grist.js';
@@ -1296,8 +1298,10 @@ const charger = sansChevauchement(async () => {
   afficherTout();
   message('');
   $('app').hidden = false;
+  if (ident.moi) bienvenue('admin', profilDe(ident.moi), { aide: '' });
 });
 const planifier = regrouper(charger);
+$('revoir-aides').addEventListener('click', () => { remettreBienvenues(); toast('Les fenêtres « Comment ça marche » s\'afficheront de nouveau à l\'ouverture de chaque écran.'); });
 
 // --- Démarrage ---
 if (await initialiserGrist()) {

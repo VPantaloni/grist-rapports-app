@@ -21,7 +21,7 @@ Administrateur·trice,Calendrier,Oui,Oui,Oui,Oui
 Administrateur·trice,EdT_memo,Oui,Oui,Oui,Oui
 Administrateur·trice,Modeles_mail,Oui,Oui,Oui,Oui
 IA-IPR,Personnes,Oui,Non,Limité,Non
-IA-IPR,Etablissements,Oui,Non,Non,Non
+IA-IPR,Etablissements,Oui,Non,Oui,Non
 IA-IPR,Professeurs,Oui,Non,Non,Non
 IA-IPR,Types_rapport,Oui,Non,Oui,Non
 IA-IPR,Rubriques,Oui,Oui,Oui,Oui
