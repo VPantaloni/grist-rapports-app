@@ -50,11 +50,11 @@ Page d'accueil : https://widget.forge.apps.education.fr/grist-rapports-app/
 
 Pas à pas illustré : [guide d'installation](https://widget.forge.apps.education.fr/grist-rapports-app/installation.html).
 
-1. Télécharger [`grist-rapports-app-modele.grist`](installation/modele/grist-rapports-app-modele.grist) (quand il est
-   proposé ; sinon installation sans modèle, § 4).
+1. Télécharger [`grist-rapports-app-modele.grist`](installation/modele/grist-rapports-app-modele.grist) (modèle du
+   2026-11-15 : pages « App » et « Installer », règles d'accès, données d'exemple inventées).
 2. Dans Grist : **Ajouter → Importer un document** → le fichier.
-3. Table `Utilisateurs` : ajouter **sa propre ligne** : l'adresse du compte Grist (comparée en minuscules), rôles
-   `Administrateur·trice` et `IA-IPR`, Actif coché.
+3. Table `Utilisateurs` : sur la ligne du compte d'exemple « Benny B » (administrateur·trice et IA-IPR), mettre
+   **son adresse** de connexion Grist (comparée en minuscules) ; faire de même dans sa fiche `Personnes`.
 4. Ouvrir chaque page. Si Grist le demande, accorder l'**accès complet** au widget.
 5. Partager le document (§ 7).
 
