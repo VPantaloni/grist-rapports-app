@@ -468,6 +468,13 @@ if (await initialiserGrist()) {
   grist.ready({ requiredAccess: 'full', allowSelectBy: false });
   message('');
   $('app').hidden = false;
+  // Accès du widget : sans « Accès complet au document », rien n'est possible ; on le dit tout de suite.
+  grist.docApi.fetchTable('_grist_Tables').catch(e => {
+    if (!/access/i.test(String(e && e.message || e))) return;
+    $('app').insertAdjacentHTML('afterbegin', `<p class="note" style="border-left:4px solid #b91c1c;padding:8px 12px;margin:0 0 12px">
+      <strong>Ce widget n'a pas encore accès au document.</strong> Panneau de droite de Grist → onglet <em>Widget</em> →
+      <em>Niveau d'accès</em> : <strong>« Accès complet au document »</strong> (accepter si Grist le demande), puis recharger.</p>`);
+  });
   $('verifier').addEventListener('click', () => verifier().catch(e => toast(texteErreur(e), true)));
   $('rapport').addEventListener('focus', e => e.target.select());
   // Règles d'accès en cours d'écriture (Grist a rechargé le widget) : reprise.
