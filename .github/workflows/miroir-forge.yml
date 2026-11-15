@@ -1,0 +1,24 @@
+# Miroir vers la forge des communs numériques éducatifs : à chaque push sur main (GitHub), le dépôt est recopié tel quel
+# sur https://forge.apps.education.fr/widget/grist-rapports-app ; la forge publie alors site/ (Pages, .gitlab-ci.yml) :
+# https://widget.forge.apps.education.fr/grist-rapports-app/
+# Réglage (une fois) : sur la forge, Paramètres → Jetons d'accès → jeton de projet (rôle Maintainer, droit
+# write_repository) ; sur GitHub, Settings → Secrets and variables → Actions → New repository secret FORGE_TOKEN.
+# La forge est un miroir : ce qui y serait modifié à la main est remplacé au push suivant.
+name: Miroir vers la forge
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  miroir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pousser sur la forge
+        env:
+          FORGE_TOKEN: ${{ secrets.FORGE_TOKEN }}
+        run: |
+          if [ -z "$FORGE_TOKEN" ]; then echo "Secret FORGE_TOKEN absent : voir l'en-tête de ce fichier."; exit 1; fi
+          git push --force "https://oauth2:${FORGE_TOKEN}@forge.apps.education.fr/widget/grist-rapports-app.git" HEAD:main

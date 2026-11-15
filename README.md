@@ -1,9 +1,18 @@
 # Rapports et suivis pour Grist
 
-[Une phrase : ce que l'application permet de faire, et pour qui.]
+Application Grist des **IA-IPR et chargé·es de mission d'inspection (CMi) de mathématiques** : plan d'inspection,
+emplois du temps des équipes, rédaction, relecture, signature et transmission des rapports de visite, suivi des
+stagiaires et des maître·sses délégué·es. Conçue dans l'académie d'Orléans-Tours, utilisable dans toute académie.
 
-> **Données de démonstration** : [inventées / issues de l'open data : source, licence, date]. Aucune donnée
-> personnelle. Pour un usage réel, installer un document neuf avec ses propres données (§ 9).
+- **Installer dans son académie** : [guide d'installation](https://widget.forge.apps.education.fr/grist-rapports-app/installation.html)
+  (document, premier démarrage, fichier Siiprien, comptes, mises à jour, données personnelles).
+- **Widgets** : https://widget.forge.apps.education.fr/grist-rapports-app/ (forge des communs numériques éducatifs ;
+  copie de développement sur https://widget.forge.apps.education.fr/grist-rapports-app/).
+- **Signaler un problème** : [tickets](https://forge.apps.education.fr/widget/grist-rapports-app/-/issues).
+
+> **Données de démonstration** : personnes, rapports et professeur·es inventés (professeur·es = mathématicien·nes
+> célèbres) ; établissements tirés de l'Annuaire de l'éducation (data.education.gouv.fr, Licence Ouverte v2.0). Aucune
+> donnée personnelle. Pour un usage réel, installer un document neuf avec ses propres données.
 
 ## Sommaire
 1. [L'application et ses widgets](#1-lapplication-et-ses-widgets)
@@ -23,26 +32,29 @@
 L'application s'ouvre sur **une seule page Grist**, sans l'interface de Grist (mode épuré). Un menu permet de passer
 d'un écran à l'autre sans rechargement. Ce que chacun·e voit et peut modifier dépend de son rôle.
 
-Page d'accueil : https://grist-rapports-app.vercel.app/
+Page d'accueil : https://widget.forge.apps.education.fr/grist-rapports-app/
 
 | Écran | Widget | Rôle |
 |---|---|---|
-| Application | `https://grist-rapports-app.vercel.app/app/` | Menu et écrans (page unique) |
-| Accueil | `https://grist-rapports-app.vercel.app/accueil/` | Premier écran : une carte par écran, texte selon le rôle (CMi, IA-IPR), points en attente |
-| Administration | `https://grist-rapports-app.vercel.app/admin/` | Mon compte ; comptes, rôles, permissions, contrôles (admins) |
-| Plan d'inspection | `https://grist-rapports-app.vercel.app/plan/` | Visites à faire par CMi (IA-IPR), suivi des visites et des validations ; « Mes visites » avec les contacts des établissements (CMi) |
-| Emplois du temps | `https://grist-rapports-app.vercel.app/edt/` | Emplois du temps des équipes (collage Siiprien par les IA-IPR) : cours à visiter, entretien, réunion d'équipe, mails, date calée au plan |
-| Suivis | `https://grist-rapports-app.vercel.app/suivis/` | IA-IPR : suivi pluriannuel des maître·sses délégué·es (positionnement sur trois compétences, visite tous les trois ans) ; liste et suivi des stagiaires (PSTG) |
-| Rapports | `https://grist-rapports-app.vercel.app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
-| Modèles & phrases | `https://grist-rapports-app.vercel.app/modeles/` | Rubriques des modèles, phrases types (bibliothèque personnelle, proposées à tous), grilles de positionnement (MD, PSTG), mails, paramètres |
-| Annuaire | `https://grist-rapports-app.vercel.app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
+| Application | `https://widget.forge.apps.education.fr/grist-rapports-app/app/` | Menu et écrans (page unique) |
+| Accueil | `https://widget.forge.apps.education.fr/grist-rapports-app/accueil/` | Premier écran : une carte par écran, texte selon le rôle (CMi, IA-IPR), points en attente |
+| Administration | `https://widget.forge.apps.education.fr/grist-rapports-app/admin/` | Mon compte ; comptes, rôles, permissions, contrôles (admins) |
+| Plan d'inspection | `https://widget.forge.apps.education.fr/grist-rapports-app/plan/` | Visites à faire par CMi (IA-IPR), suivi des visites et des validations ; « Mes visites » avec les contacts des établissements (CMi) |
+| Emplois du temps | `https://widget.forge.apps.education.fr/grist-rapports-app/edt/` | Emplois du temps des équipes (collage Siiprien par les IA-IPR) : cours à visiter, entretien, réunion d'équipe, mails, date calée au plan |
+| Suivis | `https://widget.forge.apps.education.fr/grist-rapports-app/suivis/` | IA-IPR : suivi pluriannuel des maître·sses délégué·es (positionnement sur trois compétences, visite tous les trois ans) ; liste et suivi des stagiaires (PSTG) |
+| Rapports | `https://widget.forge.apps.education.fr/grist-rapports-app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
+| Modèles & phrases | `https://widget.forge.apps.education.fr/grist-rapports-app/modeles/` | Rubriques des modèles, phrases types (bibliothèque personnelle, proposées à tous), grilles de positionnement (MD, PSTG), mails, paramètres |
+| Annuaire | `https://widget.forge.apps.education.fr/grist-rapports-app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
 
 ## 2. Installation rapide (modèle .grist)
 
-1. Télécharger [`grist-rapports-app-modele.grist`](installation/modele/grist-rapports-app-modele.grist).
+Pas à pas illustré : [guide d'installation](https://widget.forge.apps.education.fr/grist-rapports-app/installation.html).
+
+1. Télécharger [`grist-rapports-app-modele.grist`](installation/modele/grist-rapports-app-modele.grist) (quand il est
+   proposé ; sinon installation sans modèle, § 4).
 2. Dans Grist : **Ajouter → Importer un document** → le fichier.
-3. Table `Utilisateurs` : ajouter **sa propre ligne**. L'e-mail doit être **exactement** celui de son compte Grist,
-   majuscules comprises. Rôle `Administrateur·trice`, Actif coché.
+3. Table `Utilisateurs` : ajouter **sa propre ligne** : l'adresse du compte Grist (comparée en minuscules), rôles
+   `Administrateur·trice` et `IA-IPR`, Actif coché.
 4. Ouvrir chaque page. Si Grist le demande, accorder l'**accès complet** au widget.
 5. Partager le document (§ 7).
 
@@ -51,7 +63,11 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 
 ## 3. Tables Grist
 
-[Schéma des liens.]
+Tables de référence versées chaque année (`Professeurs`, `Etablissements`), tables de travail (`Rapports`, `Visites`,
+`Stagiaires`, `Maitres_delegues`, `EDT`…) qui en **recopient** l'identité (le fichier change chaque année : la copie
+garde l'histoire), tables de paramétrage (`Types_rapport`, `Rubriques`, `Phrases`, `Competences_MD`, `Parametres`,
+`Modeles_mail`) et d'administration (`Utilisateurs`, `Permissions`, `Navigation`). Détail ci-dessous (généré d'après
+`installation/schema.json`).
 
 <!-- schema:tables -->
 #### `Personnes` — annuaire des CMi et IA-IPR ; Utilisateurs.Personne y renvoie
@@ -421,15 +437,27 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 
 ## 4. Installation manuelle
 
-[Temps A : import des CSV ; temps B : types et références, dans l'ordre ; temps C : formules ; ajout de son compte ;
-contrôles. Rappeler les pièges (SPEC § 4.4) : `Moi` = colonne **formule** `True` (Booléen) ; délier l'identifiant du
-libellé avant de changer un libellé ; vérifier que chaque formule longue est dans **sa** colonne.]
+Avec le widget **Installer** (`…/installer/`, accès complet) dans un document vide : « Vérifier ce Grist », puis
+« Créer la structure » d'après le dossier `installation/`
+([installation.zip](https://forge.apps.education.fr/widget/grist-rapports-app/-/archive/main/grist-rapports-app-main.zip?path=installation)),
+« Importer les données d'exemple » pour essayer, « Écrire les règles d'accès ». Ajouter ensuite la page **Application**
+(§ 6) et sa propre ligne dans `Utilisateurs`. Pièges : `Moi` = colonne **formule** `True` (Booléen) ; délier
+l'identifiant du libellé avant de changer un libellé.
+
+**Mettre à jour** : les écrans sont lus sur la forge, donc à jour à chaque ouverture. Quand une version ajoute des
+colonnes, Administration → Contrôles signale « Structure du document à mettre à jour » : Installer → « Créer la
+structure » (n'ajoute que ce qui manque, ne supprime rien).
+
+**Publication** : le dépôt GitHub (développement) est recopié sur la forge à chaque push par
+`.github/workflows/miroir-forge.yml` (secret `FORGE_TOKEN`) ; la forge publie `site/` (`.gitlab-ci.yml`).
 
 ## 5. Droits d'accès
 
-[Principe : sécurité par les règles d'accès Grist, adaptation des widgets ; rôles et matrice initiale ; règles à
-saisir (attribut `Profil`, D1-D4, règles des tables, règles « Limité », tables d'administration) ; ordre d'examen (colonne, puis table, puis règles par défaut) et
-cases vides qui passent la décision aux règles suivantes ; tests avec « Voir en tant que ».]
+La sécurité repose sur les **règles d'accès de Grist** (écrites par le widget Installer), les écrans ne faisant que
+s'y adapter. Trois rôles : **Administrateur·trice** (tout), **IA-IPR** (lit tout, relit, valide et transmet les rapports,
+remplit le plan, les suivis, les modèles), **CMi** (lit tout, rédige ses rapports jusqu'à la soumission, ne voit que ses
+visites, propose des phrases). Matrice rôle × table dans Administration → Permissions (« Appliquer les droits par
+défaut »). Contenus des rapports, signatures et noms des emplois du temps **chiffrés** avec une phrase secrète partagée.
 
 **Raccourci pour les propriétaires du document** : dans l'Administration, onglet *Mon compte*, cocher « Voir en tant
 que » dans le menu de l'application (option de ce navigateur). Le menu propose alors la liste des comptes actifs, et
@@ -439,8 +467,9 @@ renseigner pour son document.
 
 ## 6. Pages et widgets
 
-[Page « Application » (widget `app/`, table `Navigation`, accès complet) ; pages individuelles ; adresse à ouvrir :
-`…/p/<n>?style=singlePage`.]
+Page **Application** : widget `https://widget.forge.apps.education.fr/grist-rapports-app/app/`, table sélectionnée
+`Navigation`, accès complet ; à ouvrir en `…/p/<n>?style=singlePage` (sans l'interface de Grist). Page **Installer**
+(`…/installer/`) pour la structure et les règles ; page « Données » avec les tables brutes (dépannage).
 
 ## 7. Partager avec des collègues
 
@@ -465,7 +494,7 @@ le ou la CMi, la période (mois de début et de fin), la date de visite INSPE et
 les doublons et visites déjà au plan sont écartés. L'onglet **Suivi** compte les visites par état (à caler, calée,
 en cours, en relecture, à reprendre, validé, transmis), donne un bilan par CMi et signale les rapports
 rédigés hors plan (« Ajouter au plan »). Les CMi ne voient que **leurs** visites (« Mes visites ») : contacts de
-l'établissement (e-mail `ce.<UAI>@ac-orleans-tours.fr`, téléphone), date à caler, notes, puis « Rédiger le rapport »,
+l'établissement (e-mail de l'Annuaire, sinon `ce.<UAI>@<domaine de l'académie>`, téléphone), date à caler, notes, puis « Rédiger le rapport »,
 qui ouvre l'écran Rapports déjà rempli et relie le rapport à la visite.
 
 **Suivis** (`suivis/`, tables `Maitres_delegues` et `Bilans_MD`, IA-IPR seulement). Onglet **Suivi MD** : une ligne par
@@ -491,7 +520,7 @@ ajoute un passage à sa bibliothèque de phrases types (nom remplacé par {civil
 | Symptôme | Cause probable | Solution |
 |---|---|---|
 | L'application est vide | pas connecté·e à Grist | se connecter, puis recharger |
-| « Aucun écran disponible » + bouton « Se connecter » | pas connecté·e à Grist, ou compte absent de `Utilisateurs` | se connecter ; sinon ajouter le compte (e-mail exact) |
+| « Aucun écran disponible » + bouton « Se connecter » | pas connecté·e à Grist, ou compte absent de `Utilisateurs` | se connecter ; sinon ajouter le compte (adresse de connexion, en minuscules) |
 | « Aucun écran disponible : compte inactif » | compte inactif dans `Utilisateurs` | cocher Actif |
 | Une action est refusée | règles d'accès ou partage (lecteur·trice) | Administration → Mon compte → Diagnostic : journal des refus (table, colonnes, message de Grist) |
 | Administration : « `Moi` masqué partout » | e-mail différent de celui de Grist (majuscules, espace) | corriger l'e-mail dans `Utilisateurs` |
@@ -504,5 +533,7 @@ ajoute un passage à sa bibliothèque de phrases types (nom remplacé par {civil
 
 ## 11. Limites connues
 
-- Ordinateur uniquement (pas de version mobile).
-- [ …]
+- Ordinateur conseillé (écrans larges ; consultation possible sur téléphone).
+- PDF par l'impression du navigateur (« Enregistrer au format PDF ») ; rien n'est déposé dans Grist.
+- Phrase secrète perdue = contenus chiffrés illisibles (aucune récupération possible).
+- Fichier Siiprien versé en CSV ou par copier-coller (pas de .xlsx direct).

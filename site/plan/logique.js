@@ -3,6 +3,7 @@
 // Table Visites : une visite à faire, attribuée à un·e CMi par un·e IA-IPR, reliée au rapport rédigé.
 // Spécification : specifications/ecrans/plan.md.
 import { norm, liste } from '../commun/donnees.js';
+import { mailDe, DOMAINE_ORLEANS } from '../commun/academie.js';
 import { statutStagiaire } from '../suivis/stagiaires.js';
 
 export const TABLE = 'Visites';
@@ -343,11 +344,10 @@ export function grouperMesVisites(lignes) {
   return g;
 }
 
-// Contacts de l'établissement : e-mail de la table (sinon ce.<UAI>@ac-orleans-tours.fr) et téléphone.
-/** @param {Ligne | undefined} etab @param {string} uai */
-export function contacts(etab, uai) {
-  const u = String(uai || '').trim().toLowerCase();
-  const mel = String((etab && etab.Mel) || '').trim() || (/^\d{7}[a-z]$/.test(u) ? `ce.${u}@ac-orleans-tours.fr` : '');
+// Contacts de l'établissement : e-mail de la table (sinon ce.<UAI>@<domaine de l'académie>) et téléphone.
+/** @param {Ligne | undefined} etab @param {string} uai @param {string} [domaine] */
+export function contacts(etab, uai, domaine = DOMAINE_ORLEANS) {
+  const mel = mailDe(uai, etab, domaine);
   const tel = String((etab && etab.Telephone) || '').trim();
   return { mel, tel, telLien: tel.replace(/[^\d+]/g, '') };
 }

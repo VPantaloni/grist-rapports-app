@@ -88,10 +88,14 @@ export function htmlImpression(r, c, o = {}) {
   // pages suivantes reprennent un en-tête réduit avec le titre au centre (thead, répété par le navigateur à chaque
   // page). Sur la page 1, l'en-tête de première page recouvre ce thead (marge négative, fond blanc).
   const lignes = c.entete.map(esc).join('<br>');
-  const enteteSuite = `<div class="entete suite"><img src="${LOGO}" alt="Académie d'Orléans-Tours">
+  // Logo de l'académie (Administration → Académie) : c.logo ; absent du contexte = celui d'Orléans-Tours (anciens appels) ;
+  // vide = pas de logo, le nom de l'académie à la place.
+  const logo = c.logo === undefined ? LOGO : c.logo;
+  const imgLogo = logo ? `<img src="${esc(logo)}" alt="${esc(c.academie || 'Logo de l\'académie')}">` : `<div class="sans-logo">${esc(c.academie || '')}</div>`;
+  const enteteSuite = `<div class="entete suite">${imgLogo}
     <div class="centre">${esc(String(c.titreDocument || '').replace(/,\s*/, ' '))}</div>
     <div class="droite"><div class="lignes">${lignes}</div></div></div>`;
-  const enteteUne = `<div class="entete une"><img src="${LOGO}" alt="Académie d'Orléans-Tours">
+  const enteteUne = `<div class="entete une">${imgLogo}
     <div class="droite"><div class="lignes">${lignes}</div><div class="annee">Année scolaire ${esc(anneeScolaire(r.Date_visite))}</div></div></div>`;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(c.nomFichier)}</title>
 <style>
@@ -111,6 +115,8 @@ export function htmlImpression(r, c, o = {}) {
   /* Logo de 54 mm, son blanc gauche (4 mm) caché dans la marge : le dessin commence au bord de la marge ; le texte de
      droite descend jusqu'à la ligne « ACADÉMIE » du logo (82 px sur 255 de haut dans l'image, soit 10,7 mm à cette taille). */
   .entete.une img { width: 54mm; flex: none; margin-left: -4mm; }
+  .entete .sans-logo { flex: none; width: 54mm; font-weight: 700; font-size: 11pt; }
+  .entete.suite .sans-logo { width: 21mm; font-size: 7pt; }
   .entete.une .droite { margin-top: 9.4mm; }
   .entete.une .lignes { font-size: 11pt; font-weight: 700; line-height: 1.25; }
   .entete.une .annee { font-size: 10pt; margin-top: 2mm; }

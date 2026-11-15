@@ -98,7 +98,7 @@ export const TEXTES = {
     ipr: [
       ['Signature', 'Collez ou choisissez l\'image de votre signature : elle sera proposée dans les rapports.'],
       ['Agenda', 'Choisissez votre agenda (Google, Outlook ou fichier .ics) pour « Ajouter à mon agenda » dans Emplois du temps.'],
-      ['Administration', 'Pour les administrateur·trices : accès, permissions, contrôles, chiffrement, import.'],
+      ['Administration', 'Pour les administrateur·trices : « Premier démarrage » (étapes à cocher), Académie (logo, en-tête), import du fichier Siiprien, accès, permissions, contrôles, chiffrement.'],
     ],
   },
 };

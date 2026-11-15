@@ -195,6 +195,8 @@
 import { actionsRapportSupprime } from '../plan/logique.js';
 import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { disciplineCourte } from '../commun/professeurs.js';
+import { logoAcademie, domaineMail, nomAcademie } from '../commun/academie.js';
+import { LOGO } from './logo.js';
 import { liste, nomFiche, norm } from '../commun/donnees.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
@@ -1168,6 +1170,7 @@ function contexte(r) {
   return { titreDocument: t.Titre || 'RAPPORT DE VISITE', entete: enteteDiscipline(r.Discipline, String(D.params.entete || 'Inspection pédagogique régionale').split('\n')),
     discipline: disciplineCartouche(r.Discipline, D.params.discipline || ''), cmi: nomPers(r.Auteur), titreCmi: a.Titre_signature || 'Le ou la chargé·e de mission',
     ipr: nomPers(r.Valideur), titreIpr: v.Titre_signature || 'L\'IA-IPR', nomFichier: nomFichierPdf(r, a.Initiales || ''),
+    logo: logoAcademie(D.params, domaineMail(D.params, D.etabs), LOGO), academie: nomAcademie(D.params),
     sansCmi: redigeParIpr(r, D.personnes), pied: D.params.pied || 'RAPPORT DE VISITE - inspection de mathématiques',
     tailleSignature: D.params.taille_signature || 15 };
 }

@@ -3,6 +3,8 @@
 // Reprise du widget EdT-widget v2.0.1 (même lecture des créneaux, mêmes règles d'alternance, de créneaux libres et de
 // réunion d'équipe) ; ajouts : pastilles stagiaires / MD tirées des tables de l'application, modèles de mails.
 
+import { domaineMail, mailDe, departementDe } from '../commun/academie.js';
+
 /** @typedef {Record<string, any>} Ligne */
 /** @typedef {{ id: number, tkey: string, start: number, end: number, day: number, alt: string, altRaw: string, altUnknown: boolean,
  *   libelle: string, classe: string, uai: string, _col?: number, _ncol?: number }} Cours */
@@ -10,8 +12,7 @@
 
 export const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 export const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-export const DEPTS = ['18', '28', '36', '37', '41', '45'];
-export const MAIL_DOMAIN = 'ac-orleans-tours.fr';
+// Départements et domaine des mails : propres à l'académie (commun/academie.js : réglés ou déduits des établissements).
 
 // Majuscules sans accents (comparaisons de l'EDT) ; clé de rapprochement entre tables : tirets, apostrophes → espaces.
 /** @param {any} s */
@@ -19,7 +20,7 @@ export const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036
 /** @param {any} s */
 export const matchKey = s => norm(s).replace(/[^A-Z0-9]+/g, ' ').trim();
 /** @param {string} u */
-export const deptOf = u => String(u || '').slice(1, 3);
+export const deptOf = u => departementDe(u) || String(u || '').slice(1, 3);
 /** @param {number} m */
 export const fmtMin = m => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 /** @param {number} m */
@@ -362,11 +363,11 @@ export function champsVisites(items) {
   const v = items.find(i => i.type === 'v'), e = items.find(i => i.type === 'e');
   return { planning_profs: lignes.join('\n'), visite: v ? `${v.classe ? v.classe + ' ' : ''}à ${fmtMin(v.start)}` : '', entretien: e ? fmtMin(e.start) : '' };
 }
-// Adresse de l'établissement : Etablissements.Mel, sinon ce.<uai>@ac-orleans-tours.fr.
-/** @param {string} uai @param {Ligne[]} etabs */
-export function mailEtablissement(uai, etabs) {
+// Adresse de l'établissement : Etablissements.Mel, sinon ce.<uai>@<domaine de l'académie> (réglé ou déduit).
+/** @param {string} uai @param {Ligne[]} etabs @param {string} [domaine] */
+export function mailEtablissement(uai, etabs, domaine = domaineMail({}, etabs)) {
   const e = etabs.find(x => norm(x.UAI) === norm(uai));
-  return (e && String(e.Mel || '').trim()) || `ce.${String(uai).toLowerCase()}@${MAIL_DOMAIN}`;
+  return mailDe(uai, e, domaine);
 }
 // Destinataires d'un modèle : { to, cc, sansMail } (adresses dédoublonnées ; sansMail = professeur·es sans adresse connue).
 /**

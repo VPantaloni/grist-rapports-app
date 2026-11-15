@@ -12,6 +12,9 @@
 !vercel.json
 # Pages de la forge (forge.apps.education.fr) : publie site/ (hébergement final).
 !.gitlab-ci.yml
+# Miroir GitHub → forge (GitHub Actions : .github/workflows/miroir-forge.yml).
+!.github/
+!.github/**
 # Site (Vercel, Output Directory = site) : tous les écrans, modules communs, captures de la page Découvrir.
 # Un dossier n'est suivi que si son contenu l'est aussi : « !site/** » autorise tout ce qu'il contient.
 !site/

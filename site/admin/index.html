@@ -12,6 +12,15 @@
   #sig-zone img { max-height: 90px; max-width: 100%; }
   #reglages .ligne-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
   #reglages .champ { display: block; margin: 8px 0; font-size: 13px; }
+  #academie .champ { display: block; margin: 8px 0; font-size: 13px; } #academie .champ input, #academie .champ textarea { width: 100%; box-sizing: border-box; }
+  .logo-apercu { min-height: 70px; border: 1px dashed var(--border); border-radius: 6px; padding: 8px; margin: 8px 0; display: flex; align-items: center; }
+  .logo-apercu img { max-height: 90px; max-width: 100%; }
+  .encart-siiprien { border-left: 4px solid var(--accent); }
+  .demarrage { margin: 0 0 12px; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 14px; background: var(--bg); }
+  .demarrage > summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  .demarrage ol { margin: 8px 0 4px; padding-left: 4px; list-style: none; } .demarrage li { margin: 4px 0; }
+  .demarrage li.fait { color: var(--muted); } .demarrage li.fait strong::before { content: '✓ '; color: var(--accent); }
+  .demarrage li:not(.fait) strong::before { content: '○ '; }
   #reglages .champ input, #reglages .champ select { display: block; width: 100%; max-width: 360px; margin-top: 3px; }
   #reglages .petit-titre { font-size: 14px; margin: 12px 0 4px; }
   #reglages input[type=file] { max-width: 100%; font-size: 12px; }
@@ -93,6 +102,7 @@
   <!-- Onglets réservés aux admins ou à une fonction déclarée : masqués d'emblée, montrés par afficherOnglets() (pas de flash). -->
   <nav id="onglets">
     <button data-onglet="moi">Mon compte</button>
+    <button data-onglet="academie" data-admin hidden>Académie</button>
     <button data-onglet="utilisateurs" data-admin hidden>Accès</button>
     <button data-onglet="permissions" data-admin hidden>Permissions</button>
     <button data-onglet="import" data-admin hidden data-import>Import</button>
@@ -106,6 +116,27 @@
 <div id="msg">Chargement…</div>
 
 <div id="app" hidden>
+  <!-- Premier démarrage (admins) : étapes faites ou à faire, repliable ; disparaît quand tout est fait. -->
+  <details id="demarrage" class="demarrage" hidden></details>
+  <div class="onglet" id="onglet-academie" hidden>
+    <div class="grille">
+      <section>
+        <h2>Académie</h2>
+        <p class="muted petit aide-section">Réglages propres à votre académie, utilisés par tous les écrans. Laissés vides,
+          le domaine des mails et les départements sont déduits des établissements versés.</p>
+        <div id="academie"></div>
+      </section>
+      <section>
+        <h2>Logo des rapports</h2>
+        <p class="muted petit aide-section">Image du logo académique (SVG, PNG ou JPEG, 400 Ko au plus), enregistrée dans le
+          document : l'impression marche sans réseau. Où le trouver : la charte graphique de l'académie, ou la page
+          « Logo » de l'académie sur Wikimedia Commons (télécharger le fichier, puis le choisir ici).</p>
+        <div id="logo-apercu" class="logo-apercu"></div>
+        <div class="barre"><input type="file" id="logo-fichier" accept="image/svg+xml,image/png,image/jpeg">
+          <button id="logo-retirer">Retirer le logo</button></div>
+      </section>
+    </div>
+  </div>
   <div class="onglet" id="onglet-moi">
     <div class="grille">
       <section>
@@ -165,6 +196,20 @@
 
   <div class="onglet" id="onglet-import" hidden>
     <div class="grille">
+      <section class="encart-siiprien">
+        <h2>Fichier Siiprien des professeur·es</h2>
+        <p class="petit">C'est ici qu'on verse la liste des professeur·es de l'année (export Siiprien, une ligne par
+          affectation), <strong>pas avec l'import de Grist</strong> : cet écran reconnaît les colonnes de Siiprien
+          (<code>Rne</code> pour l'UAI, <code>mail_ouvert</code>, <code>Nom_disc_affect</code>, <code>Nom_disc_recrut</code>,
+          <code>Type_nomination</code>, <code>Entree_grade</code>, <code>Mode_acces</code>…), traduit « MM » en « Mme »,
+          ne lit <strong>jamais</strong> les colonnes sensibles (naissance, téléphone, notes), met à jour sans doublon et
+          complète les établissements.</p>
+        <ol class="petit">
+          <li>Dans le tableur : <em>Enregistrer sous → CSV</em> (ou copier toutes les cellules, en-têtes compris).</li>
+          <li>Choisir « Professeurs » ci-dessous si on le demande, puis le fichier (ou coller les cellules).</li>
+          <li>Vérifier l'aperçu, puis « Intégrer ».</li>
+        </ol>
+      </section>
       <section>
         <h2>Importer un fichier</h2>
         <p class="muted petit aide-section">Fichier CSV (Excel : <em>Enregistrer sous → CSV</em>) ou cellules copiées d'un
@@ -248,6 +293,9 @@ import { zipStocke, csv, structure, libellesReferences, csvTable, lignesReimport
   from '../commun/export.js';
 import { requetesAGeocoder, geocoder, appliquerGeocodage, choixAutomatique, sansCoordonnees, PAUSE_MS } from '../commun/geocodage.js';
 import { CHIFFREMENT } from '../commun/config.js';
+import { domaineMail, departements, logoAcademie, nomAcademie, actionsParametres, etapesDemarrage, DOMAINE_ORLEANS } from '../commun/academie.js';
+import { manquants as structureManquante, VERSION_STRUCTURE } from '../commun/structure.js';
+import { LOGO } from '../rapports/logo.js';
 import { tailleSignature } from '../rapports/logique.js';
 import { AGENDAS } from '../edt/logique.js';
 import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrementValide, signatureChiffrement, tableChiffree,
@@ -627,7 +675,9 @@ function afficherControles() {
   const fichesControlables = CONTROLES_FICHES.filter(c => cle || !tableChiffree(CHIFFREMENT, c.table));
   const res = [...controles(D), ...fichesControlables.flatMap(c => controlesFiches(c, (D.fiches || {})[c.table] || [])),
     ...(CAMPAGNES ? controlesCampagnes(D.camp[CAMPAGNES.table] || [], CAMPAGNES) : []),
-    ...(CHIFFREMENT && D.chiffre ? controlesChiffrement(D.chiffre.etat, D.chiffre.enClair, D.chiffre.echecs, !!cle, D.chiffre.sansCode) : [])];
+    ...(CHIFFREMENT && D.chiffre ? controlesChiffrement(D.chiffre.etat, D.chiffre.enClair, D.chiffre.echecs, !!cle, D.chiffre.sansCode) : []),
+    ...(D.structure ? [{ titre: `Structure du document à mettre à jour (version ${VERSION_STRUCTURE}) : page « Installer » → « Créer la structure » (n'ajoute que ce qui manque)`, niveau: 'alerte',
+      lignes: [...D.structure.tables.map(t => `table ${t} absente`), ...D.structure.colonnes.map(c => `colonne ${c} absente`)] }] : [])];
   const problemes = res.filter(r => r.lignes.length && r.niveau !== 'info');
   const nb = problemes.reduce((s, r) => s + r.lignes.length, 0);
   const b = document.querySelector('[data-onglet="controles"]');
@@ -1261,10 +1311,67 @@ function afficherTout() {
     }
     afficherMatrice();
     afficherControles();
+    afficherAcademie();
     afficherCampagnes();
     if (CHIFFREMENT) afficherChiffrement();
   }
+  afficherDemarrage();
   afficherOnglets();
+}
+
+// --- Académie (APP § 11, 2026-11-15) : nom, domaine des mails, départements, en-tête, logo ---
+const DESCRIPTIONS_ACADEMIE = {
+  academie: 'nom de l\'académie (« Académie de Lyon ») : à côté du logo absent, guides, assistant',
+  domaine_mail: 'domaine des adresses des établissements (ce.<UAI>@domaine) ; vide = déduit des établissements',
+  departements: 'départements proposés dans Emplois du temps (« 01 ; 07 ; 26 ») ; vide = ceux des établissements',
+  entete: 'lignes de l\'en-tête des rapports (une par ligne)',
+  logo: 'logo des rapports (image enregistrée, data URL) ; vide = aucun (Orléans-Tours : logo intégré)',
+};
+const lignesParametres = () => (D.lectures && D.lectures.Parametres && D.lectures.Parametres.lignes) || [];
+const valeursParametres = () => Object.fromEntries(lignesParametres().map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
+const etabsLus = () => (D.lectures && D.lectures.Etablissements && D.lectures.Etablissements.lignes) || [];
+function afficherAcademie() {
+  if (!$('academie') || $('onglet-academie').contains(document.activeElement)) return;   // saisie en cours : on ne redessine pas
+  const v = valeursParametres(), etabs = etabsLus();
+  const deduit = domaineMail({}, etabs), deps = departements({}, etabs).join(' ; ');
+  const champ = (cle, lib, aide, val, ph = '', zone = false) => `<label class="champ"><span>${esc(lib)}</span>${zone
+    ? `<textarea data-param="${cle}" rows="3" placeholder="${esc(ph)}">${esc(val)}</textarea>` : `<input type="text" data-param="${cle}" value="${esc(val)}" placeholder="${esc(ph)}">`}
+    <span class="muted petit">${esc(aide)}</span></label>`;
+  $('academie').innerHTML = champ('academie', 'Nom de l\'académie', 'tel qu\'il doit apparaître (« Académie de Lyon »)', v.academie || '', 'Académie de …')
+    + champ('domaine_mail', 'Domaine des mails des établissements', deduit ? `vide = ${deduit} (déduit des établissements)` : 'vide = déduit des établissements (aucun pour l\'instant)', v.domaine_mail || '', deduit || 'ac-xxx.fr')
+    + champ('departements', 'Départements', deps ? `vide = ${deps} (d'après les établissements)` : 'séparés par « ; »', v.departements || '', deps || '18 ; 28 ; 36')
+    + champ('entete', 'En-tête des rapports (une ligne par ligne)', 'à droite du logo ; « Mathématiques » devient l\'intitulé NSI pour un rapport NSI', v.entete || '', 'Inspection académique\nInspection pédagogique régionale\nMathématiques', true)
+    + `<div class="actions"><button class="primary" id="academie-ok">Enregistrer</button></div>`;
+  const logo = logoAcademie(v, domaineMail(v, etabs), LOGO);
+  $('logo-apercu').innerHTML = logo ? `<img src="${esc(logo)}" alt="Logo des rapports">` + (v.logo ? '' : ' <span class="muted petit" style="margin-left:10px">logo d\'Orléans-Tours intégré (domaine ' + esc(DOMAINE_ORLEANS) + ')</span>')
+    : '<span class="muted petit">Aucun logo : le nom de l\'académie est imprimé à sa place.</span>';
+  $('logo-retirer').hidden = !v.logo;
+  $('academie-ok').onclick = async () => {
+    const valeurs = Object.fromEntries([...document.querySelectorAll('#academie [data-param]')].map(i => [i.dataset.param, i.value.trim()]));
+    const actions = actionsParametres(lignesParametres(), valeurs, DESCRIPTIONS_ACADEMIE);
+    if (!actions.length) { toast('Rien à enregistrer.'); return; }
+    await ecrireGrist(actions, 'Réglages de l\'académie enregistrés', () => relireSansCache(charger));
+  };
+}
+async function enregistrerLogo(dataUrl) {
+  await ecrireGrist(actionsParametres(lignesParametres(), { logo: dataUrl }, DESCRIPTIONS_ACADEMIE), dataUrl ? 'Logo enregistré' : 'Logo retiré', () => relireSansCache(charger));
+}
+// Premier démarrage : étapes cochées (admins), repliées une fois tout fait.
+function afficherDemarrage() {
+  const el = $('demarrage');
+  if (!estAdmin) { el.hidden = true; return; }
+  const etapes = etapesDemarrage({ params: valeursParametres(), etabs: etabsLus(),
+    profs: (D.lectures && D.lectures.Professeurs && D.lectures.Professeurs.lignes) || [],
+    chiffrement: CHIFFREMENT ? !!ligneChiffre : null, utilisateurs: D.utilisateurs || [], structure: D.structure || null });
+  const faites = etapes.filter(e => e.fait).length;
+  const ouvert = el.open || (faites < etapes.length && !el.dataset.vu);
+  el.dataset.vu = '1';
+  el.hidden = false;
+  el.innerHTML = `<summary>Premier démarrage : ${faites} / ${etapes.length} étapes faites${faites === etapes.length ? ' — tout est prêt' : ''}</summary>
+    <ol>${etapes.map(e => `<li class="${e.fait ? 'fait' : ''}"><strong>${esc(e.titre)}</strong> <span class="muted petit">${esc(e.detail || '')}</span>
+      ${e.fait ? '' : ` <button class="lien" data-aller="${esc(e.onglet)}">Y aller</button>`}</li>`).join('')}</ol>
+    <p class="petit muted" style="margin:4px 0">Guide d'installation : <a href="../installation.html" target="_blank" rel="noopener">installation.html</a>.</p>`;
+  el.open = ouvert;
 }
 
 // --- Chargement des données ---
@@ -1295,6 +1402,12 @@ const charger = sansChevauchement(async () => {
   D.permissions = lectures.Permissions.lignes || [];
   ident = identifierMoi(D.utilisateurs);
   estAdmin = !!(ident.moi && ident.moi.Actif && liste(ident.moi.Roles).includes('Administrateur·trice'));
+  if (estAdmin) {   // structure du document (tables méta, lisibles avec l'accès complet) : colonnes ou tables manquantes
+    const [mt, mc] = await Promise.all([lireTable('_grist_Tables'), lireTable('_grist_Tables_column')]);
+    const m = mt.erreur || mc.erreur ? null : structureManquante(mt.lignes || [], mc.lignes || []);
+    D.structure = m;
+  }
+  if (!lectures.Parametres) lectures.Parametres = await lireTable('Parametres');
   afficherTout();
   message('');
   $('app').hidden = false;
@@ -1316,6 +1429,19 @@ if (await initialiserGrist()) {
     onglet = b.dataset.onglet; pref.ecrire('Onglet', onglet); afficherOnglets();
   });
   $('recherche').addEventListener('input', afficherListe);
+  $('demarrage').addEventListener('click', e => {
+    const b = e.target.closest('[data-aller]'); if (!b) return;
+    onglet = b.dataset.aller; pref.ecrire('Onglet', onglet); afficherOnglets();
+  });
+  $('logo-fichier').addEventListener('change', async () => {
+    const f = $('logo-fichier').files[0]; $('logo-fichier').value = '';
+    if (!f) return;
+    if (!/^image\/(svg\+xml|png|jpeg)$/.test(f.type)) { toast('Choisir une image SVG, PNG ou JPEG.'); return; }
+    if (f.size > 400 * 1024) { toast('Image trop lourde (400 Ko au plus) : l\'exporter plus petite.'); return; }
+    const url = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = ko; r.readAsDataURL(f); });
+    await enregistrerLogo(url);
+  });
+  $('logo-retirer').addEventListener('click', () => enregistrerLogo(''));
   document.addEventListener('change', e => {
     if (e.target.id !== 'voirEnTantQue') return;
     prefApp.ecrire('VoirEnTantQue', e.target.checked ? '1' : '');

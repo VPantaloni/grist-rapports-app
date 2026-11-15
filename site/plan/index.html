@@ -125,6 +125,7 @@ import { norm, nomFiche } from '../commun/donnees.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { synchroniserCopies, uaiReel, disciplineCourte } from '../commun/professeurs.js';
+import { domaineMail } from '../commun/academie.js';
 import { tableauTriable } from '../commun/tableaux.js';
 import { bienvenue, profilDe } from '../commun/bienvenue.js';
 import { TABLE, ETATS, aujourdhui, rentreeDe, libelleAnnee, moisScolaires, periode, dateFr, dateIso, isoVersGrist, enrichir, compter,
@@ -245,7 +246,7 @@ function afficherSuivi() {
 }
 
 function carte({ v, r, e }) {
-  const etab = etabDe(v.UAI), c = contacts(etab, v.UAI);
+  const etab = etabDe(v.UAI), c = contacts(etab, v.UAI, D.domaine);
   const m = !r && peutModifier(droits, moi, v);
   const rediger = !r && (droitsRapports.C === 'Oui' || droitsRapports.C === 'Limité');
   const dep = periodeDepassee(v, e, aujourdhui());
@@ -458,7 +459,7 @@ async function enregistrerImport() {
 const change = detecteurChangement();
 const occupe = () => !!saisie || $('dlg-import').open || (document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName) && $('contenu').contains(document.activeElement));
 const charger = sansChevauchement(async () => {
-  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs', 'Stagiaires', 'EDT'];
+  const noms = ['Visites', 'Rapports', 'Personnes', 'Professeurs', 'Etablissements', 'Utilisateurs', 'Stagiaires', 'EDT', 'Parametres'];
   const T = Object.fromEntries(noms.map((n, i) => [n, null]));
   const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
   noms.forEach((n, i) => { T[n] = lus[i]; });
@@ -470,6 +471,8 @@ const charger = sansChevauchement(async () => {
   }
   D.rapports = T.Rapports.lignes || []; D.personnes = T.Personnes.lignes || [];
   D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.stagiaires = T.Stagiaires.lignes || [];   // absente : statut tiré du grade
+  D.params = Object.fromEntries((T.Parametres.erreur ? [] : T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
+  D.domaine = domaineMail(D.params, D.etabs);   // ce.<UAI>@domaine quand l'établissement n'a pas d'adresse
   D.edt = indexEdt(edt, D.etabs); dernierEdt = edt;
   colonneChoisi = !T.Visites.erreur && (T.Visites.lignes || []).length ? 'UAI_choisi' in T.Visites.lignes[0] : colonneChoisi;
   moi = identifierMoi(T.Utilisateurs.lignes || []).moi;

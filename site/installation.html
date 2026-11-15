@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installer Rapports et suivis</title>
+<link rel="icon" type="image/svg+xml" href="commun/favicon.svg?v=2">
+<link rel="stylesheet" href="commun/style.css">
+<style>
+  body { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; line-height: 1.55; }
+  h1 { color: var(--accent); margin-bottom: 4px; }
+  h2 { margin-top: 32px; border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
+  h3 { margin: 18px 0 6px; }
+  code { background: var(--sel, rgba(0,0,0,.06)); padding: 1px 5px; border-radius: 4px; font-size: .92em; word-break: break-all; }
+  .encadre { border-left: 4px solid var(--accent); background: var(--sel, rgba(91,33,163,.06)); padding: 10px 14px; border-radius: 4px; margin: 12px 0; }
+  .attention { border-left-color: #b91c1c; }
+  ol li, ul li { margin: 4px 0; }
+  nav.sommaire { columns: 2; font-size: 14px; } @media (max-width: 600px) { nav.sommaire { columns: 1; } }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; } td, th { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+</style>
+</head>
+<body>
+<h1>Installer « Rapports et suivis »</h1>
+<p class="muted">Application Grist des IA-IPR et chargé·es de mission d'inspection (CMi) : plan d'inspection, emplois du
+  temps, rapports de visite (rédaction, relecture, signatures, PDF), suivi des stagiaires et des maître·sses délégué·es.
+  Ce guide s'adresse à l'IA-IPR ou à l'administrateur·trice qui l'installe pour son académie.</p>
+
+<nav class="sommaire">
+  <ol>
+    <li><a href="#prerequis">Ce qu'il faut</a></li>
+    <li><a href="#document">Créer le document</a></li>
+    <li><a href="#demarrage">Premier démarrage</a></li>
+    <li><a href="#siiprien">Verser le fichier Siiprien</a></li>
+    <li><a href="#partage">Donner accès aux collègues</a></li>
+    <li><a href="#maj">Mettre à jour</a></li>
+    <li><a href="#sauvegarde">Sauvegarder</a></li>
+    <li><a href="#donnees">Données personnelles</a></li>
+    <li><a href="#aide">Aide</a></li>
+  </ol>
+</nav>
+
+<h2 id="prerequis">1. Ce qu'il faut</h2>
+<ul>
+  <li>Un compte sur <a href="https://grist.numerique.gouv.fr/">grist.numerique.gouv.fr</a> (connexion ProConnect avec
+    son adresse académique) et un espace où créer un document.</li>
+  <li>L'export Siiprien de la liste des professeur·es de mathématiques de l'académie (tableur, une ligne par affectation).</li>
+  <li>Le logo de l'académie (SVG ou PNG), pour l'en-tête des rapports.</li>
+  <li>Une <strong>phrase secrète</strong> choisie à l'avance, à partager entre IA-IPR et CMi : elle chiffre les rapports
+    dans le document (Grist ne voit que du texte illisible). Perdue, elle rend les rapports illisibles : la garder
+    précieusement.</li>
+</ul>
+
+<h2 id="document">2. Créer le document</h2>
+<div class="encadre">Les écrans de l'application sont des « widgets » publiés sur la forge des communs numériques
+  éducatifs, à l'adresse <code>https://widget.forge.apps.education.fr/grist-rapports-app/</code>. Le document Grist
+  contient vos données ; les écrans sont lus sur la forge, ce qui met à jour l'application pour tout le monde
+  (<a href="#maj">§ 6</a>).</div>
+
+<h3>Avec le modèle (le plus simple)</h3>
+<ol>
+  <li>Télécharger le modèle <code>grist-rapports-app-modele.grist</code> (dossier <code>installation/modele/</code> du
+    <a href="https://forge.apps.education.fr/widget/grist-rapports-app">projet sur la forge</a>), s'il y est proposé.</li>
+  <li>Dans Grist : <strong>Ajouter → Importer un document</strong> → choisir ce fichier.</li>
+  <li>Table <code>Utilisateurs</code> (page « Données ») : ajouter <strong>sa propre ligne</strong> : son adresse de
+    connexion Grist <strong>en minuscules</strong>, rôle <code>Administrateur·trice</code> (et <code>IA-IPR</code>),
+    case Actif cochée. Supprimer les comptes d'exemple.</li>
+  <li>Ouvrir la page <strong>Application</strong> ; accorder l'accès complet au widget si Grist le demande.</li>
+</ol>
+
+<h3>Sans le modèle (document vide)</h3>
+<ol>
+  <li>Télécharger le dossier d'installation :
+    <a href="https://forge.apps.education.fr/widget/grist-rapports-app/-/archive/main/grist-rapports-app-main.zip?path=installation">installation.zip</a>,
+    puis le décompresser.</li>
+  <li>Dans Grist, créer un <strong>document vide</strong>. Ajouter une page : <strong>Nouveau → Ajouter une page →
+    Widget personnalisé</strong>, adresse <code>https://widget.forge.apps.education.fr/grist-rapports-app/installer/</code>,
+    accès <strong>complet</strong>.</li>
+  <li>Dans ce widget « Installer » :
+    <ol>
+      <li><strong>Vérifier ce Grist</strong> ;</li>
+      <li><strong>Installer depuis le dossier</strong> : choisir le dossier <code>installation</code> décompressé →
+        « Créer la structure » (tables, colonnes, formules), puis, pour essayer, « Importer les données d'exemple » ;</li>
+      <li><strong>Règles d'accès</strong> : « Écrire les règles d'accès » (qui voit et modifie quoi, selon le rôle).</li>
+    </ol></li>
+  <li>Ajouter la page <strong>Application</strong> : widget personnalisé
+    <code>https://widget.forge.apps.education.fr/grist-rapports-app/app/</code>, table sélectionnée
+    <code>Navigation</code>, accès complet. C'est la page à donner aux collègues ; elle s'ouvre en plein écran avec
+    <code>?style=singlePage</code> à la fin de son adresse.</li>
+  <li>Ajouter sa propre ligne dans <code>Utilisateurs</code> (voir ci-dessus).</li>
+</ol>
+
+<h2 id="demarrage">3. Premier démarrage</h2>
+<p>Dans l'application, l'écran <strong>Administration</strong> affiche « Premier démarrage » : cinq étapes, cochées au
+  fur et à mesure.</p>
+<table>
+  <tr><th>Étape</th><th>Où</th><th>Quoi</th></tr>
+  <tr><td>Structure à jour</td><td>Administration → Contrôles</td><td>Aucune colonne manquante ; sinon page Installer → « Créer la structure ».</td></tr>
+  <tr><td>Académie et logo</td><td>Administration → Académie</td><td>Nom de l'académie, logo des rapports, en-tête ; domaine
+    des mails et départements (déduits des établissements si vides).</td></tr>
+  <tr><td>Phrase de chiffrement</td><td>Administration → Chiffrement</td><td>Saisir la phrase choisie ; un indice facultatif
+    aide à s'en souvenir (jamais la phrase elle-même).</td></tr>
+  <tr><td>Fichier Siiprien</td><td>Administration → Import</td><td><a href="#siiprien">§ 4</a>.</td></tr>
+  <tr><td>Comptes</td><td>Administration → Accès, ou Annuaire</td><td>Une ligne par CMi et IA-IPR (adresse en minuscules,
+    rôle, fiche de l'annuaire).</td></tr>
+</table>
+<p>Ensuite, dans <strong>Modèles &amp; phrases</strong> : rubriques des rapports, phrases types, grilles de
+  positionnement, modèles de mails, paramètres (secrétariat, pied de page…). Les données d'exemple (rapports,
+  visites, personnes inventées) se suppriment dans la page « Données ».</p>
+
+<h2 id="siiprien">4. Verser le fichier Siiprien</h2>
+<div class="encadre attention"><strong>Ne pas utiliser l'import de Grist</strong> (« Importer depuis un fichier ») : il ne
+  reconnaît pas les colonnes de Siiprien et recopierait tout, colonnes sensibles comprises.</div>
+<ol>
+  <li>Dans le tableur Siiprien : <em>Enregistrer sous → CSV</em> (ou sélectionner toutes les cellules, en-têtes compris, et copier).</li>
+  <li>Application → <strong>Administration → Import</strong> → choisir le fichier (ou coller les cellules).</li>
+  <li>Vérifier l'aperçu, puis <strong>Intégrer</strong>. Un nouveau versement met à jour sans doublon.</li>
+</ol>
+<p>Colonnes reconnues : <code>Civilite</code> (MM = Mme), <code>Nom</code>, <code>Prenom</code>, <code>Statut</code>,
+  <code>Grade</code>, <code>Echelon</code>, <code>Type_nomination</code>, <code>Entree_grade</code>, <code>Mode_acces</code>,
+  <code>Nom_disc_affect</code>, <code>Nom_disc_recrut</code>, <code>Rne</code> (= UAI), <code>mail_ouvert</code>,
+  <code>EtabNom</code>, <code>EtabVille</code>, <code>EtabCategorie</code>… Les autres (date de naissance, téléphone,
+  notes) ne sont <strong>jamais lues</strong>. Les établissements sont créés d'après le fichier et complétés par
+  l'Annuaire de l'éducation (adresse, téléphone, position).</p>
+<p>Les emplois du temps (Siiprien, « Emploi du temps / Tous ») se versent dans l'écran <strong>Emplois du temps</strong>
+  par les IA-IPR, établissement par établissement.</p>
+
+<h2 id="partage">5. Donner accès aux collègues</h2>
+<ol>
+  <li>Grist : <strong>Partager</strong> le document avec chaque collègue (rôle <em>Éditeur</em>).</li>
+  <li>Application → <strong>Annuaire</strong> : fiche de chaque CMi (avec son IA-IPR référent·e, ses initiales) et de
+    chaque IA-IPR, puis « Donner accès à l'application » ; ou Administration → Accès.</li>
+  <li>Envoyer le lien de la page <strong>Application</strong> (avec <code>?style=singlePage</code>) et la phrase secrète,
+    <strong>par deux canaux différents</strong>.</li>
+  <li>Vérifier avec « Voir en tant que » (Administration → Mon compte) ce que voit un·e CMi.</li>
+</ol>
+
+<h2 id="maj">6. Mettre à jour</h2>
+<ul>
+  <li><strong>Les écrans se mettent à jour seuls</strong> : ils sont lus sur la forge à chaque ouverture. La date de
+    version est affichée en bas du bandeau de l'Accueil.</li>
+  <li><strong>Quand une version ajoute une colonne</strong> : Administration → Contrôles (et « Premier démarrage »)
+    signale « Structure du document à mettre à jour ». Télécharger le nouveau <code>installation.zip</code>, ouvrir la
+    page Installer → « Créer la structure » : elle n'ajoute que ce qui manque, ne supprime rien. Puis, si demandé,
+    « Réécrire les règles du kit » et Administration → Permissions → « Appliquer les droits par défaut ».</li>
+  <li>Ce qui change d'une version à l'autre : <a href="https://forge.apps.education.fr/widget/grist-rapports-app/-/commits/main">historique du projet</a>.</li>
+  <li>Avant toute mise à jour de structure : <a href="#sauvegarde">sauvegarder</a>.</li>
+</ul>
+
+<h2 id="sauvegarde">7. Sauvegarder</h2>
+<p>Régulièrement, et avant toute opération importante : menu du document Grist → <strong>Télécharger le document
+  (.grist)</strong>, à ranger dans un espace sûr et non public. Le fichier contient tout (données, règles, pages).
+  Grist garde aussi un historique des versions.</p>
+
+<h2 id="donnees">8. Données personnelles</h2>
+<ul>
+  <li>Le document est hébergé par Grist (instance de l'État) et partagé aux seules personnes invitées ; les règles
+    d'accès limitent ce que chacun·e voit (un·e CMi ne voit que ses visites ; les signatures ne sont vues que de leur
+    auteur·e).</li>
+  <li>Les contenus des rapports, commentaires, positionnements, signatures et les noms des emplois du temps sont
+    <strong>chiffrés</strong> dans le navigateur avec la phrase secrète : ni Grist ni la forge ne peuvent les lire.</li>
+  <li>Seules les colonnes utiles du fichier Siiprien sont versées ; aucune donnée n'est envoyée ailleurs que dans le
+    document (l'Annuaire de l'éducation est une donnée publique).</li>
+  <li>Prévenir le ou la délégué·e à la protection des données (DPO) de l'académie et fixer une durée de conservation
+    (par exemple : rapports gardés tant que la personne est en poste dans l'académie).</li>
+</ul>
+
+<h2 id="aide">9. Aide</h2>
+<ul>
+  <li>Chaque écran a son mode d'emploi : bouton <strong>?</strong> en haut à droite ; une fenêtre « Comment ça marche »
+    s'affiche à la première ouverture.</li>
+  <li>Signaler un problème ou proposer une amélioration :
+    <a href="https://forge.apps.education.fr/widget/grist-rapports-app/-/issues">tickets du projet sur la forge</a>.</li>
+  <li>Code source (licence libre) : <a href="https://forge.apps.education.fr/widget/grist-rapports-app">forge.apps.education.fr/widget/grist-rapports-app</a>.</li>
+</ul>
+</body>
+</html>

@@ -355,7 +355,8 @@ import { liste } from '../commun/donnees.js';
 import { ouvrirAvecPhrase, dechiffrer, cryptoDisponible, TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree,
   chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
 import { CHIFFREMENT } from '../commun/config.js';
-import { DAYS, DAYS_SHORT, DEPTS, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
+import { departements, domaineMail } from "../commun/academie.js";
+import { DAYS, DAYS_SHORT, norm, deptOf, fmtMin, toHHMM, fromHHMM, sigOf, isoDay, mondayOf, addDays, defaultSemestre, parseAnyDate,
   versGrist, parseName, parseAlt, parseJour, ingest, lireCalendrier, isVisible, suggestionsFor, pack, canSplit, partRange, reunionParDefaut, libresSur,
   parseSiiprien, lireFichierEdt, lireLigneChiffrement, contextesPossibles, reperes, reperesDe, modelesPour, remplirModele, planningTexte, champsVisites, mailEtablissement, destinataires, lienMailto,
   visitesDuPlanning, profDeVisite, evenementVisite, lienGoogle, lienOutlook, fichierIcs, AGENDAS } from './logique.js';
@@ -398,7 +399,7 @@ const nomPersonne = id => { const p = personne(id); return p ? `${p.Prenom || ""
    Lecture des tables de l'application
    ===================================================================== */
 const NOMS = ["EDT", "Calendrier", "Etablissements", "Professeurs", "Stagiaires", "Maitres_delegues", "Personnes", "Utilisateurs",
-  "EdT_memo", "Modeles_mail", "Visites"];
+  "EdT_memo", "Modeles_mail", "Visites", "Parametres"];
 const change = detecteurChangement();
 // Chiffrement (SPEC § 5.8) : EDT.Nom et EdT_memo.Professeur chiffrés ; sans clé (masqué), les noms sont vides.
 let cle = null, cleLue = false;
@@ -433,6 +434,10 @@ const charger = sansChevauchement(async () => {
   state.selected = state.selected.filter(k => state.teachers.has(k));
   state.etabs = new Map(T.Etablissements.map(e => [norm(e.UAI), {id: e.id, nom: String(e.Nom || ""), ville: String(e.Commune || ""), adresse: String(e.Adresse || ""), cp: String(e.Code_postal || ""), absent: e.Edt_absent === true, colAbsent: "Edt_absent" in e}]));
   state.droitsEtab = droitsTable(state.moi, "Etablissements");
+  // Académie : départements (filtres) et domaine des mails, réglés dans Administration → Académie ou déduits des établissements
+  state.params = Object.fromEntries((T.Parametres || []).map(p => [String(p.Cle || ""), String(p.Valeur ?? "")]));
+  state.deptsDispo = departements(state.params, T.Etablissements);
+  state.domaine = domaineMail(state.params, T.Etablissements);
   if (state.uaiFilter && !uaiConnu(state.uaiFilter)) state.uaiFilter = "";
   resolvePlan();
   state.calendar = lireCalendrier(T.Calendrier);
@@ -481,7 +486,7 @@ function restoreSelection(){
   if (s.uai && uaiConnu(s.uai)) state.uaiFilter = s.uai;
   if (Array.isArray(s.sel)) state.selected = s.sel.filter(k => state.teachers.has(k)).slice(0, MAX_T);
   state.showSat = !!s.sat; state.suggest = s.sug !== false;
-  if (Array.isArray(s.dep)) state.depts = s.dep.filter(d => DEPTS.includes(d));
+  if (Array.isArray(s.dep)) state.depts = s.dep.filter(d => (state.deptsDispo || []).includes(d));
   return state.selected.length > 0;
 }
 function saveSelection(){ ls.set("Sel", {uai:state.uaiFilter, sel:state.selected, sat:state.showSat, sug:state.suggest, dep:state.depts}); }
@@ -936,7 +941,7 @@ function contexteMail(g){
   const fiche = personne(moiPers());
   const ref = fiche && fiche.Referent ? personne(fiche.Referent) : null;
   return {
-    chef: mailEtablissement(g.uai, state.T.Etablissements || []),
+    chef: mailEtablissement(g.uai, state.T.Etablissements || [], state.domaine),
     equipe: ts.map(t => ({ nom: tName(t), mail: mailProf(t, g.uai) })),
     visites: vis.map(t => ({ nom: tName(t), mail: mailProf(t, g.uai) })),
     ipr: ref ? String(ref.Email || "") : "",
@@ -1067,7 +1072,7 @@ function flagsHTML(t){
   return reps(t).map(x => x.type === "stg" ? ` <span class="fl-s" title="${esc(x.titre)}">(S) ${esc(x.label)}</span>` : ` <span class="fl-m" title="${esc(x.titre)}">MD</span>`).join("");
 }
 function renderDepts(){
-  $("#depts").innerHTML = DEPTS.map(d => `<button data-dep="${d}" class="${state.depts.includes(d)?"on":""}" aria-pressed="${state.depts.includes(d)}" title="Département ${d}${state.depts.length ? "" : " (aucun coché = tous)"}">${d}</button>`).join("");
+  $("#depts").innerHTML = (state.deptsDispo || []).map(d => `<button data-dep="${d}" class="${state.depts.includes(d)?"on":""}" aria-pressed="${state.depts.includes(d)}" title="Département ${d}${state.depts.length ? "" : " (aucun coché = tous)"}">${d}</button>`).join("");
 }
 // Tous les établissements de la table Etablissements, plus ceux des EdT : sans EdT = gris clair (« à ajouter depuis
 // Siiprien ») ; EdT absent de Siiprien (case cochée par un·e IA-IPR) = rouge.
