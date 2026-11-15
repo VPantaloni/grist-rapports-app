@@ -581,9 +581,15 @@
         },
         {
           "id": "Prof_statut",
-          "libelle": "Statut affiché",
+          "libelle": "Statut imprimé",
           "type": "Text",
-          "role": "Grade · Statut · échelon, composé à la création"
+          "role": "« Professeure stagiaire AGREGE plein temps, éch. 2 », « Contractuel (AC2C1 - CDD) éch. 4 »… : proposé d'après les fiches (Professeurs, Stagiaires), modifiable ; recalculé tant que le rapport n'est pas validé s'il est à l'ancienne forme « Grade · Statut · échelon »"
+        },
+        {
+          "id": "Discipline",
+          "libelle": "Discipline",
+          "type": "Text",
+          "role": "forme courte recopiée à la création (MATHS, NSI) : NSI → en-tête « Numérique et Sciences Informatiques », cartouche « N.S.I. »"
         },
         {
           "id": "Stagiaire_hors_liste",

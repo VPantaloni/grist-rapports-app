@@ -22,12 +22,83 @@ export function typePropose(prof) {
 /** @param {string} codeType @param {{ Type_nomination?: any } | null | undefined} prof */
 export const pstgHorsListe = (codeType, prof) => codeType === 'PSTG' && norm(prof && prof.Type_nomination) !== 'stg';
 
-// « CERT. CL N · Titulaire · échelon 7 » (APP § 11 : Grade + Statut + échelon).
+// « CERT. CL N · Titulaire · échelon 7 » : ancienne forme, gardée pour les listes de choix de professeur·es.
 /** @param {{ Grade?: any, Statut?: any, Echelon?: any }} p */
 export function statutAffiche(p) {
   const ech = p.Echelon === 0 || p.Echelon ? `échelon ${p.Echelon}` : '';
   return [p.Grade, p.Statut, ech].map(x => String(x ?? '').trim()).filter(Boolean).join(' · ');
 }
+
+// --- Statut imprimé dans le cartouche (APP § 11, 2026-11-15) ---
+// Accord selon la civilité (exception validée à la règle « pas de calcul selon le genre ») : M. → masculin ; Mme, MM,
+// Mlle → féminin ; inconnue → forme inclusive.
+/** @param {any} civilite @param {string} m @param {string} f @param {string} i */
+export function accord(civilite, m, f, i) {
+  const c = String(civilite || '').trim();
+  if (/^(mme|mm|mlle|madame)\b/i.test(c)) return f;
+  if (/^(m\.?|monsieur)$/i.test(c)) return m;
+  return i;
+}
+const txt = (/** @type {any} */ v) => String(v ?? '').trim();
+/**
+ * Libellé du statut (une seule case du cartouche) :
+ * - MD : « Maîtresse Déléguée (privé) 1re catégorie (MD1) éch. 3 » ;
+ * - contractuel·le : « Contractuel (AC2C1 - CDD) éch. 4 » ;
+ * - stagiaire : « Professeure stagiaire AGREGE plein temps, éch. 2 (renouvellement) » (corps, quotité et situation de la
+ *   fiche du suivi PSTG ; ce qui manque n'est pas écrit) ;
+ * - sinon : « Professeur CERT. CL N, éch. 4 ».
+ * @param {{ Civilite?: any, Grade?: any, Statut?: any, Echelon?: any }} p professeur·e (ou équivalent)
+ * @param {{ Corps?: any, Quotite?: any, Situation?: any, Civilite?: any } | null} [stagiaire] fiche Stagiaires (PSTG)
+ */
+export function libelleStatut(p, stagiaire = null) {
+  const civ = txt(p.Civilite) || txt(stagiaire && stagiaire.Civilite);
+  const grade = txt(p.Grade), statut = txt(p.Statut);
+  const ech = p.Echelon === 0 || (p.Echelon !== null && p.Echelon !== undefined && txt(p.Echelon)) ? `éch. ${txt(p.Echelon)}` : '';
+  const md = /^MD\s*(\d)/i.exec(grade);
+  if (md) {
+    const n = Number(md[1]);
+    return [`${accord(civ, 'Maître', 'Maîtresse', 'Maître·sse')} ${accord(civ, 'Délégué', 'Déléguée', 'Délégué·e')} (privé) ${n === 1 ? '1re' : `${n}e`} catégorie (MD${n})`, ech].filter(Boolean).join(' ');
+  }
+  const cd = /^(CDD|CDI)$/i.exec(statut);
+  if (/^AC/i.test(grade) || (cd && !stagiaire)) {
+    return [`${accord(civ, 'Contractuel', 'Contractuelle', 'Contractuel·le')} (${[grade, cd ? cd[1].toUpperCase() : ''].filter(Boolean).join(' - ')})`, ech].filter(Boolean).join(' ');
+  }
+  const prof = accord(civ, 'Professeur', 'Professeure', 'Professeur·e');
+  if (stagiaire) {
+    const corps = { AGREG: 'AGREGE', CERT: 'CERT', PLP: 'PLP' }[txt(stagiaire.Corps).toUpperCase()] || '';
+    const q = txt(stagiaire.Quotite).replace(/\s/g, '');
+    const quotite = q === '100%' ? 'plein temps' : q === '50%' ? 'mi-temps' : '';
+    const sit = /renouvel/i.test(txt(stagiaire.Situation)) ? ' (renouvellement)' : /prolong/i.test(txt(stagiaire.Situation)) ? ' (prolongation)' : '';
+    return [[`${prof} stagiaire`, corps, quotite].filter(Boolean).join(' '), ech].filter(Boolean).join(', ') + sit;
+  }
+  return [[prof, grade].filter(Boolean).join(' '), ech].filter(Boolean).join(', ');
+}
+// Ancienne forme enregistrée (« CERT. CL N · Titulaire · échelon 7 ») ? Sinon : libellé déjà à la nouvelle forme ou retouché.
+/** @param {any} s */
+export const ancienneForme = s => /\s·\s|^échelon\s/i.test(txt(s));
+// Ancienne forme réécrite à la nouvelle (rapports validés ou transmis, sans relire les fiches).
+/** @param {any} ancien @param {any} civilite */
+export function remettreEnForme(ancien, civilite) {
+  if (!ancienneForme(ancien)) return txt(ancien);
+  const parts = txt(ancien).split('·').map(x => x.trim()).filter(Boolean);
+  const e = parts.find(x => /^échelon\s/i.test(x));
+  const autres = parts.filter(x => x !== e);
+  return libelleStatut({ Civilite: civilite, Grade: autres[0] || '', Statut: autres[1] || '', Echelon: e ? e.replace(/^échelon\s*/i, '') : '' });
+}
+// Fiche du suivi PSTG d'un·e professeur·e pour l'année du rapport (même lien Professeur, sinon mêmes nom et prénom).
+/** @param {Record<string, any>[]} stagiaires @param {{ id?: any, Nom?: any, Prenom?: any }} p @param {string} annee */
+export function stagiaireDe(stagiaires, p, annee) {
+  const memeAnnee = (stagiaires || []).filter(s => !annee || !s.Annee || txt(s.Annee) === annee);
+  return memeAnnee.find(s => p.id && s.Professeur === p.id)
+    || memeAnnee.find(s => norm(s.Nom) === norm(p.Nom) && norm(s.Prenom) === norm(p.Prenom)) || null;
+}
+// Discipline du rapport : forme courte (MATHS, NSI…) ; NSI → en-tête « Numérique et Sciences Informatiques », cartouche
+// « N.S.I. » ; sinon la discipline des paramètres (« Mathématiques »).
+export const INTITULE_NSI = 'Numérique et Sciences Informatiques';
+/** @param {any} disc @param {string[]} lignes */
+export const enteteDiscipline = (disc, lignes) => (txt(disc).toUpperCase() === 'NSI' ? lignes.map(l => l.replace(/math[ée]matiques/i, INTITULE_NSI)) : lignes);
+/** @param {any} disc @param {any} defaut */
+export const disciplineCartouche = (disc, defaut) => (txt(disc).toUpperCase() === 'NSI' ? 'N.S.I.' : txt(defaut) || txt(disc));
 
 // Date Grist (secondes UTC à minuit) ↔ texte.
 /** @param {any} s @returns {Date | null} */

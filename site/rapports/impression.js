@@ -3,7 +3,7 @@
 // page comme le modèle Word : logo et en-tête, titre, tableau d'identification, thème, rubriques, signatures,
 // « Page n sur N ». Les consignes et le positionnement MD n'y figurent jamais. Logique pure (tests/rapports.test.js).
 import { LOGO } from './logo.js';
-import { dateFr, anneeScolaire, lireStructure, lireObjet, titreImprime, lirePositionnement, couleurNiveau } from './logique.js';
+import { dateFr, anneeScolaire, remettreEnForme, lireStructure, lireObjet, titreImprime, lirePositionnement, couleurNiveau } from './logique.js';
 
 // Police Marianne (Système de design de l'État, paquet @gouvfr/dsfr) : celle installée sur le poste, sinon le CDN ;
 // Arial si aucune n'est disponible.
@@ -77,7 +77,6 @@ export function htmlImpression(r, c, o = {}) {
   const bloc = (/** @type {import('./logique.js').RubriqueFigee} */ x) => (ed
     ? `<div class="ed${x.forme === 'Puces' ? ' puces' : ''}" ${o.editable ? 'contenteditable="plaintext-only" ' : ''}spellcheck="true" data-texte="${esc(x.code)}" title="${esc(x.titre)}${x.forme === 'Puces' ? ' — une ligne = une puce' : ''}" data-vide="${esc(x.titre)}…">${esc(contenu[x.code] || '')}</div>`
     : x.forme === 'Puces' ? puces(contenu[x.code]) : paragraphes(contenu[x.code]));
-  const { grade, echelon } = gradeEchelon(r.Prof_statut);
   const prof = [r.Prof_nom, r.Prof_prenom].filter(Boolean).join(' ');
   // Bas de page : « RAPPORT DE VISITE - inspection de mathématiques   p 1/2.   NOM Prénom » (chaîne CSS échappée).
   const css = (/** @type {string} */ t) => `"${String(t).replace(/["\\\n\r]/g, ' ')}"`;
@@ -159,7 +158,7 @@ ${enteteUne}
 <table class="id">
   <tr><td colspan="3" class="titre">${esc(c.titreDocument)}</td></tr>
   <tr><td colspan="3">${esc(enseignant(r.Prof_civilite))} : <strong>${esc(identite(r))}</strong></td></tr>
-  <tr><td>Grade : ${esc(grade)}</td><td>Échelon : ${esc(echelon)}</td><td>Discipline : ${esc(c.discipline)}</td></tr>
+  <tr><td colspan="2">Statut : ${esc(remettreEnForme(r.Prof_statut, r.Prof_civilite))}</td><td>Discipline : ${esc(c.discipline)}</td></tr>
   <tr><td colspan="3">Coordonnées établissement : ${esc([r.Etab_nom, r.Etab_commune].filter(Boolean).join(', '))}${r.UAI ? ` – UAI ${esc(r.UAI)}` : ''}</td></tr>
   <tr><td>Date de la visite : ${esc(dateFr(r.Date_visite))}</td>${c.sansCmi ? `<td colspan="2">${esc(c.titreIpr)} : ${esc(c.ipr)}</td>`
     : `<td>${esc(c.titreCmi)} : ${esc(c.cmi)}</td><td>${esc(c.titreIpr)} : ${esc(c.ipr)}</td>`}</tr>

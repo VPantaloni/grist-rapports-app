@@ -194,6 +194,7 @@
 <script type="module">
 import { actionsRapportSupprime } from '../plan/logique.js';
 import { bienvenue, profilDe } from '../commun/bienvenue.js';
+import { disciplineCourte } from '../commun/professeurs.js';
 import { liste, nomFiche, norm } from '../commun/donnees.js';
 import { identifierMoi, droitsTable } from '../commun/droits.js';
 import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
@@ -201,7 +202,8 @@ import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, rele
   demandeConteneur } from '../commun/grist.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { TABLE_CHIFFREMENT, ligneChiffrementValide, lignesLisibles, tableChiffree, chiffrerActions, cleAuDemarrage, suivreCle } from '../commun/chiffrement.js';
-import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
+import { TABLE, STATUTS, typePropose, pstgHorsListe, statutAffiche, libelleStatut, ancienneForme, remettreEnForme, stagiaireDe,
+  enteteDiscipline, disciplineCartouche, anneeScolaire, dateFr, dateIso, isoVersGrist, aujourdhuiGrist, nomFichierPdf,
   redigeParIpr, peutValiderSeul, descripteurs, rubriquesDuType, structureDe, lireStructure, lireObjet, lireListe, contenuInitial, remplirChamps, generaliserPhrase, competenceDuPassage, rubriquesVides, phrasesPour, inserer,
   rechercher, grouperRapports, peutCreer, peutRediger, peutSoumettre, peutRelire, peutTransmettre, peutSupprimer, estAdmin,
   ajouterHistorique, destinataires, remplirMail, lienMailto, tailleSignature, visiteAssociee, MAILS_RELECTURE, mailsRelecture, lienEchange,
@@ -330,7 +332,7 @@ function afficherCreation() {
       </div>
       ${c.q && !res.etabs.length && !res.profs.length ? '<p class="muted">Aucun résultat.</p>' : ''}
       <div class="actions"><button id="c-annuler">Annuler</button></div>`
-    : `<div class="bloc"><h2>Professeur·e</h2><p><strong>${esc([p.Civilite, p.Nom, p.Prenom].filter(Boolean).join(' '))}</strong> — ${esc(statutAffiche(p))}<br>
+    : `<div class="bloc"><h2>Professeur·e</h2><p><strong>${esc([p.Civilite, p.Nom, p.Prenom].filter(Boolean).join(' '))}</strong> — ${esc(libelleStatut(p, stagiaireDuProf(p, '', aujourdhuiGrist())))}${disciplineDuProf(p) && disciplineDuProf(p) !== 'MATHS' ? ` · ${esc(disciplineDuProf(p))}` : ''}<br>
         ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Nom || '')} ${esc((D.etabs.find(e => e.UAI === p.UAI) || {}).Commune || '')} — UAI ${esc(p.UAI)}
         <button class="lien" id="c-autre">Changer</button></p></div>
       <div class="grille">
@@ -396,7 +398,7 @@ async function creer() {
   const datePosee = !!(vPlan && !vPlan.Date_prevue);
   const champs = {
     Type: t.id, Professeur: p.id, Prof_civilite: p.Civilite || '', Prof_nom: p.Nom || '', Prof_prenom: p.Prenom || '',
-    Prof_statut: statutAffiche(p), Stagiaire_hors_liste: pstgHorsListe(t.Code, p), UAI: p.UAI || '', Etab_nom: etab.Nom || '',
+    Prof_statut: statutDuProf(p, t.Code, isoVersGrist(c.date)), ...(colonneDiscipline ? { Discipline: disciplineDuProf(p) } : {}), Stagiaire_hors_liste: pstgHorsListe(t.Code, p), UAI: p.UAI || '', Etab_nom: etab.Nom || '',
     Etab_commune: etab.Commune || '', Date_visite: isoVersGrist(c.date), Heure: c.heure.trim(), Classe: c.classe.trim(),
     Effectif: c.effectif.trim() ? Number(c.effectif) : null, Theme: c.theme.trim(),
     Contenu: JSON.stringify(contenuInitial(rub, { civilite: p.Civilite, nom: p.Nom, prenom: p.Prenom })),
@@ -534,6 +536,31 @@ function legendeRelecture(b, relit, repond) {
   return `<div class="legende"><strong>Relecture</strong><ins>texte ajouté</ins><del>texte retiré</del><span class="c">commentaire</span>
     <span class="muted">${esc(etat || 'aucune suggestion pour l\'instant')}${relit ? ' — vos modifications restent des suggestions ; elles s\'appliquent si vous validez' : repond && b.suggestions ? ' — accepter ou refuser chaque suggestion' : ''}</span></div>`;
 }
+// --- Statut et discipline du cartouche (APP § 11, 2026-11-15) ---
+let colonneDiscipline = false;   // colonne Rapports.Discipline présente (document à jour)
+// Fiche du suivi PSTG (stagiaire de l'année du rapport, non écarté·e) : corps, quotité, situation.
+function stagiaireDuProf(p, codeType, date) {
+  const s = stagiaireDe(D.stagiaires, p, anneeScolaire(date));
+  return s && (codeType === 'PSTG' || !/cart/i.test(String(s.Suivi || ''))) ? s : null;
+}
+const statutDuProf = (p, codeType, date) => libelleStatut(p, stagiaireDuProf(p, codeType, date));
+const disciplineDuProf = p => p.Discipline_courte || disciplineCourte(p.Discipline) || '';
+// Rapport pas encore validé dont le statut est à l'ancienne forme (ou vide) : recalculé d'après les fiches, et discipline
+// remplie ; les rapports validés ou transmis restent figés (seulement remis en forme à l'affichage).
+function majCartouche(r) {
+  if (['Validé', 'Transmis'].includes(r.Statut) || r.Importe) return {};
+  const p = r.Professeur ? D.profs.find(x => x.id === r.Professeur) : null;
+  if (!p) return {};
+  const maj = {};
+  if (!String(r.Prof_statut || '').trim() || ancienneForme(r.Prof_statut)) {
+    const n = statutDuProf({ ...p, Civilite: p.Civilite || r.Prof_civilite }, (typeDe(r) || {}).Code, r.Date_visite);
+    if (n && n !== r.Prof_statut) maj.Prof_statut = n;
+  }
+  if (colonneDiscipline && !String(r.Discipline || '').trim() && disciplineDuProf(p)) maj.Discipline = disciplineDuProf(p);
+  return maj;
+}
+const statutImprime = r => remettreEnForme(r.Prof_statut, r.Prof_civilite);
+
 function afficherFiche() {
   if (importation) return afficherImport();
   if (creation) return afficherCreation();
@@ -550,6 +577,8 @@ function afficherFiche() {
   }
   const t = typeDe(r);
   const redige = peutRediger(droits, moi, r) && !masque();
+  const majC = redige ? majCartouche(r) : {};
+  if (Object.keys(majC).length) { Object.assign(r, majC); noter(r.id, majC); }
   const parIpr = redigeParIpr(r, D.personnes);
   const relit = !parIpr && peutRelire(droits, moi, r) && !masque();
   const structure = lireStructure(r.Structure);
@@ -568,10 +597,10 @@ function afficherFiche() {
     ${masque() ? `<div class="alerte">${esc(TIP_MASQUE)}.</div>` : ''}
     ${r.Stagiaire_hors_liste ? '<div class="alerte">⚠ PSTG hors liste : pas dans la liste des stagiaires de Siiprien.</div>' : ''}
     ${r.Statut === 'À reprendre' ? '<div class="alerte">Rapport renvoyé : voir les suggestions et commentaires de l\'IA-IPR sous les rubriques.</div>' : ''}
-    <details class="bloc entete-bloc" ${enteteOuvert ? 'open' : ''}><summary><strong>En-tête</strong><span class="resume">${esc([r.Prof_statut, r.UAI,
+    <details class="bloc entete-bloc" ${enteteOuvert ? 'open' : ''}><summary><strong>En-tête</strong><span class="resume">${esc([statutImprime(r), r.UAI,
       parIpr ? '' : nomPers(r.Auteur), nomPers(r.Valideur), dateFr(r.Date_visite), r.Heure, r.Classe, r.Effectif ? `${r.Effectif} élèves` : '', r.Theme]
       .filter(Boolean).join(' · '))}</span></summary><div class="grille">
-      <label class="champ"><span>Statut</span><div>${esc(r.Prof_statut) || '—'}</div></label>
+      <div class="large">${ch('Prof_statut', 'Statut (imprimé dans le cartouche ; proposé d\'après les fiches, modifiable)', statutImprime(r))}</div>
       <label class="champ"><span>UAI</span><div>${esc(r.UAI)}</div></label>
       ${parIpr ? '' : `<label class="champ"><span>CMi</span><div>${esc(nomPers(r.Auteur)) || '—'}</div></label>`}
       <label class="champ"><span>IA-IPR</span><div>${esc(nomPers(r.Valideur)) || '—'}</div></label>
@@ -1136,8 +1165,8 @@ async function validerSignature() {
 // --- Impression et mail ---
 function contexte(r) {
   const t = typeDe(r), a = personne(r.Auteur) || {}, v = personne(r.Valideur) || {};
-  return { titreDocument: t.Titre || 'RAPPORT DE VISITE', entete: String(D.params.entete || 'Inspection pédagogique régionale').split('\n'),
-    discipline: D.params.discipline || '', cmi: nomPers(r.Auteur), titreCmi: a.Titre_signature || 'Le ou la chargé·e de mission',
+  return { titreDocument: t.Titre || 'RAPPORT DE VISITE', entete: enteteDiscipline(r.Discipline, String(D.params.entete || 'Inspection pédagogique régionale').split('\n')),
+    discipline: disciplineCartouche(r.Discipline, D.params.discipline || ''), cmi: nomPers(r.Auteur), titreCmi: a.Titre_signature || 'Le ou la chargé·e de mission',
     ipr: nomPers(r.Valideur), titreIpr: v.Titre_signature || 'L\'IA-IPR', nomFichier: nomFichierPdf(r, a.Initiales || ''),
     sansCmi: redigeParIpr(r, D.personnes), pied: D.params.pied || 'RAPPORT DE VISITE - inspection de mathématiques',
     tailleSignature: D.params.taille_signature || 15 };
@@ -1181,7 +1210,7 @@ const change = detecteurChangement();
 const occupe = () => !!brouillon || envoiEnCours || !!creation || !!importation || $('dlg-signature').open
   || (document.activeElement && $('fiche').contains(document.activeElement) && /TEXTAREA|INPUT|IFRAME/.test(document.activeElement.tagName));
 const charger = sansChevauchement(async () => {
-  const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs', 'Visites'];
+  const noms = ['Rapports', 'Types_rapport', 'Rubriques', 'Phrases', 'Personnes', 'Professeurs', 'Etablissements', 'Parametres', 'Competences_MD', 'Signatures', 'Utilisateurs', 'Visites', 'Stagiaires'];
   const lus = await Promise.all([...noms.map(lireTable), CHIFFREMENT ? lireTable(TABLE_CHIFFREMENT) : { lignes: [] }]);
   const T = Object.fromEntries(noms.map((n, i) => [n, lus[i]]));
   if (CHIFFREMENT && !cleLue) { cleLue = true; cle = await cleAuDemarrage(ligneChiffrementValide(lus[noms.length].lignes)); }
@@ -1193,7 +1222,9 @@ const charger = sansChevauchement(async () => {
   D.types = [...(T.Types_rapport.lignes || [])].sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0));
   D.rubriques = T.Rubriques.lignes || []; D.phrases = T.Phrases.lignes || []; D.personnes = T.Personnes.lignes || [];
   D.profs = T.Professeurs.lignes || []; D.etabs = T.Etablissements.lignes || []; D.competences = T.Competences_MD.lignes || [];
-  D.signatures = T.Signatures.lignes || []; D.visites = T.Visites.lignes || [];   // Visites : table du plan (absente = aucune)
+  D.signatures = T.Signatures.lignes || []; D.visites = T.Visites.lignes || [];
+  D.stagiaires = T.Stagiaires.erreur ? [] : T.Stagiaires.lignes || [];   // fiches du suivi PSTG (statut des stagiaires)
+  colonneDiscipline = (T.Rapports.lignes || []).length ? 'Discipline' in T.Rapports.lignes[0] : colonneDiscipline;   // Visites : table du plan (absente = aucune)
   D.params = Object.fromEntries((T.Parametres.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
   moi = identifierMoi(T.Utilisateurs.lignes).moi;
   bienvenue('rapports', profilDe(moi));

@@ -180,7 +180,8 @@ démonstration. Il ne contient ni le partage, ni l'historique.
 | `Prof_civilite` | Texte | Civilité |
 | `Prof_nom` | Texte | Nom |
 | `Prof_prenom` | Texte | Prénom |
-| `Prof_statut` | Texte | Grade · Statut · échelon, composé à la création |
+| `Prof_statut` | Texte | « Professeure stagiaire AGREGE plein temps, éch. 2 », « Contractuel (AC2C1 - CDD) éch. 4 »… : proposé d'après les fiches (Professeurs, Stagiaires), modifiable ; recalculé tant que le rapport n'est pas validé s'il est à l'ancienne forme « Grade · Statut · échelon » |
+| `Discipline` | Texte | forme courte recopiée à la création (MATHS, NSI) : NSI → en-tête « Numérique et Sciences Informatiques », cartouche « N.S.I. » |
 | `Stagiaire_hors_liste` | Booléen | PSTG choisi pour un·e professeur·e non STG (alerte Siiprien) |
 | `UAI` | Texte | UAI |
 | `Etab_nom` | Texte | Établissement |
