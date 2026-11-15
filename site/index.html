@@ -124,6 +124,14 @@ if (transmis) {
 $('source').hidden = !transmis;
 
 
+// Page ouverte comme widget dans Grist (cadre) : c'est l'adresse du site, pas celle de l'application ; on le dit.
+if (window.parent !== window) {
+  const app = new URL('app/', location.href).href;
+  document.querySelector('main').insertAdjacentHTML('afterbegin',
+    `<p class="note" style="border-left:4px solid #b91c1c;padding:8px 12px"><strong>Mauvaise adresse de widget.</strong> Cette page est la
+    présentation du site. Dans Grist : panneau de droite → <em>Widget</em> → <em>URL personnalisée</em>, mettre
+    <code>${esc(app)}</code> (avec <code>app/</code> à la fin), table <code>Navigation</code>, accès complet au document.</p>`);
+}
 // Tant que les adresses ne sont pas renseignées, pas de liens morts : un message à la place.
 if (!transmis && DOCUMENT.includes('IDENTIFIANT')) {
   document.querySelector('main').insertAdjacentHTML('beforeend',
