@@ -295,6 +295,7 @@ import { requetesAGeocoder, geocoder, appliquerGeocodage, choixAutomatique, sans
 import { CHIFFREMENT } from '../commun/config.js';
 import { domaineMail, departements, logoAcademie, nomAcademie, actionsParametres, etapesDemarrage, DOMAINE_ORLEANS } from '../commun/academie.js';
 import { manquants as structureManquante, VERSION_STRUCTURE } from '../commun/structure.js';
+import { etatRegleChiffrement, regleChiffrement, actionsRessources, actionsReglesManquantes } from '../commun/installation.js';
 import { LOGO } from '../rapports/logo.js';
 import { tailleSignature } from '../rapports/logique.js';
 import { AGENDAS } from '../edt/logique.js';
@@ -303,7 +304,7 @@ import { TABLE_CHIFFREMENT, COLONNES_CHIFFREMENT, etatChiffrement, ligneChiffrem
   deriverCle, creerVerificateur, verifierCle, ouvrirAvecPhrase, validerNouvellePhrase, validerChangementPhrase, actionCreerTable, actionsColonnesTable,
   actionsNouvellePhrase, actionsIndice, indiceTropProche, rangerCle, oublierCle, cleAuDemarrage, suivreCle, definirCle, cryptoDisponible } from '../commun/chiffrement.js';
 import { IMPORT, EXPORT, CAMPAGNES, LIEUX, DESCRIPTIONS_ROLES, CONTROLES_FICHES, TABLES_DONNEES, TABLE_FICHES, ROLES, PORTEES, ACTIONS, COLONNES_ACTION, matriceDroits, droitsCalcules,
-  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair, actionsMatriceDefaut, TITRE_MAJUSCULES, actionsEmailsMinuscules } from './logique.js';
+  niveauSuivant, indexPermissions, validerUtilisateur, controles, controlesChiffrement, actionsEnClair, actionsMatriceDefaut, MATRICE_DEFAUT, TITRE_MAJUSCULES, actionsEmailsMinuscules } from './logique.js';
 
 const pref = preferences('Admin');   // dernier onglet ouvert, rôle affiché dans la matrice
 const prefApp = preferences('App');   // case « Voir en tant que », lue par le conteneur app/
@@ -646,8 +647,9 @@ function afficherMatrice() {
         }).join('')}</tr>`;
       }).join('')}
     </table>
-    ${manquantes.length || defaut.length ? `<div class="actions">${defaut.length ? `<button id="matrice-defaut" class="primary" title="Crée les lignes manquantes et remet les cases aux droits par défaut de l'application (double clic)">Appliquer les droits par défaut (${defaut.length} ligne(s))</button>` : ''}
-      ${manquantes.length ? `<button id="creer-manquantes">Créer les lignes manquantes à « Non » (${manquantes.length})</button>` : ''}</div>` : ''}
+    <div class="actions">${defaut.length ? `<button id="matrice-defaut" class="primary" title="Crée les lignes manquantes et remet les cases aux droits par défaut de l'application (double clic)">Appliquer les droits par défaut (${defaut.length} ligne(s))</button>`
+        : !MATRICE_DEFAUT[roleMatrice] ? '' : '<button disabled title="Les cases de ce rôle sont celles prévues par l\'application : rien à appliquer">Droits par défaut : déjà appliqués</button>'}
+      ${manquantes.length ? `<button id="creer-manquantes">Créer les lignes manquantes à « Non » (${manquantes.length})</button>` : ''}</div>
     <p class="muted petit">Un clic fait passer une case à la valeur suivante : Non → Oui → Limité (seulement là où une portée existe) → Non.
       Enregistrement immédiat ; la colonne <code>Droits</code> des comptes se recalcule.</p>
     <details><summary>Portées « Limité »</summary><ul class="petit">
@@ -676,6 +678,8 @@ function afficherControles() {
   const res = [...controles(D), ...fichesControlables.flatMap(c => controlesFiches(c, (D.fiches || {})[c.table] || [])),
     ...(CAMPAGNES ? controlesCampagnes(D.camp[CAMPAGNES.table] || [], CAMPAGNES) : []),
     ...(CHIFFREMENT && D.chiffre ? controlesChiffrement(D.chiffre.etat, D.chiffre.enClair, D.chiffre.echecs, !!cle, D.chiffre.sansCode) : []),
+    ...(D.regleChiffre && D.regleChiffre.etat === 'manquante' ? [{ titre: 'Règle d\'accès manquante : la table Chiffrement n\'est lisible que des propriétaires', niveau: 'erreur',
+      lignes: ['Les IA-IPR et CMi n\'ont pas le bouton « Révéler » : rapports et noms des emplois du temps masqués pour eux. Onglet Chiffrement → « Ajouter la règle d\'accès ».'] }] : []),
     ...(D.structure ? [{ titre: `Structure du document à mettre à jour (version ${VERSION_STRUCTURE}) : page « Installer » → « Créer la structure » (n'ajoute que ce qui manque)`, niveau: 'alerte',
       lignes: [...D.structure.tables.map(t => `table ${t} absente`), ...D.structure.colonnes.map(c => `colonne ${c} absente`)] }] : [])];
   const problemes = res.filter(r => r.lignes.length && r.niveau !== 'info');
@@ -1180,6 +1184,9 @@ function afficherChiffrement(forcer = false) {
         ${nouvelle('chi-ch', 'Changer la phrase')}
       </details>`;
   }
+  if (D.regleChiffre && D.regleChiffre.etat === 'manquante') html = `<div class="alerte ko">La table <code>${TABLE_CHIFFREMENT}</code> n'a pas sa
+      règle d'accès : seul·es les propriétaires du document voient « Révéler ». Les IA-IPR et CMi ne peuvent ni lire les rapports
+      ni voir les noms des emplois du temps.<div class="actions"><button id="chi-regle" class="primary">Ajouter la règle d'accès</button></div></div>` + html;
   $('chi-etat').innerHTML = html;
   if ($('chi-ch-ok')) boutonConfirmation($('chi-ch-ok'), 'Confirmer : tout rechiffrer', changerPhrase);
 }
@@ -1199,6 +1206,25 @@ async function creerTableChiffrement() {
   if (suite.length && !(await ecrire(suite))) return;
   toast(avant.existe ? 'Table Chiffrement complétée' : 'Table Chiffrement créée');
   afficherChiffrement(true);
+}
+// Règle « Chiffrement lisible des comptes actifs » : la ressource, puis la règle (Grist recharge l'écran après une
+// écriture de règles : l'étape en cours est gardée et reprise au chargement).
+async function ajouterRegleChiffrement() {
+  pref.ecrire('RegleChiffrement', '1');
+  try {
+    const lire2 = async () => { const [rs, rg] = await Promise.all([lireTable('_grist_ACLResources'), lireTable('_grist_ACLRules')]); return [rs.lignes || [], rg.lignes || []]; };
+    let [rs, rg] = await lire2();
+    const ress = actionsRessources([regleChiffrement()], rs);
+    if (ress.length) { await grist.docApi.applyUserActions(ress); [rs, rg] = await lire2(); }
+    const a = actionsReglesManquantes([regleChiffrement()], rs, rg);
+    if (a.length) await grist.docApi.applyUserActions(a);
+    pref.ecrire('RegleChiffrement', '');
+    toast('Règle ajoutée : « Révéler » est maintenant proposé aux comptes actifs.');
+  } catch (e) {
+    pref.ecrire('RegleChiffrement', '');
+    toast('Écriture de la règle refusée (seul·e un·e propriétaire du document peut écrire les règles d\'accès) : ' + ((e && e.message) || e), true);
+  }
+  await charger();
 }
 async function creerPhrase() {
   const p1 = $('chi-cr-p1').value, p2 = $('chi-cr-p2').value;
@@ -1362,7 +1388,8 @@ function afficherDemarrage() {
   if (!estAdmin) { el.hidden = true; return; }
   const etapes = etapesDemarrage({ params: valeursParametres(), etabs: etabsLus(),
     profs: (D.lectures && D.lectures.Professeurs && D.lectures.Professeurs.lignes) || [],
-    chiffrement: CHIFFREMENT ? !!ligneChiffre : null, utilisateurs: D.utilisateurs || [], structure: D.structure || null });
+    chiffrement: CHIFFREMENT ? !!ligneChiffre : null, utilisateurs: D.utilisateurs || [], structure: D.structure || null,
+    regleChiffrement: D.regleChiffre ? D.regleChiffre.etat : null });
   const faites = etapes.filter(e => e.fait).length;
   const ouvert = el.open || (faites < etapes.length && !el.dataset.vu);
   el.dataset.vu = '1';
@@ -1406,6 +1433,12 @@ const charger = sansChevauchement(async () => {
     const [mt, mc] = await Promise.all([lireTable('_grist_Tables'), lireTable('_grist_Tables_column')]);
     const m = mt.erreur || mc.erreur ? null : structureManquante(mt.lignes || [], mc.lignes || []);
     D.structure = m;
+    // Règle d'accès de la table Chiffrement (lisible des propriétaires seulement : sinon null, rien n'est signalé).
+    D.regleChiffre = null;
+    if (CHIFFREMENT && D.chiffre && D.chiffre.existe) {
+      const [rs, rg] = await Promise.all([lireTable('_grist_ACLResources'), lireTable('_grist_ACLRules')]);
+      if (!rs.erreur && !rg.erreur && (rs.lignes || []).length) D.regleChiffre = { etat: etatRegleChiffrement(rs.lignes, rg.lignes || []), rs: rs.lignes, rg: rg.lignes || [] };
+    }
   }
   if (!lectures.Parametres) lectures.Parametres = await lireTable('Parametres');
   afficherTout();
@@ -1421,6 +1454,7 @@ if (await initialiserGrist()) {
   grist.ready({ requiredAccess: 'full', allowSelectBy: false });
   installerBulles();
   grist.onRecords(planifier);
+  if (pref.lire('RegleChiffrement', '')) ajouterRegleChiffrement();   // reprise après le rechargement par Grist
 
   $('recharger').addEventListener('click', () => relireSansCache(charger));
   $('onglets').addEventListener('click', e => {
@@ -1496,6 +1530,7 @@ if (await initialiserGrist()) {
       else if (t.id === 'chi-indice-ok') enregistrerIndice();
       else if (t.id === 'chi-masquer') masquerIci();
       else if (t.id === 'chi-enclair') chiffrerEnClair();
+      else if (t.id === 'chi-regle') ajouterRegleChiffrement();
     });
     $('chi-etat').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'chi-phrase') revelerIci(); });
     // Clé changée par le conteneur (Révéler, Masquer, 6 heures sans activité) : relire, redessiner.

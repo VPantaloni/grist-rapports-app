@@ -73,7 +73,8 @@ import { columnsToRows } from '../commun/donnees.js';
 import { CHIFFREMENT } from '../commun/config.js';
 import { decoderTexte, lireCsv } from '../commun/import.js';
 import { ordreTables, planStructure, actionsTables, actionsColonnes, actionsAffichage, choixManquants, actionsChoix, objetsCsv, colonnesDonnees, reglesAcces, etatRegles,
-  actionsRessources, actionsRegles, actionsRetraitKit, MEMO_REGLES } from '../commun/installation.js';
+  actionsRessources, actionsRegles, actionsRetraitKit, reglesManquantes, actionsReglesManquantes, MEMO_REGLES } from '../commun/installation.js';
+import { TABLE_CHIFFREMENT, actionCreerTable, actionsColonnesTable } from '../commun/chiffrement.js';
 import { zipStocke, telechargerFichier, dateFichier } from '../commun/export.js';
 import { rangerFichiers, texteRapport, nomTableEssai, widgetsPersonnalises, reconnaitre, versionSelonSite, brouillonSchema, rapportReprise,
   LIBELLES_ORIGINE } from './logique.js';
@@ -303,6 +304,7 @@ async function analyser() {
   const aImporter = ordreTables(schema).filter(t => csv[t.id] && vides[t.id]);
   $('analyse').innerHTML = `<h3 class="petit">Ce qui sera fait</h3><ul class="plan">
     <li>Tables à créer (${plan.tablesACreer.length}) : ${plan.tablesACreer.map(t => `<code>${esc(t.id)}</code>`).join(', ') || 'aucune'}</li>
+    ${CHIFFREMENT && !meta.tables.some(t => t.tableId === TABLE_CHIFFREMENT) ? `<li>Table <code>${TABLE_CHIFFREMENT}</code> à créer (vide : la phrase secrète se choisit ensuite dans Administration → Chiffrement)</li>` : ''}
     <li>Colonnes à ajouter (${plan.colonnesAAjouter.length}) : ${plan.colonnesAAjouter.map(x => `<code>${esc(x.table)}.${esc(x.colonne.id)}</code>`).join(', ') || 'aucune'}</li>
     ${(() => { const cm = choixManquants(schema, meta); return cm.length ? `<li>Choix à compléter (${cm.length}) : ${cm.map(x => `<code>${esc(x.table)}.${esc(x.colonne)}</code> + ${x.manquants.map(esc).join(', ')}`).join(' ; ')}</li>` : ''; })()}
     <li>Données d'exemple (tables vides seulement) : ${aImporter.map(t => `<code>${esc(t.id)}</code> ${csv[t.id].length}`).join(', ') || 'aucune'}</li>
@@ -323,21 +325,27 @@ let ri = null;
 const sauverRegles = () => pref.ecrire('Regles', JSON.stringify(ri));
 async function analyserRegles() {
   const [rs, rg, meta] = await Promise.all([lire('_grist_ACLResources'), lire('_grist_ACLRules'), lireMeta()]);
-  const etat = etatRegles(rs, rg);
   const tables = new Set(meta.tables.map(t => t.tableId));
-  const regles = reglesAcces(schema, { chiffrement: !!CHIFFREMENT && tables.has('Chiffrement') });
+  const regles = reglesAcces(schema, { chiffrement: !!CHIFFREMENT });
+  const etat = etatRegles(rs, rg, regles);
+  const absentes = etat.statut === 'kit' ? reglesManquantes(regles, rs, rg).map(i => regles[i]) : [];
   const manquantes = [...new Set(regles.map(r => r.ressource.tableId).filter(t => t !== '*' && !tables.has(t)))];
   const liste = `<details><summary>Les ${regles.length} règles, dans l'ordre</summary><table class="petit">${regles.map(r =>
     `<tr><td><code>${esc(r.ressource.tableId === '*' ? 'défaut' : r.ressource.tableId + (r.ressource.colIds !== '*' ? '.' + r.ressource.colIds : ''))}</code></td>
       <td>${esc(r.libelle)}<br><code>${esc(r.condition || (r.attribut ? '' : 'tout le monde'))}</code></td><td><code>${esc(r.droits)}</code></td></tr>`).join('')}</table></details>`;
   let html = liste;
   if (manquantes.length) html = `<div class="alerte ko">Tables absentes du document : ${manquantes.map(esc).join(', ')}. Créer la structure d'abord (2).</div>` + liste;
+  else if (absentes.length) html = `<div class="alerte ko">Règles déjà installées, mais ${absentes.length} règle(s) manque(nt) (table créée après
+      les règles, nouvelle version de l'application) :<ul class="plan">${absentes.map(r => `<li>${esc(r.libelle)}</li>`).join('')}</ul></div>`
+    + '<div class="actions"><button id="completer-regles" class="primary" title="Ajoute seulement les règles qui manquent, à leur place ; les autres ne bougent pas">'
+    + `Ajouter les règles manquantes (${absentes.length})</button></div>` + liste;
   else if (etat.statut === 'kit') html = `<div class="alerte ok">Règles déjà installées par cet écran (${etat.n}). À vérifier : menu du document → Règles d'accès.</div>` + liste
     + '<div class="actions"><button id="reecrire-regles" title="Retire les règles marquées « kit grist-app-generator », puis écrit celles ci-dessus (schéma changé, correction)">Réécrire les règles du kit</button></div>';
   else if (etat.statut === 'autres') html = `<div class="alerte ko">Le document a déjà ${etat.n} règle(s) saisie(s) par ailleurs : rien ne sera écrit. Les compléter à la main avec installation/regles-acces.md.</div>` + liste;
   else html += '<div class="actions"><button id="ecrire-regles" class="primary">Écrire les règles d\'accès</button></div>';
   $('regles').innerHTML = html;
   if ($('ecrire-regles')) boutonConfirmation($('ecrire-regles'), 'Confirmer l\'écriture des règles', () => { ri = { phase: 'ressources', regles }; sauverRegles(); poursuivreRegles(); });
+  if ($('completer-regles')) boutonConfirmation($('completer-regles'), 'Confirmer l\'ajout', () => { ri = { phase: 'ressources', regles, complement: true }; sauverRegles(); poursuivreRegles(); });
   if ($('reecrire-regles')) boutonConfirmation($('reecrire-regles'), 'Confirmer : retirer et réécrire', () => { ri = { phase: 'retrait', regles }; sauverRegles(); poursuivreRegles(); });
 }
 async function poursuivreRegles() {
@@ -353,14 +361,18 @@ async function poursuivreRegles() {
       if (a.length) await appliquer(a);   // recharge le widget : la suite reprend au chargement
     }
     if (ri.phase === 'regles') {
-      const deja = (await lire('_grist_ACLRules')).filter(r => r.memo === MEMO_REGLES).length;
       ri.phase = 'controle'; sauverRegles();
-      if (!deja) await appliquer(actionsRegles(ri.regles, await lire('_grist_ACLResources')));
+      const [rs, rg] = await Promise.all([lire('_grist_ACLResources'), lire('_grist_ACLRules')]);
+      if (ri.complement) { const a = actionsReglesManquantes(ri.regles, rs, rg); if (a.length) await appliquer(a); }
+      else if (!rg.filter(r => r.memo === MEMO_REGLES).length) await appliquer(actionsRegles(ri.regles, rs));
     }
     if (ri.phase === 'controle') {
-      const n = (await lire('_grist_ACLRules')).filter(r => r.memo === MEMO_REGLES).length;
+      const [rs, rg] = await Promise.all([lire('_grist_ACLResources'), lire('_grist_ACLRules')]);
+      const reste = reglesManquantes(ri.regles, rs, rg).length, n = ri.regles.length - reste;
       ri.phase = 'fini';
-      ri.resultat = n === ri.regles.length
+      ri.resultat = ri.complement && !reste ? '<div class="alerte ok">Règles manquantes ajoutées : toutes les règles attendues sont en place. '
+        + 'À vérifier : « Voir en tant que » un compte IA-IPR ou CMi, bouton « Révéler » du menu de l\'application.</div>'
+        : !reste
         ? `<div class="alerte ok">${n} règles d'accès écrites. À faire maintenant : ajouter sa ligne dans Utilisateurs (e-mail exact, Administrateur·trice, Actif), puis vérifier dans Administration → Mon compte « Identification réussie », et « Voir en tant que » pour chaque rôle (installation/regles-acces.md § 8).</div>`
         : `<div class="alerte ko">${n} règle(s) trouvée(s) sur ${ri.regles.length} attendues : vérifier menu du document → Règles d'accès.</div>`;
       sauverRegles();   // gardé : un dernier rechargement par Grist effacerait l'écran
@@ -380,6 +392,9 @@ async function creerStructure() {
     const p = planStructure(schema, await lireMeta());
     const creees = p.tablesACreer.map(t => t.id), tables = actionsTables(p);
     if (tables.length) { await appliquer(tables); journal(`Tables créées : ${creees.join(', ')}.`); }
+    // Table Chiffrement créée dès maintenant (vide), pour que sa règle d'accès soit écrite avec les autres (volet 3) :
+    // créée plus tard, à la saisie de la phrase, elle restait sans règle et « Révéler » manquait aux IA-IPR et CMi.
+    if (CHIFFREMENT) await creerTableChiffrement();
     const colonnes = actionsColonnes(schema, await lireMeta(), formules, creees);
     if (colonnes.length) { await appliquer(colonnes); journal(`Colonnes : ${colonnes.filter(a => a[0] === 'AddColumn').length} ajoutée(s), ${colonnes.filter(a => a[0] === 'RemoveColumn').length} par défaut retirée(s).`); }
     const choix = actionsChoix(schema, await lireMeta());
@@ -389,6 +404,14 @@ async function creerStructure() {
     toast('Structure créée');
     await analyserRegles();   // le volet des règles voit maintenant les tables
   } catch (e) { journal('ÉCHEC : ' + texteErreur(e)); toast('Création refusée (détail dans le journal)', true); }
+}
+async function creerTableChiffrement() {
+  const id = () => lireMeta().then(m => (m.tables.find(t => t.tableId === TABLE_CHIFFREMENT) || {}).id);
+  let t = await id();
+  if (!t) { await appliquer([actionCreerTable()]); t = await id(); journal(`Table ${TABLE_CHIFFREMENT} créée (phrase secrète à choisir dans Administration → Chiffrement).`); }
+  const cols = (await lireMeta()).colonnes.filter(c => c.parentId === t).map(c => c.colId);
+  const a = actionsColonnesTable(cols);
+  if (a.length) await appliquer(a);
 }
 async function importerDonnees() {
   const cibles = {};

@@ -520,6 +520,8 @@ ajoute un passage à sa bibliothèque de phrases types (nom remplacé par {civil
 | Symptôme | Cause probable | Solution |
 |---|---|---|
 | L'application est vide | pas connecté·e à Grist | se connecter, puis recharger |
+| Les IA-IPR et CMi n'ont pas « Révéler » ; Emplois du temps : « Noms des professeur·es chiffrés et masqués » | table `Chiffrement` sans règle d'accès (installations antérieures au 20/11/2026 : table créée après les règles) | propriétaire : Administration → Chiffrement → « Ajouter la règle d'accès », ou Installer, volet 3 → « Ajouter les règles manquantes » |
+| Import : « Annuaire de l'éducation injoignable » | service public indisponible, ou réseau qui le bloque | l'import se fait sans complément ; le refaire plus tard (sans doublon) |
 | « Aucun écran disponible » + bouton « Se connecter » | pas connecté·e à Grist, ou compte absent de `Utilisateurs` | se connecter ; sinon ajouter le compte (adresse de connexion, en minuscules) |
 | « Aucun écran disponible : compte inactif » | compte inactif dans `Utilisateurs` | cocher Actif |
 | Une action est refusée | règles d'accès ou partage (lecteur·trice) | Administration → Mon compte → Diagnostic : journal des refus (table, colonnes, message de Grist) |

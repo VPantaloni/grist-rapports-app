@@ -35,6 +35,7 @@
     <li><a href="#maj">Mettre à jour</a></li>
     <li><a href="#sauvegarde">Sauvegarder</a></li>
     <li><a href="#donnees">Données personnelles</a></li>
+    <li><a href="#depannage">Dépannage</a></li>
     <li><a href="#aide">Aide</a></li>
   </ol>
 </nav>
@@ -95,7 +96,7 @@
 </ol>
 
 <h2 id="demarrage">3. Premier démarrage</h2>
-<p>Dans l'application, l'écran <strong>Administration</strong> affiche « Premier démarrage » : cinq étapes, cochées au
+<p>Dans l'application, l'écran <strong>Administration</strong> affiche « Premier démarrage » : six étapes, cochées au
   fur et à mesure.</p>
 <table>
   <tr><th>Étape</th><th>Où</th><th>Quoi</th></tr>
@@ -104,6 +105,8 @@
     des mails et départements (déduits des établissements si vides).</td></tr>
   <tr><td>Phrase de chiffrement</td><td>Administration → Chiffrement</td><td>Saisir la phrase choisie ; un indice facultatif
     aide à s'en souvenir (jamais la phrase elle-même).</td></tr>
+  <tr><td>« Révéler » ouvert aux IA-IPR et CMi</td><td>Administration → Chiffrement</td><td>La table de la phrase doit avoir
+    sa règle d'accès ; sinon bouton « Ajouter la règle d'accès » (propriétaire du document).</td></tr>
   <tr><td>Fichier Siiprien</td><td>Administration → Import</td><td><a href="#siiprien">§ 4</a>.</td></tr>
   <tr><td>Comptes</td><td>Administration → Accès, ou Annuaire</td><td>Une ligne par CMi et IA-IPR (adresse en minuscules,
     rôle, fiche de l'annuaire).</td></tr>
@@ -146,7 +149,7 @@
   <li><strong>Quand une version ajoute une colonne</strong> : Administration → Contrôles (et « Premier démarrage »)
     signale « Structure du document à mettre à jour ». Télécharger le nouveau <code>installation.zip</code>, ouvrir la
     page Installer → « Créer la structure » : elle n'ajoute que ce qui manque, ne supprime rien. Puis, si demandé,
-    « Réécrire les règles du kit » et Administration → Permissions → « Appliquer les droits par défaut ».</li>
+    « Ajouter les règles manquantes » (volet 3) et Administration → Permissions → « Appliquer les droits par défaut ».</li>
   <li>Ce qui change d'une version à l'autre : <a href="https://forge.apps.education.fr/widget/grist-rapports-app/-/commits/main">historique du projet</a>.</li>
   <li>Avant toute mise à jour de structure : <a href="#sauvegarde">sauvegarder</a>.</li>
 </ul>
@@ -169,7 +172,23 @@
     (par exemple : rapports gardés tant que la personne est en poste dans l'académie).</li>
 </ul>
 
-<h2 id="aide">9. Aide</h2>
+<h2 id="depannage">9. Dépannage</h2>
+<table>
+  <tr><th>Symptôme</th><th>Cause</th><th>Solution</th></tr>
+  <tr><td>Les collègues (IA-IPR, CMi) n'ont pas le bouton « Révéler » ; dans Emplois du temps : « Noms des professeur·es
+    chiffrés et masqués »</td><td>La table <code>Chiffrement</code> n'a pas sa règle d'accès (documents installés avant le
+    20/11/2026 : la table était créée après les règles)</td><td>En propriétaire : Administration → Chiffrement →
+    <strong>« Ajouter la règle d'accès »</strong> (ou page Installer, volet 3 → « Ajouter les règles manquantes »).
+    Vérifier avec « Voir en tant que ».</td></tr>
+  <tr><td>Import Siiprien : alerte « Annuaire de l'éducation injoignable »</td><td>Service public momentanément
+    indisponible, ou réseau / pare-feu qui le bloque</td><td>Les professeur·es sont tout de même importé·es ; refaire
+    l'import plus tard (rien n'est dupliqué) pour compléter adresses, téléphones et positions.</td></tr>
+  <tr><td>« Appliquer les droits par défaut » grisé</td><td>Les droits du rôle sont déjà ceux prévus</td><td>Rien à faire.</td></tr>
+  <tr><td>Page Installer : « access level none »</td><td>Le widget n'a pas l'accès complet</td><td>Panneau de droite →
+    Widget → Niveau d'accès → « Accès complet au document ».</td></tr>
+</table>
+
+<h2 id="aide">10. Aide</h2>
 <ul>
   <li>Chaque écran a son mode d'emploi : bouton <strong>?</strong> en haut à droite ; une fenêtre « Comment ça marche »
     s'affiche à la première ouverture.</li>

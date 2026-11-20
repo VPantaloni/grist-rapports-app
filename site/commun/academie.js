@@ -71,8 +71,10 @@ export function actionsParametres(lignes, valeurs, descriptions = {}) {
 // Premier démarrage (Administration) : étapes, faites ou non, dans l'ordre.
 /**
  * @param {{ params: Record<string, string>, etabs: Ligne[], profs: Ligne[], chiffrement: boolean | null,
- *   utilisateurs: Ligne[], structure: { tables: string[], colonnes: string[] } | null }} d
- *   chiffrement : null = application sans chiffrement ; structure : null = non vérifiée
+ *   utilisateurs: Ligne[], structure: { tables: string[], colonnes: string[] } | null,
+ *   regleChiffrement?: 'ok' | 'manquante' | 'sans-regles' | null }} d
+ *   chiffrement : null = application sans chiffrement ; structure : null = non vérifiée ; regleChiffrement : null =
+ *   règles illisibles (compte non propriétaire) ou table Chiffrement absente
  */
 export function etapesDemarrage(d) {
   const comptes = (d.utilisateurs || []).filter(u => u.Actif === true);
@@ -85,6 +87,9 @@ export function etapesDemarrage(d) {
       detail: 'nom, logo des rapports, domaine des mails' },
   ];
   if (d.chiffrement !== null) e.push({ cle: 'chiffrement', titre: 'Phrase de chiffrement', onglet: 'chiffrement', fait: !!d.chiffrement, detail: 'à garder précieusement : sans elle, rapports illisibles' });
+  if (d.regleChiffrement) e.push({ cle: 'revele', titre: '« Révéler » ouvert aux IA-IPR et CMi', onglet: 'chiffrement', fait: d.regleChiffrement === 'ok',
+    detail: d.regleChiffrement === 'ok' ? 'règle d\'accès de la table Chiffrement en place'
+      : d.regleChiffrement === 'manquante' ? 'règle d\'accès à ajouter (onglet Chiffrement)' : 'règles d\'accès pas encore écrites (page Installer, volet 3)' });
   e.push(
     { cle: 'siiprien', titre: 'Fichier Siiprien des professeur·es', onglet: 'import', fait: (d.profs || []).length > 0 && (d.etabs || []).length > 0,
       detail: `${(d.profs || []).length} professeur·es, ${(d.etabs || []).length} établissements` },

@@ -213,7 +213,7 @@ export function reglesAcces(schema, o = {}) {
   r.push({ ressource: t('Utilisateurs'), condition: `rec.${cleEmail} == user.Email`, droits: '+R', libelle: 'Utilisateurs : sa ligne' });
   r.push({ ressource: t('Permissions'), condition: 'user.IsLoggedIn', droits: '+R', libelle: 'Permissions : lisible si connecté·e' });
   r.push({ ressource: t('Navigation'), condition: 'True', droits: '+R', libelle: 'Navigation : lisible par tous' });
-  if (o.chiffrement) r.push({ ressource: t('Chiffrement'), condition: `${P} and ${P}.Actif`, droits: '+R', libelle: 'Chiffrement : lisible des comptes actifs (pour « Révéler »)' });
+  if (o.chiffrement) r.push(regleChiffrement());
   for (const tb of (schema.tables || []).filter(x => !x.administration)) {
     for (const regle of (schema.regles || []).filter(x => x.table === tb.id && x.colonne)) {
       r.push({ ressource: t(tb.id, /** @type {string} */ (regle.colonne)), condition: regle.condition, droits: regle.droits, libelle: regle.libelle || `${tb.id}.${regle.colonne} : règle déclarée` });
@@ -232,15 +232,80 @@ export function reglesAcces(schema, o = {}) {
   return r;
 }
 
+// Règle de la table Chiffrement (sel et vérificateur, rien de secret) : lisible des comptes actifs, sinon « Révéler »
+// n'apparaît que pour les propriétaires.
+/** @returns {RegleAcces} */
+export const regleChiffrement = () => ({ ressource: { tableId: 'Chiffrement', colIds: '*' }, condition: `${P} and ${P}.Actif`, droits: '+R',
+  libelle: 'Chiffrement : lisible des comptes actifs (pour « Révéler »)' });
+// Contrôle de l'Administration : 'ok' (règle présente, à la main ou par le kit), 'manquante' (le document a des règles
+// mais pas celle-ci : IA-IPR et CMi sans « Révéler »), 'sans-regles' (aucune règle encore écrite).
+/** @param {Ligne[]} ressources @param {Ligne[]} regles @returns {'ok' | 'manquante' | 'sans-regles'} */
+export function etatRegleChiffrement(ressources, regles) {
+  if (etatRegles(ressources, regles).statut === 'vierge') return 'sans-regles';
+  return reglesManquantes([regleChiffrement()], ressources, regles).length ? 'manquante' : 'ok';
+}
+
 // État des règles du document : vierge (seulement les règles spéciales que Grist pose d'office), kit (déjà
 // installées par cet écran), autres (règles saisies par ailleurs : l'écran n'écrit rien).
-/** @param {Ligne[]} ressources @param {Ligne[]} regles */
-export function etatRegles(ressources, regles) {
+// attendues (facultatif) : une règle saisie à la main identique à une règle du kit (même table, condition et droits,
+// ex. la règle Chiffrement ajoutée à la main) compte comme une règle du kit.
+/** @param {Ligne[]} ressources @param {Ligne[]} regles @param {RegleAcces[]} [attendues] */
+export function etatRegles(ressources, regles, attendues = []) {
   const speciale = (/** @type {Ligne} */ r) => { const x = ressources.find(y => y.id === r.resource); return /^\*SPECIAL/.test(String((x && x.tableId) || '')); };
   const utiles = regles.filter(r => !speciale(r) && (r.aclFormula || r.permissionsText || r.userAttributes));
   if (!utiles.length) return { statut: 'vierge', n: 0 };
-  if (utiles.every(r => r.memo === MEMO_REGLES)) return { statut: 'kit', n: utiles.length };
-  return { statut: 'autres', n: utiles.filter(r => r.memo !== MEMO_REGLES).length };
+  const cles = new Set(attendues.map(cleRegleAttendue));
+  const duKit = (/** @type {Ligne} */ r) => r.memo === MEMO_REGLES || cles.has(cleRegleExistante(r, ressources));
+  if (utiles.every(duKit)) return { statut: 'kit', n: utiles.length };
+  return { statut: 'autres', n: utiles.filter(r => !duKit(r)).length };
+}
+// Comparaison d'une règle attendue et d'une règle du document : table, colonnes, condition, droits, attribut
+// (espaces et ordre des clés de l'attribut indifférents).
+const sansEspaces = (/** @type {any} */ v) => String(v ?? '').replace(/\s+/g, ' ').trim();
+const attributNormal = (/** @type {any} */ a) => {
+  if (!a) return '';
+  let o = a;
+  if (typeof a === 'string') { try { o = JSON.parse(a); } catch (e) { return sansEspaces(a); } }
+  return JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]));
+};
+/** @param {RegleAcces} r */
+export const cleRegleAttendue = r => [r.ressource.tableId, r.ressource.colIds, sansEspaces(r.condition), sansEspaces(r.droits), attributNormal(r.attribut)].join('|');
+/** @param {Ligne} r @param {Ligne[]} ressources */
+export function cleRegleExistante(r, ressources) {
+  const x = ressources.find(y => y.id === r.resource);
+  return [x ? x.tableId : '?', x ? x.colIds : '?', sansEspaces(r.aclFormula), sansEspaces(r.permissionsText), attributNormal(r.userAttributes)].join('|');
+}
+// Règles attendues absentes du document (rang dans la liste attendue). Ex. : la règle de la table Chiffrement, non
+// écrite quand la table a été créée après les règles (constaté le 2026-11-19 sur une installation neuve).
+/** @param {RegleAcces[]} attendues @param {Ligne[]} ressources @param {Ligne[]} regles @returns {number[]} */
+export function reglesManquantes(attendues, ressources, regles) {
+  const presentes = new Set(regles.map(r => cleRegleExistante(r, ressources)));
+  return attendues.map((r, i) => (presentes.has(cleRegleAttendue(r)) ? -1 : i)).filter(i => i >= 0);
+}
+// Ajout des seules règles manquantes, chacune à sa place : rulePos entre celles de la règle attendue présente qui la
+// précède et de celle qui la suit (l'ordre compte dans une même table, ex. D1-D4 en dernier). Ressources déjà créées.
+/** @param {RegleAcces[]} attendues @param {Ligne[]} ressources @param {Ligne[]} regles */
+export function actionsReglesManquantes(attendues, ressources, regles) {
+  /** @type {Map<string, number>} */
+  const pos = new Map();
+  for (const r of regles) { const k = cleRegleExistante(r, ressources); if (!pos.has(k)) pos.set(k, Number(r.rulePos) || 0); }
+  /** @type {(number | null)[]} */
+  const places = attendues.map(r => (pos.has(cleRegleAttendue(r)) ? /** @type {number} */ (pos.get(cleRegleAttendue(r))) : null));
+  const actions = [];
+  for (let i = 0; i < attendues.length; i++) {
+    if (places[i] !== null) continue;
+    let avant = null, apres = null;
+    for (let j = i - 1; j >= 0 && avant === null; j--) avant = places[j];
+    for (let j = i + 1; j < attendues.length && apres === null; j++) apres = places[j];
+    const p = avant !== null && apres !== null ? (avant + apres) / 2 : avant !== null ? avant + 1 : apres !== null ? apres - 1 : i + 1;
+    places[i] = p;
+    const r = attendues[i];
+    const res = ressources.find(x => x.tableId === r.ressource.tableId && x.colIds === r.ressource.colIds);
+    if (!res) throw new Error(`ressource ${r.ressource.tableId} ${r.ressource.colIds} absente`);
+    actions.push(['AddRecord', '_grist_ACLRules', null, { resource: res.id, aclFormula: r.condition, permissionsText: r.droits, rulePos: p, memo: MEMO_REGLES,
+      ...(r.attribut ? { userAttributes: JSON.stringify(r.attribut) } : {}) }]);
+  }
+  return actions;
 }
 // Réécriture des règles du kit (schéma changé, correction) : retrait des règles marquées par le kit, avant de les écrire.
 /** @param {Ligne[]} regles */

@@ -42,9 +42,27 @@ export function ficheAnnuaire(r) {
   };
 }
 
+// Une requête, réessayée une fois après une pause (service saturé, requêtes trop rapprochées, coupure du réseau).
+// Échec : message lisible, avec l'erreur d'origine (celle du navigateur ou le code HTTP) pour le dépannage.
+/** @param {typeof fetch} f @param {string} url @param {number} pause */
+async function requeteAnnuaire(f, url, pause) {
+  let derniere = '';
+  for (let essai = 0; essai < 2; essai++) {
+    if (essai) await new Promise(r => setTimeout(r, pause));
+    try {
+      const rep = await f(url);
+      if (rep.ok) return rep;
+      derniere = `réponse HTTP ${rep.status}`;
+      if (rep.status >= 400 && rep.status < 500 && rep.status !== 429) break;   // requête refusée : inutile de réessayer
+    } catch (e) { derniere = `erreur du navigateur : ${(e && /** @type {any} */ (e).message) || e}`; }
+  }
+  throw new Error(`Annuaire de l'éducation (data.education.gouv.fr) injoignable (${derniere}). Réseau ou pare-feu de `
+    + `l'établissement à vérifier ; réessayer plus tard.`);
+}
+
 // Interroge l'Annuaire pour ces UAI (valides, sans doublon) : Map UAI → fiche. Erreur si le service ne répond pas.
 /**
- * @param {string[]} uais @param {{ fetch?: typeof fetch, progres?: (fait: number, total: number) => void }} [o]
+ * @param {string[]} uais @param {{ fetch?: typeof fetch, progres?: (fait: number, total: number) => void, pause?: number }} [o]
  * @returns {Promise<Map<string, FicheAnnuaire>>}
  */
 export async function chercherAnnuaire(uais, o = {}) {
@@ -55,8 +73,7 @@ export async function chercherAnnuaire(uais, o = {}) {
   const fiches = new Map();
   for (let i = 0; i < urls.length; i++) {
     if (o.progres) o.progres(i, urls.length);
-    const rep = await f(urls[i]);
-    if (!rep.ok) throw new Error(`Annuaire de l'éducation indisponible (HTTP ${rep.status}).`);
+    const rep = await requeteAnnuaire(f, urls[i], o.pause ?? 2000);
     for (const r of (await rep.json()).results || []) { const fiche = ficheAnnuaire(r); fiches.set(fiche.uai, fiche); }
   }
   return fiches;
