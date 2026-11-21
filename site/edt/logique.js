@@ -3,7 +3,7 @@
 // Reprise du widget EdT-widget v2.0.1 (même lecture des créneaux, mêmes règles d'alternance, de créneaux libres et de
 // réunion d'équipe) ; ajouts : pastilles stagiaires / MD tirées des tables de l'application, modèles de mails.
 
-import { domaineMail, mailDe, departementDe } from '../commun/academie.js';
+import { domaineMail, mailDe, departementDe, deDiscipline } from '../commun/academie.js';
 
 /** @typedef {Record<string, any>} Ligne */
 /** @typedef {{ id: number, tkey: string, start: number, end: number, day: number, alt: string, altRaw: string, altUnknown: boolean,
@@ -336,13 +336,14 @@ export const modelesPour = (modeles, profil) => modeles.filter(m => { const p = 
 /** @param {any} texte @param {Record<string, string>} v */
 export const remplirModele = (texte, v) => String(texte ?? '').replace(/\{([a-z_]+)\}/g, (x, k) => (k in v ? v[k] : x));
 // Une ligne par créneau du planning (texte du mail).
-/** @param {{ type: string, start: number, end: number, nom?: string, classe?: string }[]} items */
-export function planningTexte(items) {
+// discipline : Parametres.discipline (« Réunion de l'équipe de physique-chimie »).
+/** @param {{ type: string, start: number, end: number, nom?: string, classe?: string }[]} items @param {string} [discipline] */
+export function planningTexte(items, discipline = 'Mathématiques') {
   return items.map(it => {
     const h = `${fmtMin(it.start)} - ${fmtMin(it.end)}`;
     if (it.type === 'v') return `* ${h} Visite de classe : ${it.nom}${it.classe ? ` (${it.classe})` : ''}`;
     if (it.type === 'e') return `* ${h} Entretien : ${it.nom}`;
-    return `* ${h} Réunion de l'équipe de mathématiques`;
+    return `* ${h} Réunion de l'équipe ${deDiscipline(discipline || 'Mathématiques')}`;
   }).join('\n');
 }
 // Champs par professeur·e : {planning_profs} (une ligne « M. NOM PRENOM | visite de la classe 4E2 à 10h10 | Entretien à

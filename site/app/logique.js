@@ -18,6 +18,9 @@ export const ECRANS = {
   admin: { dossier: 'admin', libelle: 'Administration' },
   // Ajouté par le conteneur (pas de ligne Navigation) pour qui n'a pas l'Administration : même widget, onglet Mon compte.
   compte: { dossier: 'admin', libelle: 'Mon compte' },
+  // Assistant de premier démarrage : ajouté en tête du menu par le conteneur tant que l'installation n'est pas terminée
+  // (assistantAOuvrir) ; aucune ligne Navigation.
+  demarrage: { dossier: 'demarrage', libelle: 'Premier démarrage' },
 };
 // Tables qui changent rarement (ex. annuaire d'établissements de plusieurs centaines de lignes) : le conteneur garde
 // leur lecture jusqu'à une écriture, un retour sur l'écran ou le bouton ↻ ; la relecture des 15 s ne les relit pas.
@@ -37,7 +40,7 @@ export const ANCIENS_NOMS_RELAIS = [];
 export const estEcran = cle => typeof cle === 'string' && Object.prototype.hasOwnProperty.call(ECRANS, cle);
 
 // Menu par défaut si la table Navigation est absente ou vide (Administration réservée aux admins).
-export const MENU_DEFAUT = Object.entries(ECRANS).filter(([k]) => k !== 'compte').map(([Widget, e], i) => ({
+export const MENU_DEFAUT = Object.entries(ECRANS).filter(([k]) => k !== 'compte' && k !== 'demarrage').map(([Widget, e], i) => ({
   Libelle: e.libelle, Widget, Ordre: (i + 1) * 10, Roles: Widget === 'admin' ? ['L', 'Administrateur·trice'] : [], Visible: true,
 }));
 
@@ -94,6 +97,23 @@ export function menuVisible(lignes, moi, tous = false, sansCompte = false) {
     .sort((a, b) => (Number(a.Ordre) || 0) - (Number(b.Ordre) || 0))
     .filter(l => !vus.has(l.Widget) && vus.add(l.Widget))
     .map(l => ({ cle: l.Widget, libelle: String(l.Libelle || '').trim() || ECRANS[l.Widget].libelle }));
+}
+
+// Assistant de premier démarrage (Parametres.installation) : 'terminée' → jamais ; 'en cours' → pour l'administration
+// (ou tant que les règles ne sont pas saisies, ou compte encore inconnu d'un document neuf) ; absent → seulement sur un
+// document neuf tiré du modèle : compte inconnu et tous les comptes lisibles en .example (seul·e un·e propriétaire du
+// document les lit tous : une personne invitée n'en lit aucun). Un document déjà en service n'est donc jamais concerné.
+/**
+ * @param {{ tous?: boolean, moi?: Record<string, any> | null, aucun?: boolean, raison?: string }} compte @param {Record<string, any>[]} utilisateurs
+ * @param {Record<string, string>} params
+ */
+export function assistantAOuvrir(compte, utilisateurs, params) {
+  const etat = String((params && params.installation) || '').trim().toLowerCase();
+  if (etat === 'terminée' || etat === 'terminee') return false;
+  const neuf = utilisateurs.length > 0 && utilisateurs.every(u => /\.example$/i.test(String(u.Email || '').trim()));
+  const admin = !!(compte.moi && liste(compte.moi.Roles).includes('Administrateur·trice'));
+  if (etat === 'en cours') return !!compte.tous || admin || (compte.raison === 'inconnu' && neuf);
+  return (!!compte.tous || compte.raison === 'inconnu') && neuf;
 }
 
 // « Mon compte » en dernier pour qui n'a pas l'écran Administration (qui le contient déjà).

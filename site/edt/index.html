@@ -953,7 +953,7 @@ function champsMail(g){
   const fiche = personne(moiPers()) || {};
   const ref = fiche.Referent ? personne(fiche.Referent) : null;
   return { etablissement: String(e.Nom || etabLabel(g.uai)), commune: String(e.Commune || ""), date: groupDateText(g),
-    planning: planningTexte(itemsTexte(g)), professeurs: joinNames(g.teachers.map(k => tName(state.teachers.get(k)))),
+    planning: planningTexte(itemsTexte(g), (state.params || {}).discipline), professeurs: joinNames(g.teachers.map(k => tName(state.teachers.get(k)))),
     signataire: `${fiche.Prenom || ""} ${fiche.Nom || ""}`.trim(), fonction: String(fiche.Titre_signature || fiche.Fonction || ""),
     ipr: ref ? `${ref.Prenom || ""} ${ref.Nom || ""}`.trim() : "", ...champsVisites(itemsTexte(g)) };
 }
@@ -1833,9 +1833,9 @@ document.addEventListener("click", async e => {
     }
     const g = state.groupRefs[+act.dataset.g];
     if (g && a === "meet-add"){ state.meetings[g.key] = defaultMeetingFor(g); savePlan(); state.pop = {kind:"meet", key:g.key}; renderWork(); return; }
-    if (g && a === "copytable"){ const ok = await copier(planningTexte(itemsTexte(g)), planTableHTML(g)); toast(ok ? "Tableau copié : collez-le dans le mail (Ctrl+V)." : "Copie impossible dans ce navigateur.", !ok); return; }
-    if (g && a === "copytext"){ const ok = await copier(planningTexte(itemsTexte(g))); toast(ok ? "Planning copié." : "Copie impossible dans ce navigateur.", !ok); return; }
-    if (g && a === "mail"){ copier(planningTexte(itemsTexte(g)), planTableHTML(g)).then(ok => { if (ok) toast("Messagerie ouverte. Le tableau du planning est aussi copié : collez-le dans le mail si besoin (Ctrl+V)."); }); return; }
+    if (g && a === "copytable"){ const ok = await copier(planningTexte(itemsTexte(g), (state.params || {}).discipline), planTableHTML(g)); toast(ok ? "Tableau copié : collez-le dans le mail (Ctrl+V)." : "Copie impossible dans ce navigateur.", !ok); return; }
+    if (g && a === "copytext"){ const ok = await copier(planningTexte(itemsTexte(g), (state.params || {}).discipline)); toast(ok ? "Planning copié." : "Copie impossible dans ce navigateur.", !ok); return; }
+    if (g && a === "mail"){ copier(planningTexte(itemsTexte(g), (state.params || {}).discipline), planTableHTML(g)).then(ok => { if (ok) toast("Messagerie ouverte. Le tableau du planning est aussi copié : collez-le dans le mail si besoin (Ctrl+V)."); }); return; }
     if (g && a === "memo-save"){
       if (!g.date && act.dataset.ok !== "1"){ act.dataset.ok = "1"; toast("Aucune date pour ce planning : cliquer encore pour le mémoriser quand même, ou choisir la date.", true); return; }
       act.disabled = true;

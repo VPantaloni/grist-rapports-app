@@ -76,7 +76,7 @@ import { columnsToRows, liste } from '../commun/donnees.js';
 import { $, esc, installerBulles, preferences, toast } from '../commun/interface.js';
 import { initialiserGrist, lireTable, avecDelai, origineGrist, basculerPleinEcranNavigateur } from '../commun/grist.js';
 import { classerErreur } from '../commun/journal.js';
-import { ECRANS, MENU_DEFAUT, TABLES_STABLES, ANCIENS_NOMS_RELAIS, compteMenu, menuVisible, ajouterMonCompte, adressePageGrist, adresseDocument,
+import { ECRANS, MENU_DEFAUT, TABLES_STABLES, ANCIENS_NOMS_RELAIS, compteMenu, menuVisible, ajouterMonCompte, assistantAOuvrir, adressePageGrist, adresseDocument,
   sectionDuConteneur, lienVoirEnTantQue, lienMode, modeDepuisReferent, adresseEcran, lienConnexion, pagesDuSite, lienAccueil } from './logique.js';
 import { creerRelais } from './relais.js';
 import { TABLE_CHIFFREMENT, DUREE_MS, ETAT_CLE, ligneChiffrementValide, signatureChiffrement, ouvrirAvecPhrase, rangerCle,
@@ -101,7 +101,7 @@ for (const nom of ANCIENS_NOMS_RELAIS) window[nom] = hote;   // anciens écrans 
 
 // --- Menu et écrans ---
 const cadres = {};   // clé → iframe (créée à la première ouverture, puis gardée)
-let entrees = [], courant = '';
+let entrees = [], courant = '', assistantOuvert = false;
 
 // Page d'accueil du site (racine Vercel) : ouverte à la place de Grist (fenêtre principale).
 // Racine du site : dossier parent de app/ (Vercel : https://grist-rapports-app.vercel.app ; Pages de la forge :
@@ -328,7 +328,7 @@ function diagnosticCompte(lignes, erreur) {
 
 // Menu lu dans la table Navigation (selon les rôles) ; écrans devenus invisibles fermés.
 async function chargerMenu() {
-  const [nav, util, perm] = await Promise.all([lireTable('Navigation'), lireTable('Utilisateurs'), lireTable('Permissions')]);
+  const [nav, util, perm, par] = await Promise.all([lireTable('Navigation'), lireTable('Utilisateurs'), lireTable('Permissions'), lireTable('Parametres')]);
   const lignes = nav.lignes || [], utilisateurs = util.lignes || [];
   // Permissions refusée = visiteur non connecté (partage public, SPEC § 5.7) ; table absente = installation en cours.
   const compte = compteMenu(utilisateurs, !!perm.erreur && classerErreur(perm.erreur) === 'refus');
@@ -342,6 +342,10 @@ async function chargerMenu() {
   // Sans compte d'accès : seulement les écrans ouverts à toute personne connectée (ROLE_CONNECTE, ex. « ma fiche »).
   entrees = compte.aucun ? (compte.raison === 'inconnu' ? menuVisible(lignes, null, false, true) : [])
     : ajouterMonCompte(menuVisible(lignes.length ? lignes : MENU_DEFAUT, compte.moi, compte.tous));
+  // Assistant de premier démarrage (document neuf tiré du modèle) : en tête du menu, ouvert d'office une fois.
+  const params = Object.fromEntries((par.lignes || []).map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
+  const assistant = assistantAOuvrir(compte, utilisateurs, params);
+  if (assistant) entrees = [{ cle: 'demarrage', libelle: ECRANS.demarrage.libelle }, ...entrees.filter(e => e.cle !== 'demarrage')];
   if (entrees.length) await chargerChiffrement(); else await masquer();
   for (const cle of Object.keys(cadres)) {
     if (!entrees.some(e => e.cle === cle)) { oublier(cadres[cle].contentWindow); cadres[cle].remove(); delete cadres[cle]; }
@@ -359,7 +363,8 @@ async function chargerMenu() {
           <a class="bouton" href="${connexion}" target="_top">Se connecter ou changer de compte</a>
           <p class="petit muted">Détail pour l'administration : ${diagnosticCompte(utilisateurs, util.erreur)}</p></div>`;
   } else $('ecrans').querySelectorAll('.vide, .connexion').forEach(el => el.remove());   // « Chargement… », message
-  if (!entrees.some(e => e.cle === courant)) {
+  if (assistant && !assistantOuvert) { assistantOuvert = true; ouvrir('demarrage'); }
+  else if (!entrees.some(e => e.cle === courant)) {
     const voulu = entrees.some(e => e.cle === 'accueil') ? 'accueil' : pref.lire('Ecran', '');   // l'accueil d'abord
     const premier = entrees.some(e => e.cle === voulu) ? voulu : (entrees[0] || {}).cle;
     if (premier) ouvrir(premier); else afficherMenu();
@@ -391,6 +396,8 @@ if (await initialiserGrist()) {
     else { try { await oublierCle(ligneChiffre); } catch (e) { /* stockage indisponible */ } }
     afficherMenu();
   });
+  // Assistant de premier démarrage : inscription faite ou installation terminée → menu relu.
+  hote.suivreEtat(window, 'rapportsMenu', () => { viderCache(); chargerMenu(); });
   // « Voir en tant que » : recharger toute la page Grist (fenêtre principale) avec ou sans aclAsUser_
   $('menu').addEventListener('change', e => {
     if (e.target.id !== 'voirEnTantQue' || !e.target.value) return;

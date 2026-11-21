@@ -113,3 +113,53 @@ export function completerParAnnuaire(lignes, fiches, regle) {
   });
   return { lignes: sortie, remarques, trouves };
 }
+
+// --- Établissements d'une académie (premier démarrage) ---
+// Jeu « Adresse et géolocalisation des établissements d'enseignement du premier et second degrés »
+// (data.education.gouv.fr, Licence Ouverte 2.0) : tous les établissements d'une académie, avec sigle, nature, secteur,
+// adresse et position. E-mail et téléphone n'y sont pas : complétés ensuite par chercherAnnuaire.
+export const GEOLOC_URL = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-adresse-et-geolocalisation-etablissements-premier-et-second-degre';
+const CHAMPS_GEOLOC = 'numero_uai,appellation_officielle,denomination_principale,patronyme_uai,secteur_public_prive_libe,adresse_uai,'
+  + 'code_postal_uai,libelle_commune,libelle_departement,latitude,longitude,nature_uai,nature_uai_libe,etat_etablissement_libe,sigle';
+
+/** @typedef {{ uai: string, nom: string, sigle: string, secteur: string, adresse: string, codePostal: string, commune: string,
+ *   departement: string, lat: number | null, lon: number | null, nature: string, natureCode: number | null, ferme: boolean }} FicheGeoloc */
+
+// Liste des académies (noms exacts du jeu de données), triée.
+export const URL_ACADEMIES = `${GEOLOC_URL}/records?select=libelle_academie&group_by=libelle_academie&limit=100`;
+/** @param {any} json @returns {string[]} */
+export const academiesDe = json => [...new Set(((json && json.results) || []).map((/** @type {any} */ r) => String(r.libelle_academie || '').trim()).filter(Boolean))]
+  .sort((a, b) => a.localeCompare(b, 'fr'));
+// Établissements du second degré (natures 300 à 399) d'une académie : un seul export, sans limite de nombre.
+/** @param {string} academie */
+export function urlEtablissementsAcademie(academie) {
+  const where = `libelle_academie="${String(academie).replace(/["\\]/g, '')}" and nature_uai>=300 and nature_uai<400`;
+  return `${GEOLOC_URL}/exports/json?select=${encodeURIComponent(CHAMPS_GEOLOC)}&where=${encodeURIComponent(where)}`;
+}
+// Enregistrement → fiche (secteur « Public » ou « Privé », nom : appellation officielle, sinon dénomination + patronyme).
+/** @param {any} r @returns {FicheGeoloc} */
+export function ficheGeoloc(r) {
+  const t = (/** @type {any} */ v) => String(v ?? '').replace(/\s+/g, ' ').trim();
+  const nom = t(r.appellation_officielle) || [t(r.denomination_principale), t(r.patronyme_uai)].filter(Boolean).join(' ');
+  const code = Number(r.nature_uai);
+  return { uai: normUai(r.numero_uai), nom, sigle: t(r.sigle), secteur: /priv/i.test(t(r.secteur_public_prive_libe)) ? 'Privé' : 'Public',
+    adresse: t(r.adresse_uai), codePostal: t(r.code_postal_uai), commune: t(r.libelle_commune), departement: t(r.libelle_departement),
+    lat: nombre(r.latitude), lon: nombre(r.longitude), nature: t(r.nature_uai_libe), natureCode: Number.isFinite(code) ? code : null,
+    ferme: /^ferm/i.test(t(r.etat_etablissement_libe)) };
+}
+// Natures retenues d'office : collèges, lycées (général, technologique, polyvalent, professionnel, agricole), EREA ;
+// pas les sections ni les annexes (même établissement qu'un lycée), réglables au cas par cas.
+/** @param {string} libelle */
+export const natureRetenue = libelle => /coll[eè]ge|lyc[ée]e|erea|enseignement adapt/i.test(libelle) && !/section|annexe|segpa/i.test(libelle);
+// Interroge le jeu pour une académie : fiches (fermés écartés), avec un second essai comme l'Annuaire.
+/** @param {string} academie @param {{ fetch?: typeof fetch, pause?: number }} [o] @returns {Promise<FicheGeoloc[]>} */
+export async function etablissementsAcademie(academie, o = {}) {
+  const rep = await requeteAnnuaire(o.fetch || fetch, urlEtablissementsAcademie(academie), o.pause ?? 2000);
+  const json = await rep.json();
+  return (Array.isArray(json) ? json : (json && json.results) || []).map(ficheGeoloc).filter(f => uaiValide(f.uai) && !f.ferme);
+}
+// Liste des académies (null si le service ne répond pas).
+/** @param {{ fetch?: typeof fetch }} [o] @returns {Promise<string[] | null>} */
+export async function listeAcademies(o = {}) {
+  try { return academiesDe(await (await requeteAnnuaire(o.fetch || fetch, URL_ACADEMIES, 1000)).json()); } catch (e) { return null; }
+}

@@ -281,7 +281,7 @@ import { identifierMoi } from '../commun/droits.js';
 import { bienvenue, profilDe, remettreBienvenues } from '../commun/bienvenue.js';
 import { $, esc, message, installerBulles, preferences, boutonConfirmation, toast } from '../commun/interface.js';
 import { initialiserGrist, lireTable, ecrire as ecrireGrist, hote, sansChevauchement, regrouper, relectureReguliere,
-  relireSansCache } from '../commun/grist.js';
+  relireSansCache, demandeConteneur, ecrireEtat } from '../commun/grist.js';
 import { lireJournal, viderJournal, journaliser, messageSimple } from '../commun/journal.js';
 import { decoderTexte, lireCsv, lireLignes, verifierDestination, planifier as planifierImport, actionsTable, modeleCsv, notice }
   from '../commun/import.js';
@@ -1397,12 +1397,16 @@ function afficherDemarrage() {
   el.innerHTML = `<summary>Premier démarrage : ${faites} / ${etapes.length} étapes faites${faites === etapes.length ? ' — tout est prêt' : ''}</summary>
     <ol>${etapes.map(e => `<li class="${e.fait ? 'fait' : ''}"><strong>${esc(e.titre)}</strong> <span class="muted petit">${esc(e.detail || '')}</span>
       ${e.fait ? '' : ` <button class="lien" data-aller="${esc(e.onglet)}">Y aller</button>`}</li>`).join('')}</ol>
-    <p class="petit muted" style="margin:4px 0">Guide d'installation : <a href="../installation.html" target="_blank" rel="noopener">installation.html</a>.</p>`;
+    <p class="petit muted" style="margin:4px 0">Guide d'installation : <a href="../installation.html" target="_blank" rel="noopener">installation.html</a>.
+      <button class="lien" id="rouvrir-assistant" title="Remet l'assistant pas à pas en tête du menu de l'application">Rouvrir l'assistant</button></p>`;
   el.open = ouvert;
 }
 
 // --- Chargement des données ---
 const charger = sansChevauchement(async () => {
+  // Ouvert par un autre écran sur un onglet précis (assistant de premier démarrage : { onglet: 'chiffrement' }).
+  const dem = demandeConteneur();
+  if (dem && dem.onglet) onglet = dem.onglet;
   const u = await lireTable('Utilisateurs');
   if (u.erreur) {
     message('Impossible de lire la table Utilisateurs : ' + u.erreur + ' — vérifie qu\'elle existe (APP § 5, import « droits ») et que le widget a l\'accès complet.', true);
@@ -1463,7 +1467,12 @@ if (await initialiserGrist()) {
     onglet = b.dataset.onglet; pref.ecrire('Onglet', onglet); afficherOnglets();
   });
   $('recherche').addEventListener('input', afficherListe);
-  $('demarrage').addEventListener('click', e => {
+  $('demarrage').addEventListener('click', async e => {
+    if (e.target.closest('#rouvrir-assistant')) {
+      const a = actionsParametres(lignesParametres(), { installation: 'en cours' }, { installation: 'assistant de premier démarrage : en cours, terminée' });
+      if (!a.length || (await ecrireGrist(a, 'Assistant rouvert'))) ecrireEtat('rapportsMenu', Date.now());
+      return;
+    }
     const b = e.target.closest('[data-aller]'); if (!b) return;
     onglet = b.dataset.aller; pref.ecrire('Onglet', onglet); afficherOnglets();
   });

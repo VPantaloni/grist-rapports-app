@@ -45,6 +45,7 @@ Page d'accueil : https://widget.forge.apps.education.fr/grist-rapports-app/
 | Rapports | `https://widget.forge.apps.education.fr/grist-rapports-app/rapports/` | Rédaction, relecture, signatures, impression PDF et transmission des rapports |
 | Modèles & phrases | `https://widget.forge.apps.education.fr/grist-rapports-app/modeles/` | Rubriques des modèles, phrases types (bibliothèque personnelle, proposées à tous), grilles de positionnement (MD, PSTG), mails, paramètres |
 | Annuaire | `https://widget.forge.apps.education.fr/grist-rapports-app/annuaire/` | CMi et IA-IPR : référent·es, initiales, accès à l'application |
+| Premier démarrage | `https://widget.forge.apps.education.fr/grist-rapports-app/demarrage/` | Assistant d'installation (ouvert par le conteneur sur un document neuf tiré du modèle, propriétaire seulement) : compte administrateur·trice, académie, discipline, établissements (open data), données d'exemple, chiffrement, Siiprien, collègues |
 
 ## 2. Installation rapide (modèle .grist)
 
@@ -53,10 +54,11 @@ Pas à pas illustré : [guide d'installation](https://widget.forge.apps.educatio
 1. Télécharger [`grist-rapports-app-modele.grist`](installation/modele/grist-rapports-app-modele.grist) (modèle du
    2026-11-15 : pages « App » et « Installer », règles d'accès, données d'exemple inventées).
 2. Dans Grist : **Ajouter → Importer un document** → le fichier.
-3. Table `Utilisateurs` : sur la ligne du compte d'exemple « Benny B » (administrateur·trice et IA-IPR), mettre
-   **son adresse** de connexion Grist (comparée en minuscules) ; faire de même dans sa fiche `Personnes`.
-4. Ouvrir chaque page. Si Grist le demande, accorder l'**accès complet** au widget.
-5. Partager le document (§ 7).
+3. Ouvrir la page **App** (si Grist le demande, accorder l'**accès complet** au widget).
+4. Suivre l'assistant **Premier démarrage**, qui s'ouvre tout seul : son compte (à la place du compte d'exemple
+   « Benny B »), l'académie, la discipline, les établissements de l'académie (open data : « Adresse et géolocalisation
+   des établissements », data.education.gouv.fr, Licence Ouverte 2.0), les données d'exemple, la phrase de chiffrement,
+   le fichier Siiprien, les collègues (partage du document, § 7).
 
 Le modèle contient les tables, les liaisons, les formules, les règles d'accès, les pages et les données de
 démonstration. Il ne contient ni le partage, ni l'historique.

@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapports et suivis — Premier démarrage pour Grist</title>
+<link rel="icon" type="image/svg+xml" href="../commun/favicon.svg?v=2">
+<link rel="stylesheet" href="../commun/style.css">
+<style>
+  body { background: var(--bg2); }
+  #app { flex: 1; min-height: 0; overflow-y: auto; }
+  .page { max-width: 1020px; margin: 0 auto; padding: 14px 16px 24px; }
+  .bandeau { position: relative; border-radius: 14px; padding: 14px 64px 14px 18px; color: #fff; margin-bottom: 14px;
+    background: radial-gradient(120% 140% at 100% 0%, #a78bfa 0%, transparent 45%), linear-gradient(135deg, #5b21a3 0%, #7c3aed 100%);
+    box-shadow: 0 8px 24px rgba(91, 33, 163, .22); }
+  .bandeau h1 { margin: 0; font-size: 22px; } .bandeau p { margin: 4px 0 0; opacity: .9; font-size: 13.5px; }
+  #aide { position: absolute; top: 14px; right: 16px; color: #fff; opacity: .9; display: flex; }
+  #aide svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .corps { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 680px) { .corps { grid-template-columns: 1fr; } }
+  .etapes { list-style: none; margin: 0; padding: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+  .etapes button { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; border: none; background: none;
+    padding: 7px 8px; border-radius: 6px; font-size: 13.5px; color: inherit; }
+  .etapes button:disabled { opacity: .45; }
+  .etapes button.actif { background: var(--sel); font-weight: 600; }
+  .etapes .num { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; border: 1.5px solid var(--border); }
+  .etapes .fait .num { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .panneau { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .panneau h2 { margin: 0 0 6px; font-size: 18px; }
+  .panneau p { line-height: 1.45; }
+  .champs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin: 12px 0; }
+  .champs label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .champs label.large { grid-column: 1 / -1; }
+  .champs input, .champs select { font-size: 14px; color: var(--fg); }
+  .case { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+  .boutons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .boutons .espace { flex: 1; }
+  button.grand { padding: 7px 16px; font-size: 14px; }
+  .natures { columns: 2; margin: 8px 0; padding: 0; list-style: none; font-size: 13px; } .natures li { break-inside: avoid; margin: 3px 0; }
+  table.compte { width: auto; border-collapse: collapse; font-size: 13px; margin: 8px 0; } table.compte td { padding: 2px 12px 2px 0; border: none; } table.compte td:first-child { text-align: right; font-weight: 600; }
+  .fait-ok { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body class="plein-ecran">
+<div id="msg">Chargement…</div>
+<div id="app" hidden>
+  <div class="page">
+    <section class="bandeau">
+      <a id="aide" href="tuto.html" target="_blank" rel="noopener" title="Aide" aria-label="Aide"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></a>
+      <h1>Bienvenue dans « Rapports et suivis »</h1>
+      <p>Quelques étapes pour mettre l'application à votre nom et à celui de votre académie. Chacune peut être passée et reprise plus tard
+        (Administration → Premier démarrage).</p>
+    </section>
+    <div class="corps">
+      <ol class="etapes" id="etapes"></ol>
+      <section class="panneau" id="panneau" aria-live="polite"></section>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { $, esc, message, toast, installerBulles, preferences, boutonConfirmation } from '../commun/interface.js';
+import { initialiserGrist, lireTable, ecrire, sansChevauchement, regrouper, hoteEcran, ecrireEtat, detecteurChangement } from '../commun/grist.js';
+import { identifierMoi } from '../commun/droits.js';
+import { CHIFFREMENT } from '../commun/config.js';
+import { ligneChiffrementValide, TABLE_CHIFFREMENT } from '../commun/chiffrement.js';
+import { actionsParametres, domaineAcademie, ACADEMIES, DISCIPLINES, parametresDiscipline, DOMAINE_ORLEANS } from '../commun/academie.js';
+import { listeAcademies, etablissementsAcademie, chercherAnnuaire, natureRetenue } from '../commun/annuaire.js';
+import { ETAPES, compteExemple, validerInscription, actionsPersonne, actionsCompte, inscriptionVerifiee, actionsEtablissements,
+  donneesExemple, actionsSuppression, nombreExemples, phrasesAVider, etapesFaites, estExemple, ORDRE_SUPPRESSION } from './logique.js';
+
+const pref = preferences('Demarrage');
+const DESCRIPTIONS = {
+  installation: 'assistant de premier démarrage : en cours, terminée',
+  installation_exemples: 'données d\'exemple gardées pour essayer (« gardés ») ; supprimables depuis l\'assistant',
+  academie: 'nom de l\'académie', domaine_mail: 'domaine des adresses (ce.<uai>@…)',
+  discipline: 'discipline imprimée dans le tableau d\'identification', entete: 'lignes de l\'en-tête des rapports (une par ligne)',
+  pied: 'bas de page, suivi du numéro de page et du nom du ou de la professeur·e',
+};
+/** @type {Record<string, any>} */
+const D = { T: {}, params: {}, etape: pref.lire('Etape', 'inscription'), academies: null, geo: null, natures: null };
+const lignes = (/** @type {string} */ t) => D.T[t] || [];
+const change = detecteurChangement();
+
+// --- Lecture ---
+const charger = sansChevauchement(async () => {
+  const noms = ['Parametres', 'Utilisateurs', 'Personnes', 'Etablissements', ...ORDRE_SUPPRESSION.filter(n => !['Utilisateurs', 'Personnes', 'Etablissements'].includes(n))];
+  const r = await Promise.all([...noms.map(lireTable), lireTable(TABLE_CHIFFREMENT), lireTable('_grist_Tables'), lireTable('_grist_Tables_column')]);
+  // Relecture régulière sans changement : rien à refaire (une saisie en cours n'est pas effacée).
+  if (!change([r.map(x => x.lignes)]) && !$('app').hidden && !D.forcer) return;
+  D.forcer = false;
+  noms.forEach((n, i) => { D.T[n] = r[i].lignes || []; });
+  if (r[0].erreur) { message('Lecture de la table Parametres impossible : ' + r[0].erreur, true); return; }
+  const [chi, tables, cols] = r.slice(noms.length);
+  D.chiffrement = CHIFFREMENT ? !chi.erreur && !!ligneChiffrementValide(chi.lignes || []) : null;
+  const tEtab = (tables.lignes || []).find(t => t.tableId === 'Etablissements');
+  D.colsEtab = tEtab ? (cols.lignes || []).filter(c => c.parentId === tEtab.id).map(c => c.colId)
+    : Object.keys(lignes('Etablissements')[0] || { UAI: 1, Nom: 1, Sigle: 1, Secteur: 1, Adresse: 1, Code_postal: 1, Commune: 1, Departement: 1, Lat: 1, Lon: 1, Mel: 1, Telephone: 1 });
+  D.params = Object.fromEntries(lignes('Parametres').map(p => [String(p.Cle || ''), String(p.Valeur ?? '')]));
+  const { moi } = identifierMoi(lignes('Utilisateurs'));
+  D.moi = moi && !estExemple(moi.Email) ? moi : null;
+  D.fiche = D.moi ? lignes('Personnes').find(p => p.id === D.moi.Personne) || null : null;
+  D.exemples = donneesExemple(D.T, { personne: D.fiche ? D.fiche.id : undefined, utilisateur: D.moi ? D.moi.id : undefined });
+  D.faites = etapesFaites({ inscrit: !!D.moi, params: D.params, etabs: lignes('Etablissements'), profs: lignes('Professeurs'),
+    exemples: nombreExemples(D.exemples), chiffrement: D.chiffrement, utilisateurs: lignes('Utilisateurs') });
+  if (!D.moi) D.etape = 'inscription';
+  // Saisie en cours dans le panneau : seule la liste des étapes est mise à jour.
+  if ($('panneau').contains(document.activeElement) && /^(INPUT|SELECT)$/.test(document.activeElement.tagName)) afficherEtapes(); else afficher();
+  message(''); $('app').hidden = false;
+});
+
+// --- Affichage ---
+function afficher() {
+  afficherEtapes();
+  const f = PANNEAUX[D.etape] || PANNEAUX.inscription;
+  $('panneau').innerHTML = f();
+  if (APRES[D.etape]) APRES[D.etape]();
+}
+function afficherEtapes() {
+  $('etapes').innerHTML = ETAPES.map((e, i) => `<li class="${D.faites[e.cle] ? 'fait' : ''}"><button data-etape="${e.cle}"
+    class="${e.cle === D.etape ? 'actif' : ''}" ${!D.moi && e.cle !== 'inscription' ? 'disabled title="D\'abord votre compte"' : ''}>
+    <span class="num">${D.faites[e.cle] ? '✓' : i + 1}</span>${esc(e.titre)}</button></li>`).join('');
+}
+const i = ETAPES.findIndex.bind(ETAPES);
+function aller(cle) { D.etape = cle; pref.ecrire('Etape', cle); afficher(); $('app').scrollTop = 0; }
+function suivante() { const n = i(e => e.cle === D.etape); aller(n < ETAPES.length - 1 ? ETAPES[n + 1].cle : D.etape); }
+const boutons = (/** @type {string} */ principal, /** @type {string} */ id, opts = {}) => `<div class="boutons">
+  ${i(e => e.cle === D.etape) > 0 ? '<button data-precedent>← Précédent</button>' : ''}<span class="espace"></span>
+  ${opts.passer === false ? '' : '<button data-passer>Passer</button>'}
+  ${principal ? `<button class="primary grand" id="${id}">${principal}</button>` : ''}</div>`;
+const fait = (/** @type {string} */ t) => `<p class="fait-ok">✓ ${t}</p>`;
+
+/** @type {Record<string, () => string>} */
+const PANNEAUX = {
+  inscription: () => {
+    const f = D.fiche;
+    return `<h2>Merci d'avoir choisi « Rapports et suivis » !</h2>
+    ${D.moi ? fait(`Vous êtes inscrit·e comme administrateur·trice : ${esc(f ? `${f.Prenom} ${f.Nom}` : '')} (${esc(D.moi.Email)}).`)
+      + '<p>Pour corriger, modifiez les champs ci-dessous.</p>'
+      : '<p>Inscrivez-vous comme <strong>administrateur·trice</strong> de l\'application : vos nom et adresse remplacent le compte d\'exemple.</p>'}
+    <div class="champs">
+      <label>Prénom <input id="i-prenom" autocomplete="given-name" value="${esc(f && !estExemple(f.Email) ? f.Prenom : '')}"></label>
+      <label>Nom <input id="i-nom" autocomplete="family-name" value="${esc(f && !estExemple(f.Email) ? f.Nom : '')}"></label>
+      <label class="large">E-mail : l'adresse de votre compte Grist <input id="i-email" type="email" autocomplete="email" value="${esc(D.moi ? D.moi.Email : '')}">
+        <span class="petit">Elle s'affiche en cliquant sur votre avatar, en haut à droite de Grist.</span></label>
+    </div>
+    <label class="case"><input type="checkbox" id="i-ipr" ${!f || f.Fonction !== 'CMi' ? 'checked' : ''}> Je suis IA-IPR (je relis, signe et valide des rapports)</label>
+    <div id="i-erreur"></div>
+    ${boutons(D.moi ? 'Enregistrer et continuer →' : 'M\'inscrire →', 'i-ok', { passer: !!D.moi })}`;
+  },
+  academie: () => {
+    const actuelle = D.params.academie || 'Orléans-Tours';
+    const liste = D.academies || ACADEMIES;
+    const opts = [...new Set([...liste, actuelle])].sort((a, b) => a.localeCompare(b, 'fr'));
+    return `<h2>Votre académie</h2>
+    <p>Elle sert à télécharger ses établissements (étape suivante), à proposer les adresses e-mail des établissements et à
+      imprimer le logo des rapports.</p>
+    <div class="champs">
+      <label>Académie <select id="a-academie">${opts.map(a => `<option ${a === actuelle ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select></label>
+      <label>Domaine des adresses <input id="a-domaine" value="${esc(D.params.domaine_mail || domaineAcademie(actuelle))}"></label>
+    </div>
+    <p class="petit muted" id="a-logo"></p>
+    ${D.academies ? '' : '<p class="petit muted">Liste de l\'Annuaire de l\'éducation indisponible pour l\'instant : liste intégrée.</p>'}
+    ${boutons('Enregistrer et continuer →', 'a-ok')}`;
+  },
+  discipline: () => {
+    const actuelle = D.params.discipline || 'Mathématiques';
+    const autre = !DISCIPLINES.includes(actuelle);
+    const nPhr = phrasesAVider('Autre', lignes('Phrases'), lignes('Personnes')).length;
+    return `<h2>Votre discipline</h2>
+    <p>Elle s'imprime dans les rapports : tableau d'identification, dernière ligne de l'en-tête (« Inspection pédagogique
+      régionale / <em>discipline</em> ») et bas de page (« inspection de … »). Tout reste modifiable ensuite (Modèles &amp; phrases → Paramètres).</p>
+    <div class="champs">
+      <label>Discipline <select id="d-liste">${DISCIPLINES.map(d => `<option ${d === actuelle ? 'selected' : ''}>${esc(d)}</option>`).join('')}
+        <option value="" ${autre ? 'selected' : ''}>Autre…</option></select></label>
+      <label id="d-autre-l" ${autre ? '' : 'hidden'}>Intitulé <input id="d-autre" value="${esc(autre ? actuelle : '')}"></label>
+    </div>
+    <label class="case" id="d-phr-l" hidden><input type="checkbox" id="d-phr" checked> Retirer les ${nPhr} phrases types d'exemple, écrites pour les mathématiques</label>
+    ${boutons('Enregistrer et continuer →', 'd-ok')}`;
+  },
+  etablissements: () => {
+    const nb = lignes('Etablissements').length;
+    const ac = D.params.academie;
+    let corps = '';
+    if (!ac) corps = '<div class="alerte">Choisir d\'abord l\'académie (étape précédente).</div>';
+    else if (!D.geo) corps = `<p>Les collèges, lycées, lycées professionnels et EREA, publics et privés, de l'académie
+      <strong>${esc(ac)}</strong>, avec adresse et position GPS, sont téléchargés depuis l'open data du ministère
+      (« Adresse et géolocalisation des établissements », data.education.gouv.fr) ; e-mail et téléphone sont complétés par
+      l'Annuaire de l'éducation. Un établissement déjà présent est mis à jour, sans doublon.</p>
+      <p><button class="primary grand" id="e-charger">Télécharger les établissements de l'académie</button></p>`;
+    else corps = `<p><strong>${D.geo.length}</strong> établissements trouvés. Natures à garder :</p>
+      <ul class="natures">${D.natures.map((n, k) => `<li><label><input type="checkbox" data-nature="${k}" ${n.garde ? 'checked' : ''}>
+        ${esc(n.libelle || 'Sans nature')} <span class="muted">(${n.nb})</span></label></li>`).join('')}</ul>
+      <p><button class="primary grand" id="e-ajouter">Ajouter ces établissements</button> <span id="e-etat" class="petit muted"></span></p>`;
+    return `<h2>Établissements de l'académie</h2>
+    <p class="petit muted">Actuellement : ${nb} établissement${nb > 1 ? 's' : ''} dans le document.</p>
+    ${D.faites.etablissements ? fait('Établissements de l\'académie présents.') : ''}
+    ${corps}${boutons('', '')}`;
+  },
+  exemples: () => {
+    const ex = D.exemples, n = nombreExemples(ex);
+    const NOMS = { Rapports: 'rapports', Visites: 'visites du plan', Stagiaires: 'stagiaires', Tutorats: 'tuteur·trices', Retours_PSTG: 'retours de stagiaires',
+      Maitres_delegues: 'MD', Bilans_MD: 'bilans de MD', EDT: 'créneaux d\'emplois du temps', EdT_memo: 'plannings', Signatures: 'signatures',
+      Phrases: 'phrases personnelles non validées', Professeurs: 'professeur·es', Utilisateurs: 'comptes', Personnes: 'personnes (CMi, IA-IPR)', Etablissements: 'établissement fictif' };
+    return `<h2>Données d'exemple</h2>
+    ${n ? `<p>Le modèle contient des données <strong>inventées</strong> pour essayer l'application :</p>
+      <table class="compte">${Object.entries(ex).map(([t, l]) => `<tr><td>${l.length}</td><td>${esc(NOMS[t] || t)}</td></tr>`).join('')}</table>
+      <p>Gardez-les le temps de découvrir l'application, puis supprimez-les avant de travailler pour de vrai (revenir ici :
+        Administration → Premier démarrage → « Rouvrir l'assistant »). Les modèles de rapport, rubriques, phrases types et
+        modèles de mails sont gardés.</p>
+      ${D.params.installation_exemples === 'gardés' ? fait('Exemples gardés pour essayer.') : ''}
+      <div class="boutons">${i(e => e.cle === D.etape) > 0 ? '<button data-precedent>← Précédent</button>' : ''}<span class="espace"></span>
+        <button class="danger" id="x-suppr">Supprimer les ${n} lignes d'exemple</button>
+        <button class="primary grand" id="x-garder">Les garder pour essayer →</button></div>`
+      : `${fait('Aucune donnée d\'exemple.')}${boutons('Continuer →', 'x-suite', { passer: false })}`}`;
+  },
+  chiffrement: () => `<h2>Phrase de chiffrement</h2>
+    <p>Le contenu des rapports, les commentaires, les signatures et les noms des emplois du temps sont <strong>chiffrés</strong>
+      dans le navigateur avec une phrase secrète : ni Grist ni l'hébergeur ne peuvent les lire. Chaque collègue la saisit
+      (bouton « Révéler » du menu) ; elle ne se transmet jamais par le même canal que le lien de l'application.</p>
+    <div class="alerte"><strong>Phrase perdue = données perdues.</strong> Notez-la dans un lieu sûr (gestionnaire de mots de passe).</div>
+    ${D.chiffrement === null ? fait('Cette application ne chiffre rien.') : D.chiffrement ? fait('Phrase choisie.') : ''}
+    <p>${D.chiffrement === false ? 'Le choix se fait dans l\'Administration, onglet Chiffrement (« Créer la table », puis la phrase et un indice facultatif ; « Ajouter la règle d\'accès » si demandé).' : ''}</p>
+    ${boutons(D.chiffrement === false ? 'Ouvrir Administration → Chiffrement' : 'Continuer →', D.chiffrement === false ? 'c-ouvrir' : 'c-suite')}`,
+  siiprien: () => {
+    const n = lignes('Professeurs').filter(p => !estExemple(p.Email)).length;
+    return `<h2>Professeur·es de votre discipline</h2>
+    <p>Versez le fichier Siiprien des professeur·es (enregistré en CSV, ou cellules copiées) dans l'Administration, onglet
+      <strong>Import</strong>. Seules les colonnes utiles sont lues (jamais date de naissance, téléphone ni notes) ; un
+      nouveau versement met à jour sans doublon.</p>
+    <div class="alerte">Ne pas utiliser l'import de Grist (« Importer depuis un fichier ») : il recopierait toutes les colonnes.</div>
+    ${n ? fait(`${n} professeur·e${n > 1 ? 's' : ''} déjà versé·e${n > 1 ? 's' : ''}.`) : ''}
+    ${boutons('Ouvrir Administration → Import', 's-ouvrir')}`;
+  },
+  collegues: () => `<h2>Vos collègues</h2>
+    <ol>
+      <li>Dans Grist, bouton <strong>Partager</strong> (en haut à droite) : invitez chaque collègue avec le rôle <em>Éditeur</em>.</li>
+      <li>Dans l'application, écran <strong>Annuaire</strong> : une fiche par IA-IPR et par CMi (avec son IA-IPR référent·e),
+        puis « Donner accès à l'application ».</li>
+      <li>Envoyez le lien de la page <strong>App</strong> et, par un autre canal, la phrase de chiffrement.</li>
+    </ol>
+    <p>Vous pourrez vérifier ce que voit un·e collègue avec « Voir en tant que » (Administration → Mon compte).</p>
+    ${D.faites.collegues ? fait('Au moins un·e collègue a un accès.') : ''}
+    <div class="boutons"><button data-precedent>← Précédent</button><span class="espace"></span>
+      <button id="g-annuaire">Ouvrir l'Annuaire</button>
+      <button class="primary grand" id="g-fin">Terminer l'installation ✓</button></div>`,
+};
+
+/** @type {Record<string, () => void>} */
+const APRES = {
+  academie: () => {
+    const maj = () => {
+      const a = $('a-academie').value;
+      const dom = domaineAcademie(a);
+      if (!$('a-domaine').dataset.touche) $('a-domaine').value = dom;
+      $('a-logo').textContent = dom === DOMAINE_ORLEANS ? 'Logo de l\'académie d\'Orléans-Tours intégré.'
+        : 'Logo des rapports : à déposer ensuite dans Administration → Académie (facultatif ; sans logo, le nom de l\'académie est imprimé).';
+    };
+    $('a-academie').addEventListener('change', maj);
+    $('a-domaine').addEventListener('input', () => { $('a-domaine').dataset.touche = '1'; });
+    if (D.params.domaine_mail) $('a-domaine').dataset.touche = '1';
+    maj();
+    if (!D.academies) listeAcademies().then(l => { if (l && l.length && D.etape === 'academie' && !D.academies) { D.academies = l; afficher(); } else if (l) D.academies = l; });
+  },
+  discipline: () => {
+    const maj = () => {
+      const autre = !$('d-liste').value;
+      $('d-autre-l').hidden = !autre;
+      const d = autre ? $('d-autre').value : $('d-liste').value;
+      $('d-phr-l').hidden = /^math/i.test(d) || !phrasesAVider(d || 'Autre', lignes('Phrases'), lignes('Personnes')).length;
+    };
+    $('d-liste').addEventListener('change', maj); $('d-autre').addEventListener('input', maj); maj();
+  },
+};
+
+// --- Actions ---
+async function inscrire() {
+  const s = { prenom: $('i-prenom').value, nom: $('i-nom').value, email: $('i-email').value.trim().toLowerCase(), ipr: $('i-ipr').checked };
+  const err = validerInscription(s);
+  if (err.length) { $('i-erreur').innerHTML = `<div class="alerte ko">${err.map(esc).join('<br>')}</div>`; return; }
+  $('i-ok').disabled = true;
+  // Compte à remplacer : celui déjà écrit par cet assistant (adresse corrigée), sinon le compte d'exemple.
+  const deja = JSON.parse(pref.lire('Inscription', '{}') || '{}');
+  const util = lignes('Utilisateurs'), pers = lignes('Personnes');
+  const compte = (D.moi) || util.find(u => u.id === deja.u) || compteExemple(util);
+  const precedente = deja.p && pers.find(p => p.id === deja.p);
+  const cmp = compte && !compte.Personne && precedente ? { ...compte, Personne: precedente.id } : compte;
+  const ap = actionsPersonne(s, cmp, pers);
+  const r1 = await ecrire(ap.actions);
+  if (!r1) { $('i-ok').disabled = false; return; }
+  const idP = ap.id || (r1.retValues && r1.retValues[0]);
+  const ac = actionsCompte(s, compte, util, idP);
+  const r2 = await ecrire([...ac, ...actionsParametres(lignes('Parametres'), { installation: 'en cours' }, DESCRIPTIONS)]);
+  if (!r2) { $('i-ok').disabled = false; return; }
+  const idU = ac[0][0] === 'UpdateRecord' ? ac[0][2] : r2.retValues && r2.retValues[0];
+  pref.ecrire('Inscription', JSON.stringify({ p: idP, u: idU }));
+  const relu = await lireTable('Utilisateurs');
+  const v = inscriptionVerifiee(relu.lignes || [], s.email);
+  ecrireEtat('rapportsMenu', Date.now());   // le conteneur relit le menu (compte reconnu : tous les écrans)
+  if (v === 'autre-adresse') {
+    D.forcer = true;
+    await charger();
+    $('i-erreur').innerHTML = `<div class="alerte ko"><strong>${esc(s.email)}</strong> n'est pas l'adresse du compte Grist avec
+      lequel vous êtes connecté·e. Vérifiez-la (avatar en haut à droite de Grist), corrigez-la ci-dessus puis recommencez.</div>`;
+    $('i-email').value = s.email; $('i-prenom').value = s.prenom; $('i-nom').value = s.nom;
+    return;
+  }
+  toast('Vous êtes inscrit·e comme administrateur·trice.');
+  D.etape = 'academie'; pref.ecrire('Etape', 'academie');
+  D.forcer = true;
+  await charger();
+}
+
+async function enregistrerAcademie() {
+  const a = $('a-academie').value, dom = $('a-domaine').value.trim().toLowerCase().replace(/^@/, '');
+  const act = actionsParametres(lignes('Parametres'), { academie: a, domaine_mail: dom }, DESCRIPTIONS);
+  if (act.length && !(await ecrire(act, 'Académie enregistrée'))) return;
+  if (a !== D.params.academie) D.geo = null;
+  D.etape = 'discipline'; pref.ecrire('Etape', D.etape);
+  D.forcer = true;
+  await charger();
+}
+
+async function enregistrerDiscipline() {
+  const d = ($('d-liste').value || $('d-autre').value).trim();
+  if (!d) { toast('Choisir ou écrire la discipline.', true); return; }
+  const act = actionsParametres(lignes('Parametres'), parametresDiscipline(d, D.params.entete), DESCRIPTIONS);
+  const ids = !$('d-phr-l').hidden && $('d-phr').checked ? phrasesAVider(d, lignes('Phrases'), lignes('Personnes')) : [];
+  if (ids.length) act.push(['BulkRemoveRecord', 'Phrases', ids]);
+  if (act.length && !(await ecrire(act, 'Discipline enregistrée'))) return;
+  D.etape = 'etablissements'; pref.ecrire('Etape', D.etape);
+  D.forcer = true;
+  await charger();
+}
+
+async function telechargerEtablissements() {
+  $('e-charger').disabled = true; $('e-charger').textContent = 'Téléchargement…';
+  try { D.geo = await etablissementsAcademie(D.params.academie); }
+  catch (e) { toast(String((e && e.message) || e), true); $('e-charger').disabled = false; $('e-charger').textContent = 'Réessayer'; return; }
+  if (!D.geo.length) { toast(`Aucun établissement trouvé pour « ${D.params.academie} » : vérifier le nom de l'académie.`, true); D.geo = null; afficher(); return; }
+  /** @type {Map<string, number>} */
+  const nb = new Map();
+  for (const f of D.geo) nb.set(f.nature, (nb.get(f.nature) || 0) + 1);
+  D.natures = [...nb].sort((a, b) => b[1] - a[1]).map(([libelle, n]) => ({ libelle, nb: n, garde: natureRetenue(libelle) }));
+  afficher();
+}
+
+async function ajouterEtablissements() {
+  document.querySelectorAll('[data-nature]').forEach(c => { D.natures[Number(c.dataset.nature)].garde = c.checked; });
+  const gardees = new Set(D.natures.filter(n => n.garde).map(n => n.libelle));
+  const fiches = D.geo.filter(f => gardees.has(f.nature));
+  if (!fiches.length) { toast('Aucune nature cochée.', true); return; }
+  $('e-ajouter').disabled = true;
+  /** @type {Map<string, any>} */
+  let compl = new Map();
+  try {
+    compl = await chercherAnnuaire(fiches.map(f => f.uai), { progres: (k, n) => { $('e-etat').textContent = `E-mails et téléphones : ${k + 1} / ${n}…`; } });
+  } catch (e) { toast('E-mails et téléphones non complétés (Annuaire de l\'éducation injoignable) : les adresses ce.<UAI>@… seront proposées.', true); }
+  $('e-etat').textContent = 'Écriture dans Grist…';
+  const { actions, ajouts, majs } = actionsEtablissements(fiches, lignes('Etablissements'), compl, D.colsEtab);
+  if (actions.length && !(await ecrire(actions))) { $('e-ajouter').disabled = false; $('e-etat').textContent = ''; return; }
+  toast(`${ajouts} établissement${ajouts > 1 ? 's' : ''} ajouté${ajouts > 1 ? 's' : ''}, ${majs} mis à jour.`);
+  D.geo = null; D.etape = 'exemples'; pref.ecrire('Etape', D.etape);
+  D.forcer = true;
+  await charger();
+}
+
+async function supprimerExemples() {
+  const a = actionsSuppression(D.exemples);
+  if (a.length && !(await ecrire([...a, ...actionsParametres(lignes('Parametres'), { installation_exemples: 'supprimés' }, DESCRIPTIONS)], 'Données d\'exemple supprimées'))) return;
+  D.etape = 'chiffrement'; pref.ecrire('Etape', D.etape);
+  D.forcer = true;
+  await charger();
+}
+async function garderExemples() {
+  const act = actionsParametres(lignes('Parametres'), { installation_exemples: 'gardés' }, DESCRIPTIONS);
+  if (act.length && !(await ecrire(act))) return;
+  D.etape = 'chiffrement'; pref.ecrire('Etape', D.etape);
+  D.forcer = true;
+  await charger();
+}
+
+// Autre écran de l'application, ouvert sur un onglet (Administration) ; l'assistant reste dans le menu.
+function ouvrirEcran(cle, demande) {
+  const h = hoteEcran(cle);
+  if (!h) { toast('Écran indisponible : ouvrir la page App de l\'application.', true); return; }
+  h.ouvrirEcran(cle, demande);
+}
+
+async function terminer() {
+  const act = actionsParametres(lignes('Parametres'), { installation: 'terminée' }, DESCRIPTIONS);
+  if (act.length && !(await ecrire(act, 'Installation terminée : bonne utilisation !'))) return;
+  pref.ecrire('Etape', 'inscription'); pref.ecrire('Inscription', '');
+  ecrireEtat('rapportsMenu', Date.now());   // le conteneur retire l'assistant du menu et ouvre l'accueil
+}
+
+if (await initialiserGrist()) {
+  grist.ready({ requiredAccess: 'full', allowSelectBy: false });
+  grist.onRecords(regrouper(charger));
+  installerBulles();
+  $('etapes').addEventListener('click', e => { const b = e.target.closest('[data-etape]'); if (b && !b.disabled) aller(b.dataset.etape); });
+  $('panneau').addEventListener('click', e => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.hasAttribute('data-precedent')) { const n = i(x => x.cle === D.etape); aller(ETAPES[Math.max(0, n - 1)].cle); return; }
+    if (t.hasAttribute('data-passer')) { suivante(); return; }
+    const actions = { 'i-ok': inscrire, 'a-ok': enregistrerAcademie, 'd-ok': enregistrerDiscipline, 'e-charger': telechargerEtablissements,
+      'e-ajouter': ajouterEtablissements, 'x-garder': garderExemples, 'x-suite': suivante, 'c-suite': suivante,
+      'c-ouvrir': () => ouvrirEcran('admin', { onglet: 'chiffrement' }), 's-ouvrir': () => ouvrirEcran('admin', { onglet: 'import' }),
+      'g-annuaire': () => ouvrirEcran('annuaire'), 'g-fin': terminer };
+    if (actions[t.id]) actions[t.id]();
+  });
+  // Suppression des exemples : second clic pour confirmer (bouton recréé à chaque affichage).
+  new MutationObserver(() => {
+    const b = $('x-suppr');
+    if (b && !b.dataset.arme) { b.dataset.arme = '1'; boutonConfirmation(b, 'Confirmer la suppression', supprimerExemples); }
+  }).observe($('panneau'), { childList: true });
+  D.forcer = true;
+  await charger();
+}
+</script>
+</body>
+</html>

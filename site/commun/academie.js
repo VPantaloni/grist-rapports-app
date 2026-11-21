@@ -68,6 +68,40 @@ export function actionsParametres(lignes, valeurs, descriptions = {}) {
   return actions;
 }
 
+// Académies (noms de l'Annuaire de l'éducation) : liste de secours si le service ne répond pas.
+export const ACADEMIES = ['Aix-Marseille', 'Amiens', 'Besançon', 'Bordeaux', 'Clermont-Ferrand', 'Corse', 'Créteil', 'Dijon', 'Grenoble',
+  'Guadeloupe', 'Guyane', 'La Réunion', 'Lille', 'Limoges', 'Lyon', 'Martinique', 'Mayotte', 'Montpellier', 'Nancy-Metz', 'Nantes',
+  'Nice', 'Normandie', 'Orléans-Tours', 'Paris', 'Poitiers', 'Reims', 'Rennes', 'Strasbourg', 'Toulouse', 'Versailles'];
+// Domaine des adresses de l'académie, d'après son nom (Annuaire de l'éducation) : « Orléans-Tours » → ac-orleans-tours.fr ;
+// quelques exceptions connues. Proposé seulement : modifiable (Administration → Académie).
+const DOMAINES_PARTICULIERS = { 'clermont-ferrand': 'ac-clermont.fr', 'la-reunion': 'ac-reunion.fr', 'reunion': 'ac-reunion.fr' };
+/** @param {any} academie */
+export function domaineAcademie(academie) {
+  const slug = txt(academie).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slug ? DOMAINES_PARTICULIERS[slug] || `ac-${slug}.fr` : '';
+}
+
+// Disciplines proposées au premier démarrage (« Autre » : saisie libre). La discipline s'imprime dans le tableau
+// d'identification, la dernière ligne de l'en-tête et le bas de page des rapports.
+export const DISCIPLINES = ['Mathématiques', 'Physique-chimie', 'Sciences de la vie et de la Terre', 'Numérique et sciences informatiques',
+  'Lettres', 'Histoire-géographie', 'Philosophie', 'Anglais', 'Allemand', 'Espagnol', 'Italien', 'Langues vivantes',
+  'Sciences économiques et sociales', 'Économie et gestion', 'Sciences et techniques industrielles', 'Biotechnologies',
+  'Technologie', 'Éducation physique et sportive', 'Arts plastiques', 'Éducation musicale', 'Établissements et vie scolaire'];
+// « de mathématiques », « d'anglais », « d'éducation musicale ».
+/** @param {any} discipline */
+export function deDiscipline(discipline) {
+  const d = txt(discipline).toLowerCase();
+  return /^[aeiouyhàâéèêëîïôöûü]/.test(d) ? `d'${d}` : `de ${d}`;
+}
+// Paramètres écrits pour une discipline : discipline, en-tête (sa dernière ligne = la discipline) et bas de page.
+/** @param {any} discipline @param {any} entete en-tête actuel (Parametres.entete) */
+export function parametresDiscipline(discipline, entete) {
+  const d = txt(discipline);
+  const lignes = txt(entete).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const base = lignes.length >= 3 ? lignes.slice(0, -1) : ['Inspection académique', 'Inspection pédagogique régionale'];
+  return { discipline: d, entete: [...base, d].join('\n'), pied: `RAPPORT DE VISITE - inspection ${deDiscipline(d)}` };
+}
+
 // Premier démarrage (Administration) : étapes, faites ou non, dans l'ordre.
 /**
  * @param {{ params: Record<string, string>, etabs: Ligne[], profs: Ligne[], chiffrement: boolean | null,
