@@ -68,7 +68,8 @@ import { ligneChiffrementValide, TABLE_CHIFFREMENT } from '../commun/chiffrement
 import { actionsParametres, domaineAcademie, ACADEMIES, DISCIPLINES, parametresDiscipline, DOMAINE_ORLEANS } from '../commun/academie.js';
 import { listeAcademies, etablissementsAcademie, chercherAnnuaire, natureRetenue } from '../commun/annuaire.js';
 import { ETAPES, compteExemple, validerInscription, actionsPersonne, actionsCompte, inscriptionVerifiee, actionsEtablissements,
-  donneesExemple, actionsSuppression, nombreExemples, phrasesAVider, etapesFaites, estExemple, ORDRE_SUPPRESSION } from './logique.js';
+  donneesExemple, actionsSuppression, nombreExemples, phrasesAVider, etapesFaites, estExemple, ORDRE_SUPPRESSION, actionsTextesDiscipline,
+  TEXTES_DISCIPLINE } from './logique.js';
 
 const pref = preferences('Demarrage');
 const DESCRIPTIONS = {
@@ -85,7 +86,7 @@ const change = detecteurChangement();
 
 // --- Lecture ---
 const charger = sansChevauchement(async () => {
-  const noms = ['Parametres', 'Utilisateurs', 'Personnes', 'Etablissements', ...ORDRE_SUPPRESSION.filter(n => !['Utilisateurs', 'Personnes', 'Etablissements'].includes(n))];
+  const noms = [...new Set(['Parametres', 'Utilisateurs', 'Personnes', 'Etablissements', ...ORDRE_SUPPRESSION, ...Object.keys(TEXTES_DISCIPLINE)])];
   const r = await Promise.all([...noms.map(lireTable), lireTable(TABLE_CHIFFREMENT), lireTable('_grist_Tables'), lireTable('_grist_Tables_column')]);
   // Relecture régulière sans changement : rien à refaire (une saisie en cours n'est pas effacée).
   if (!change([r.map(x => x.lignes)]) && !$('app').hidden && !D.forcer) return;
@@ -176,6 +177,7 @@ const PANNEAUX = {
         <option value="" ${autre ? 'selected' : ''}>Autre…</option></select></label>
       <label id="d-autre-l" ${autre ? '' : 'hidden'}>Intitulé <input id="d-autre" value="${esc(autre ? actuelle : '')}"></label>
     </div>
+    <label class="case" id="d-txt-l" hidden><input type="checkbox" id="d-txt" checked> <span id="d-txt-n"></span></label>
     <label class="case" id="d-phr-l" hidden><input type="checkbox" id="d-phr" checked> Retirer les ${nPhr} phrases types d'exemple, écrites pour les mathématiques</label>
     ${boutons('Enregistrer et continuer →', 'd-ok')}`;
   },
@@ -269,6 +271,9 @@ const APRES = {
       $('d-autre-l').hidden = !autre;
       const d = autre ? $('d-autre').value : $('d-liste').value;
       $('d-phr-l').hidden = /^math/i.test(d) || !phrasesAVider(d || 'Autre', lignes('Phrases'), lignes('Personnes')).length;
+      const n = d ? actionsTextesDiscipline(D.T, D.params.discipline || 'Mathématiques', d).length : 0;
+      $('d-txt-l').hidden = !n;
+      $('d-txt-n').textContent = `Adapter à cette discipline les textes des modèles qui la nomment (${n} : mails, consignes, grilles, paramètres ; « mathématique » devient « disciplinaire »)`;
     };
     $('d-liste').addEventListener('change', maj); $('d-autre').addEventListener('input', maj); maj();
   },
@@ -328,6 +333,7 @@ async function enregistrerDiscipline() {
   const act = actionsParametres(lignes('Parametres'), parametresDiscipline(d, D.params.entete), DESCRIPTIONS);
   const ids = !$('d-phr-l').hidden && $('d-phr').checked ? phrasesAVider(d, lignes('Phrases'), lignes('Personnes')) : [];
   if (ids.length) act.push(['BulkRemoveRecord', 'Phrases', ids]);
+  if (!$('d-txt-l').hidden && $('d-txt').checked) act.push(...actionsTextesDiscipline(D.T, D.params.discipline || 'Mathématiques', d));
   if (act.length && !(await ecrire(act, 'Discipline enregistrée'))) return;
   D.etape = 'etablissements'; pref.ecrire('Etape', D.etape);
   D.forcer = true;

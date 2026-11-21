@@ -6,6 +6,7 @@
 import { identifierMoi } from '../commun/droits.js';
 import { liste } from '../commun/donnees.js';
 import { initialesProposees } from '../annuaire/logique.js';
+import { adapterTexte } from '../commun/academie.js';
 
 /** @typedef {Record<string, any>} Ligne */
 
@@ -199,6 +200,30 @@ export function phrasesAVider(discipline, phrases, personnes) {
   if (/^math/i.test(txt(discipline))) return [];
   const reels = new Set(personnes.filter(p => !estExemple(p.Email)).map(p => p.id));
   return phrases.filter(p => !reels.has(p.Auteur)).map(p => p.id);
+}
+
+// Textes des modèles qui nomment la discipline (mails, rubriques, types, grilles, paramètres) : adaptés à la nouvelle
+// (adapterTexte). discipline, entete, pied (écrits à part) et logo ne sont pas touchés.
+export const TEXTES_DISCIPLINE = { Modeles_mail: ['Objet', 'Texte'], Rubriques: ['Titre', 'Consigne', 'Texte_depart'], Types_rapport: ['Libelle', 'Titre'],
+  Competences_MD: ['Libelle', 'Descripteurs', 'Phrases_types'], Grilles_PSTG: ['Libelle', 'Descripteurs'], Parametres: ['Valeur'] };
+const CLES_A_PART = ['discipline', 'entete', 'pied', 'logo'];
+/** @param {Record<string, Ligne[]>} T @param {string} ancienne @param {string} nouvelle @returns {any[]} */
+export function actionsTextesDiscipline(T, ancienne, nouvelle) {
+  const actions = [];
+  for (const [table, cols] of Object.entries(TEXTES_DISCIPLINE)) {
+    for (const l of T[table] || []) {
+      if (table === 'Parametres' && CLES_A_PART.includes(txt(l.Cle))) continue;
+      /** @type {Record<string, any>} */
+      const champs = {};
+      for (const c of cols) {
+        if (typeof l[c] !== 'string') continue;
+        const v = adapterTexte(l[c], ancienne, nouvelle);
+        if (v !== l[c]) champs[c] = v;
+      }
+      if (Object.keys(champs).length) actions.push(['UpdateRecord', table, l.id, champs]);
+    }
+  }
+  return actions;
 }
 
 // Étapes faites, d'après les données (cases cochées du panneau de gauche).

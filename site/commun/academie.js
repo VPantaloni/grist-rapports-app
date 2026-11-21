@@ -90,8 +90,32 @@ export const DISCIPLINES = ['Mathématiques', 'Physique-chimie', 'Sciences de la
 // « de mathématiques », « d'anglais », « d'éducation musicale ».
 /** @param {any} discipline */
 export function deDiscipline(discipline) {
-  const d = txt(discipline).toLowerCase();
-  return /^[aeiouyhàâéèêëîïôöûü]/.test(d) ? `d'${d}` : `de ${d}`;
+  const d = minuscule(discipline);
+  return /^[aeiouyhàâéèêëîïôöûü]/i.test(d) ? `d'${d}` : `de ${d}`;
+}
+// Discipline dans une phrase : première lettre en minuscule seulement (« sciences de la vie et de la Terre »).
+/** @param {any} discipline */
+export const minuscule = discipline => { const d = txt(discipline); return d.charAt(0).toLowerCase() + d.slice(1); };
+// Textes des modèles (mails, consignes, grilles) adaptés à une nouvelle discipline : la discipline d'avant (et
+// toujours « Mathématiques » / « Maths », celle des exemples) remplacée ; l'adjectif « mathématique(s) » devient
+// « disciplinaire(s) » (« erreurs mathématiques » → « erreurs disciplinaires »). Texte inchangé pour les mathématiques.
+/** @param {any} texte @param {any} ancienne @param {any} nouvelle */
+export function adapterTexte(texte, ancienne, nouvelle) {
+  const n = txt(nouvelle);
+  let t = String(texte ?? '');
+  if (!n || /^math/i.test(n)) return t;
+  const echap = (/** @type {string} */ x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const L = '(?<![\\p{L}])', R = '(?![\\p{L}])';
+  const sources = [...new Set(['Mathématiques', 'Maths', txt(ancienne)].filter(x => x && x !== n))];
+  for (const a of sources) {
+    const m = echap(minuscule(a)), M = echap(a.charAt(0).toUpperCase() + a.slice(1));
+    t = t.replace(new RegExp(`${L}(de|d')\\s?(${m}|${M})${R}`, 'gu'), deDiscipline(n))
+      .replace(new RegExp(`${L}(en|au|à la|aux)\\s(${m})${R}`, 'gu'), (x, p) => `${p} ${minuscule(n)}`)
+      .replace(new RegExp(`${L}${M}${R}`, 'gu'), n.charAt(0).toUpperCase() + n.slice(1))
+      // nom commun seul en minuscules : pas pour « mathématiques », souvent adjectif (« erreurs mathématiques »)
+      .replace(new RegExp(`${L}${m}${R}`, 'gu'), x => (/^math/i.test(a) ? x : minuscule(n)));
+  }
+  return t.replace(/(?<![\p{L}])([Mm])athématique(s?)(?![\p{L}])/gu, (x, c, s) => (c === 'M' ? 'Disciplinaire' : 'disciplinaire') + s);
 }
 // Paramètres écrits pour une discipline : discipline, en-tête (sa dernière ligne = la discipline) et bas de page.
 /** @param {any} discipline @param {any} entete en-tête actuel (Parametres.entete) */
