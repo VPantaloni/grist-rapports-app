@@ -4,10 +4,13 @@ Application Grist des **IA-IPR et chargé·es de mission d'inspection (CMi) de m
 emplois du temps des équipes, rédaction, relecture, signature et transmission des rapports de visite, suivi des
 stagiaires et des maître·sses délégué·es. Conçue dans l'académie d'Orléans-Tours, utilisable dans toute académie.
 
+- **Essayer sans rien installer** : [visite guidée sur données fictives](https://widget.forge.apps.education.fr/grist-rapports-app/app/?demo=ipr)
+  (profil IA-IPR ; `?demo=cmi` pour un·e chargé·e de mission), depuis la
+  [page d'accueil](https://widget.forge.apps.education.fr/grist-rapports-app/). Rien n'est enregistré.
 - **Installer dans son académie** : [guide d'installation](https://widget.forge.apps.education.fr/grist-rapports-app/installation.html)
   (document, premier démarrage, fichier Siiprien, comptes, mises à jour, données personnelles).
 - **Widgets** : https://widget.forge.apps.education.fr/grist-rapports-app/ (forge des communs numériques éducatifs ;
-  copie de développement sur https://widget.forge.apps.education.fr/grist-rapports-app/).
+  copie de développement sur https://grist-rapports-app.vercel.app/).
 - **Signaler un problème** : [tickets](https://forge.apps.education.fr/widget/grist-rapports-app/-/issues).
 
 > **Données de démonstration** : personnes, rapports et professeur·es inventés (professeur·es = mathématicien·nes
